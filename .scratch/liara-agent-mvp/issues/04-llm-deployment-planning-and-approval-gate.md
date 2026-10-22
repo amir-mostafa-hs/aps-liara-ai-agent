@@ -5,12 +5,12 @@ An intelligent planning service powered by LangChain and `gpt-6-luna` (or config
 
 **Blocked by:** 02 (Operator Login and Masked Liara Token Configuration), 03 (Node.js Test Project and Read-Only Static Inspection)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 ## Acceptance Criteria
-- [ ] LangChain orchestration enforces Pydantic structured outputs (`.with_structured_output(DeploymentPlan)`) prohibiting arbitrary prose or shell commands.
-- [ ] Proposed plan explicitly lists target app, platform, port, impact level, and potential cost notice.
-- [ ] Workflow transitions to `awaiting_approval`, and any attempt to execute mutating actions without matching approval is rejected.
-- [ ] Clicking "Reject" marks the run as `cancelled` and records the decision.
-- [ ] Clicking "Approve" records an `ActionApproval` entry with timestamp, user ID, and cryptographic plan digest, unblocking execution.
+- [x] LangChain orchestration enforces Pydantic structured outputs (`.with_structured_output(DeploymentPlan)`) prohibiting arbitrary prose or shell commands.
+- [x] Proposed plan explicitly lists target app, platform, port, impact level, and potential cost notice.
+- [x] Workflow transitions to `awaiting_approval`, and any attempt to execute mutating actions without matching approval is rejected.
+- [x] Clicking "Reject" marks the run as `cancelled` and records the decision.
+- [x] Clicking "Approve" records an `ActionApproval` entry with timestamp, user ID, and cryptographic plan digest, unblocking execution.
 

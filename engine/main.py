@@ -1,9 +1,10 @@
 from fastapi import Depends, FastAPI, HTTPException, status
 from pydantic import BaseModel
-from engine.domain.models import InspectRequest
+from engine.domain.models import InspectRequest, PlanRequest
 from engine.providers.liara_adapter import liara_adapter
 from engine.security import verify_internal_secret
 from engine.services.inspector import project_inspector
+from engine.services.planner import deployment_planner
 
 app = FastAPI(
     title="Liara Agent Engine",
@@ -44,6 +45,20 @@ async def inspect_project(payload: InspectRequest):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(err),
         )
+
+
+@app.post("/agent/plan", dependencies=[Depends(verify_internal_secret)])
+async def generate_plan(payload: PlanRequest):
+    plan = deployment_planner.generate_plan(
+        analysis=payload.analysis,
+        target_app=payload.target_app,
+        port=payload.port,
+    )
+    return {
+        "ok": True,
+        "plan": plan.model_dump(),
+    }
+
 
 
 if __name__ == "__main__":

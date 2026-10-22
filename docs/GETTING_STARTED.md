@@ -119,7 +119,7 @@ Individual test targets:
   ```
 - **Web App Unit Tests (node:test):**
   ```bash
-  cd apps/web && node tests/agent-client.test.mjs && node tests/auth.test.mjs && node tests/inspect.test.mjs
+  pnpm --filter web test
   ```
 - **Sample Node.js App Tests:**
   ```bash
@@ -147,3 +147,10 @@ This builds and starts:
 2. **Operator Login:** Click **Operator Login** (or visit `/login`). Sign in with username `admin` and password `adminpassword123`.
 3. **Liara Credentials & Live Test:** In **Step 1 (Liara Cloud Credentials)**, enter your Liara API token and click **Test Connection**. The engine securely verifies access and renders your active cloud projects.
 4. **Static Project Inspection:** In **Step 2 (Static Project Inspection)**, click **Preset: Sample App** (`sample-apps/nodejs-demo`) and click **Inspect Project**. The engine statically analyzes the project, extracts runtime metadata (`nodejs`, port 3000, `node server.js`), detects evidence files, and flags required variables (`SERVICE_SECRET`, `PORT`).
+5. **AI Deployment Planning & Interactive Approval Gate:**
+   - In **Step 3 (AI Deployment Plan & Human Approval Gate)**, enter your target Liara application name (or click **Generate Deployment Plan →** from Step 2).
+   - The engine invokes LangChain with Pydantic structured output (`DeploymentPlan`), determining typed actions (`create_app`, `deploy`), billable impact notice, port mapping, and an immutable canonical SHA-256 cryptographic digest.
+   - A new execution run is saved in PostgreSQL with status `awaiting_approval`.
+   - The operator inspects the proposed actions, impact level, and tamper-proof digest.
+   - Clicking **Reject Plan** cleanly marks the run as `cancelled` and halts execution.
+   - Clicking **Approve Plan & Proceed** validates the cryptographic digest against the canonical plan, records an immutable `ActionApproval` record in PostgreSQL with operator user ID and timestamp, and transitions the run to `approved` (ready for autonomous deployment in Ticket 05).

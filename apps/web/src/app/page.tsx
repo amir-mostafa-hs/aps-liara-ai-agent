@@ -20,6 +20,10 @@ import {
   Layers,
   ArrowRight,
   ShieldAlert,
+  ShieldCheck,
+  Lock,
+  XCircle,
+  AlertTriangle,
 } from "lucide-react";
 
 interface HealthData {
@@ -89,6 +93,14 @@ export default function HomePage() {
   const [inspecting, setInspecting] = useState(false);
   const [analysis, setAnalysis] = useState<ProjectAnalysis | null>(null);
   const [inspectError, setInspectError] = useState<string | null>(null);
+
+  // Step 3 State: Deployment Planning & Approval Gate (Ticket 04 Feature)
+  const [targetApp, setTargetApp] = useState("demo-node-app");
+  const [generatingPlan, setGeneratingPlan] = useState(false);
+  const [activeRun, setActiveRun] = useState<any | null>(null);
+  const [planError, setPlanError] = useState<string | null>(null);
+  const [approving, setApproving] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [lastChecked, setLastChecked] = useState<string>("");
@@ -195,6 +207,85 @@ export default function HomePage() {
       setAnalysis(null);
     } finally {
       setInspecting(false);
+    }
+  };
+
+  const handleGeneratePlan = async () => {
+    if (!projectPath.trim()) return;
+    setGeneratingPlan(true);
+    setPlanError(null);
+    try {
+      const res = await fetch("/api/runs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sourcePath: projectPath.trim(),
+          targetApp: targetApp.trim() || undefined,
+          port: analysis?.port || 3000,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        setActiveRun(data.run);
+      } else {
+        setPlanError(data.error || "Failed to generate structured deployment plan.");
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setPlanError(`Error creating plan: ${msg}`);
+    } finally {
+      setGeneratingPlan(false);
+    }
+  };
+
+  const handleApprovePlan = async () => {
+    if (!activeRun?.id) return;
+    setApproving(true);
+    try {
+      const plan = activeRun.planDetails;
+      const res = await fetch(`/api/runs/${activeRun.id}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          planDigest: plan?.digest,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        setActiveRun(data.run);
+      } else {
+        alert(data.error || "Failed to approve plan.");
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      alert(`Approval error: ${msg}`);
+    } finally {
+      setApproving(false);
+    }
+  };
+
+  const handleRejectPlan = async () => {
+    if (!activeRun?.id) return;
+    setRejecting(true);
+    try {
+      const res = await fetch(`/api/runs/${activeRun.id}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reason: "Rejected by operator from dashboard gate.",
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        setActiveRun(data.run);
+      } else {
+        alert(data.error || "Failed to reject plan.");
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      alert(`Rejection error: ${msg}`);
+    } finally {
+      setRejecting(false);
     }
   };
 
@@ -518,9 +609,212 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="rounded-lg bg-amber-500/5 border border-amber-500/20 p-3 text-[11px] text-amber-300">
-              ℹ️ <strong>SRE Demo Scenario Ready:</strong> The detected test app requires <code>SERVICE_SECRET</code>. The deployment plan in Step 3 will be prepared, and deploying without this variable will trigger the controlled SRE crash and remediation loop.
+            <div className="rounded-lg bg-amber-500/5 border border-amber-500/20 p-3 text-[11px] text-amber-300 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                ℹ️ <strong>SRE Demo Scenario Ready:</strong> The detected test app requires <code>SERVICE_SECRET</code>. The deployment plan in Step 3 will be prepared, and deploying without this variable will trigger the controlled SRE crash and remediation loop.
+              </div>
+              <button
+                type="button"
+                onClick={handleGeneratePlan}
+                disabled={generatingPlan}
+                className="shrink-0 flex items-center justify-center gap-1.5 rounded-lg bg-purple-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-lg shadow-purple-600/20 hover:bg-purple-500 transition disabled:opacity-50"
+              >
+                <Bot className={`h-3.5 w-3.5 ${generatingPlan ? "animate-spin" : ""}`} />
+                {generatingPlan ? "Generating Plan..." : "Generate Deployment Plan →"}
+              </button>
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* Step 3: LLM Deployment Planning & Interactive Approval Gate (Ticket 04 Feature) */}
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-6 space-y-5">
+        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-500/10 text-purple-400">
+              <Bot className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold text-purple-400 uppercase tracking-wider">Step 3</span>
+                <h3 className="font-semibold text-zinc-100">AI Deployment Plan & Human Approval Gate</h3>
+              </div>
+              <p className="text-xs text-zinc-400">
+                LangChain structured output orchestration with cryptographic plan integrity and explicit operator sign-off
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={targetApp}
+              onChange={(e) => setTargetApp(e.target.value)}
+              placeholder="Target Liara App Name"
+              className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-200 focus:border-purple-500 focus:outline-none"
+            />
+            <button
+              onClick={handleGeneratePlan}
+              disabled={generatingPlan || !user?.authenticated}
+              className="flex items-center gap-1.5 rounded-lg bg-purple-600 px-3.5 py-1.5 text-xs font-medium text-white shadow-lg shadow-purple-600/20 hover:bg-purple-500 transition disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${generatingPlan ? "animate-spin" : ""}`} />
+              {generatingPlan ? "Generating..." : "Generate Plan"}
+            </button>
+          </div>
+        </div>
+
+        {planError && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>{planError}</span>
+          </div>
+        )}
+
+        {/* Plan Display and Approval Gate */}
+        {activeRun ? (
+          <div className="space-y-4 rounded-xl border border-purple-500/20 bg-zinc-950/70 p-5">
+            {/* Header & Status */}
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-zinc-800/80 pb-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-zinc-100">
+                    Run ID: <span className="font-mono text-zinc-300">{activeRun.id.slice(0, 8)}...</span>
+                  </span>
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold border ${
+                      activeRun.status === "approved"
+                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                        : activeRun.status === "cancelled"
+                        ? "bg-red-500/10 text-red-400 border-red-500/30"
+                        : "bg-amber-500/10 text-amber-400 border-amber-500/30 animate-pulse"
+                    }`}
+                  >
+                    Status: {activeRun.status.replace("_", " ").toUpperCase()}
+                  </span>
+                </div>
+                <div className="text-[11px] text-zinc-400 mt-1">
+                  Target: <strong className="text-zinc-200 font-mono">{activeRun.targetApp}</strong> | Platform:{" "}
+                  <strong className="text-zinc-200 capitalize font-mono">{activeRun.platform}</strong>
+                </div>
+              </div>
+
+              {/* Impact and Cost Badges */}
+              <div className="flex items-center gap-2">
+                <span className="rounded-lg bg-zinc-800 px-2.5 py-1 text-[11px] font-mono text-zinc-300 border border-zinc-700">
+                  Impact: <strong className="uppercase text-amber-400">{activeRun.planDetails?.impact_level || "MEDIUM"}</strong>
+                </span>
+                {activeRun.planDetails?.cost_warning && (
+                  <span className="flex items-center gap-1 rounded-lg bg-amber-500/10 border border-amber-500/30 px-2.5 py-1 text-[11px] text-amber-300 font-medium">
+                    <AlertTriangle className="h-3 w-3" />
+                    Billable Resources Notice
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Actions List */}
+            <div className="space-y-2">
+              <span className="text-xs font-semibold text-zinc-300 block">Proposed Mutating Actions:</span>
+              <div className="grid gap-2">
+                {activeRun.planDetails?.actions?.map((act: any, idx: number) => (
+                  <div
+                    key={act.action_id || idx}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 text-xs"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className="font-mono text-zinc-500 text-[11px]">#{idx + 1}</span>
+                      <span className="rounded bg-purple-500/20 px-2 py-0.5 font-mono text-[11px] font-semibold text-purple-300">
+                        {act.operation}
+                      </span>
+                      <span className="text-zinc-200 font-medium">{act.description}</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="rounded bg-zinc-800 px-2 py-0.5 text-[10px] text-zinc-400 border border-zinc-700">
+                        Target: {act.target}
+                      </span>
+                      {act.requires_approval && (
+                        <span className="rounded bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
+                          Sign-off Required
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Cryptographic Digest Display */}
+            <div className="rounded-lg border border-zinc-800 bg-zinc-900/90 p-3 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2 font-mono text-[11px] text-zinc-400 overflow-hidden text-ellipsis">
+                <Lock className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                <span>SHA-256 Plan Digest:</span>
+                <span className="text-zinc-300 select-all font-mono">
+                  {activeRun.planDetails?.digest}
+                </span>
+              </div>
+              <span className="shrink-0 text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                Tamper-Proof Protected
+              </span>
+            </div>
+
+            {/* Approval Gate Decision Area */}
+            {activeRun.status === "awaiting_approval" && (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
+                <div className="flex items-center gap-2 text-xs font-semibold text-amber-300">
+                  <ShieldCheck className="h-4 w-4 text-amber-400" />
+                  <span>Human-in-the-Loop Gate: Operator Decision Required</span>
+                </div>
+                <p className="text-xs text-zinc-400">
+                  Executing this plan will create or update resources on your Liara cloud account. Any modification to the plan will invalidate this approval digest.
+                </p>
+
+                <div className="flex items-center gap-3 pt-1">
+                  <button
+                    onClick={handleApprovePlan}
+                    disabled={approving || rejecting}
+                    className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-emerald-600/20 hover:bg-emerald-500 transition disabled:opacity-50"
+                  >
+                    <CheckCircle2 className={`h-4 w-4 ${approving ? "animate-spin" : ""}`} />
+                    {approving ? "Recording Approval..." : "Approve Plan & Proceed"}
+                  </button>
+
+                  <button
+                    onClick={handleRejectPlan}
+                    disabled={approving || rejecting}
+                    className="flex items-center gap-2 rounded-lg bg-red-600/80 px-4 py-2 text-xs font-semibold text-white hover:bg-red-600 transition disabled:opacity-50"
+                  >
+                    <XCircle className={`h-4 w-4 ${rejecting ? "animate-spin" : ""}`} />
+                    {rejecting ? "Rejecting..." : "Reject Plan"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {activeRun.status === "approved" && (
+              <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-300">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                <span>
+                  <strong>Plan Approved:</strong> Cryptographic approval token recorded in PostgreSQL audit logs. Ready for autonomous deployment execution (Ticket 05).
+                </span>
+              </div>
+            )}
+
+            {activeRun.status === "cancelled" && (
+              <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">
+                <XCircle className="h-4 w-4 text-red-400 shrink-0" />
+                <span>
+                  <strong>Plan Rejected:</strong> The execution run has been permanently cancelled. No cloud resources were modified.
+                </span>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-dashed border-zinc-800 p-6 text-center text-xs text-zinc-500">
+            {analysis
+              ? "Project analyzed. Click 'Generate Plan' to create a typed, tamper-proof deployment proposal."
+              : "Complete Step 2 (Project Inspection) first, then generate the AI deployment plan."}
           </div>
         )}
       </div>
@@ -636,10 +930,35 @@ export default function HomePage() {
             <div className="text-sm font-medium text-zinc-200">Project Inspection</div>
             <div className="text-xs text-zinc-400">Static Node.js inspection & evidence check (Ready)</div>
           </div>
-          <div className="rounded-lg border border-zinc-800/60 bg-zinc-900/60 p-4 space-y-1 opacity-80">
-            <div className="text-xs font-bold text-zinc-400">STEP 3</div>
+          <div
+            className={`rounded-lg p-4 space-y-1 border ${
+              activeRun?.status === "approved"
+                ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-300"
+                : activeRun?.status === "awaiting_approval"
+                ? "border-amber-500/30 bg-amber-500/5 text-amber-300"
+                : activeRun?.status === "cancelled"
+                ? "border-red-500/30 bg-red-500/5 text-red-300"
+                : analysis
+                ? "border-purple-500/30 bg-purple-500/5 text-purple-300"
+                : "border-zinc-800/60 bg-zinc-900/60 opacity-80"
+            }`}
+          >
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span>STEP 3</span>
+              {activeRun?.status === "approved" ? (
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+              ) : activeRun?.status === "awaiting_approval" ? (
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
+              ) : activeRun?.status === "cancelled" ? (
+                <XCircle className="h-3.5 w-3.5 text-red-400" />
+              ) : null}
+            </div>
             <div className="text-sm font-medium text-zinc-200">Plan & Approval Gate</div>
-            <div className="text-xs text-zinc-400">LLM structured plan & human sign-off (Ticket 04)</div>
+            <div className="text-xs text-zinc-400">
+              {activeRun
+                ? `Plan ${activeRun.status.replace("_", " ")}`
+                : "LLM structured plan & human sign-off (Active)"}
+            </div>
           </div>
           <div className="rounded-lg border border-zinc-800/60 bg-zinc-900/60 p-4 space-y-1 opacity-80">
             <div className="text-xs font-bold text-zinc-400">STEP 4</div>
