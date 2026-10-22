@@ -5,11 +5,11 @@ Interactive plan selection cards inside chat bubbles displaying available Liara 
 
 **Blocked by:** 03 (Credential Onboarding), 04 (Dependency Detection)
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] Backend service querying Liara plans via CLI (`liara plan list --output json`) and caching tier metadata
-- [ ] `PlanSelectorCard` component rendered in chat with RAM/CPU specs, estimated cost, and active selection state
-- [ ] Operator approval gate for billable resource creation with cryptographic action verification
-- [ ] Subprocess executor for `liara db create --name <db_name> --type <type> --plan <plan>` with argument arrays (no shell=True)
-- [ ] Tests for plan listing parsing, approval verification, and command execution
+- [x] Backend service querying Liara plans via CLI (`liara plan list --output json`) and caching tier metadata
+- [x] `PlanSelectorCard` component rendered in chat with RAM/CPU specs, estimated cost, and active selection state
+- [x] Operator approval gate for billable resource creation with cryptographic action verification
+- [x] Subprocess executor for `liara db create --name <db_name> --type <type> --plan <plan>` with argument arrays (no shell=True)
+- [x] Tests for plan listing parsing, approval verification, and command execution
 

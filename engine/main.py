@@ -15,6 +15,7 @@ from engine.security import verify_internal_secret
 from engine.services.approval import verify_action_approval
 from engine.services.deployer import deployment_executor
 from engine.services.diagnoser import sre_diagnoser
+from engine.services.db_provisioner import db_provisioner
 from engine.services.inspector import project_inspector
 from engine.services.planner import deployment_planner
 from engine.services.verifier import endpoint_verifier
@@ -31,6 +32,14 @@ class TestConnectionRequest(BaseModel):
     team_id: str | None = None
 
 
+class CreateDatabaseRequest(BaseModel):
+    db_name: str
+    db_type: str
+    plan_id: str
+    api_token: str
+    team_id: str | None = None
+
+
 @app.get("/health", dependencies=[Depends(verify_internal_secret)])
 async def health_check():
     return {
@@ -38,6 +47,34 @@ async def health_check():
         "service": "liara-agent-engine",
         "version": "0.1.0",
     }
+
+
+@app.get("/liara/plans", dependencies=[Depends(verify_internal_secret)])
+async def list_liara_plans(api_token: str | None = None):
+    plans = await db_provisioner.get_available_plans(api_token=api_token)
+    return {
+        "ok": True,
+        "plans": plans,
+    }
+
+
+@app.post("/agent/database/create", dependencies=[Depends(verify_internal_secret)])
+async def create_database(payload: CreateDatabaseRequest):
+    try:
+        result = await db_provisioner.provision_database(
+            db_name=payload.db_name,
+            db_type=payload.db_type,
+            plan_id=payload.plan_id,
+            api_token=payload.api_token,
+            team_id=payload.team_id,
+        )
+        return result
+    except ValueError as err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(err),
+        )
+
 
 
 @app.post("/liara/test-connection", dependencies=[Depends(verify_internal_secret)])

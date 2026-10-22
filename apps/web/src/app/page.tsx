@@ -8,6 +8,7 @@ import { ChatMessageList, ChatMessage } from "@/components/chat/ChatMessageList"
 import { ChatInput } from "@/components/chat/ChatInput";
 import { SourceInputWidget } from "@/components/chat/SourceInputWidget";
 import { TokenInputWidget } from "@/components/chat/TokenInputWidget";
+import { PlanSelectorCard } from "@/components/chat/PlanSelectorCard";
 
 export default function HomePage() {
   const router = useRouter();
@@ -196,6 +197,51 @@ export default function HomePage() {
               },
             ]);
           }}
+        />
+      );
+    }
+    if (widget.type === "plan_selector") {
+      return (
+        <PlanSelectorCard
+          databases={widget.data?.databases || []}
+          onDatabaseCreated={(dbInfo) => {
+            setServices((prev) => [
+              ...prev,
+              {
+                name: dbInfo.db_name,
+                type: "database",
+                status: "running",
+                port: dbInfo.port,
+              },
+            ]);
+            setTerminalLogs((prev) => [
+              ...prev,
+              `✔ سرویس دیتابیس ${dbInfo.db_name} (${dbInfo.db_type}) با موفقیت در لیارا ایجاد شد.`,
+              `✔ پورت داخلی: ${dbInfo.port}`,
+              `✔ متغیرهای اتصال: ${JSON.stringify(dbInfo.suggested_env_vars)}`,
+            ]);
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: "ast-" + Date.now(),
+                role: "assistant",
+                content: `پایگاه‌داده **${dbInfo.db_name}** (${dbInfo.db_type}) با موفقیت روی لیارا ایجاد شد! 🎉\n\nمتغیرهای محیطی اتصال:\n\`\`\`bash\n${Object.entries(
+                  dbInfo.suggested_env_vars
+                )
+                  .map(([k, v]) => `${k}=${v}`)
+                  .join("\n")}\n\`\`\`\nآیا مایلید این متغیرها به صورت خودکار به محیط ابری لیارا تزریق شوند و فایل \`liara.json\` تولید گردد؟`,
+                timestamp: new Date().toISOString(),
+                widget: {
+                  type: "diff_preview",
+                  data: {
+                    dbInfo,
+                    sourcePath: widget.data?.sourcePath,
+                  },
+                },
+              },
+            ]);
+          }}
+          disabled={isStreaming}
         />
       );
     }
