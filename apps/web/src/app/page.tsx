@@ -104,24 +104,53 @@ export default function HomePage() {
       if (!data.ok) throw new Error(data.error);
 
       const analysis = data.analysis;
+      const dbLogs = (analysis.detected_databases || []).map(
+        (db: any) => `✔ پایگاه‌داده شناسایی‌شده: ${db.db_type} (${db.driver_or_orm})`
+      );
+
       setTerminalLogs((prev) => [
         ...prev,
         `✔ پلتفرم شناسایی‌شده: ${analysis.detected_platform}`,
         `✔ پورت: ${analysis.port}`,
-        `✔ اسکریپت اجرا: ${analysis.start_command}`,
+        `✔ اسکریپت اجرا: ${analysis.start_command || "node server.js"}`,
+        ...dbLogs,
       ]);
+
+      const dbInfoText =
+        analysis.detected_databases && analysis.detected_databases.length > 0
+          ? `\n\n🗄️ **پایگاه‌داده‌های شناسایی‌شده:**\n` +
+            analysis.detected_databases
+              .map(
+                (db: any) =>
+                  `• **${db.db_type}** (${db.driver_or_orm}) - پورت ${db.default_port} - متغیرهای پیشنهادی: \`${(db.suggested_env_vars || []).join("`, `")}\``
+              )
+              .join("\n")
+          : "";
 
       setMessages((prev) => [
         ...prev,
         {
           id: "ast-" + Date.now(),
           role: "assistant",
-          content: `سورس‌کد با موفقیت تحلیل شد! 🔍\n\n• پلتفرم: **${analysis.detected_platform}** (ضریب اطمینان ${Math.round(
-            (analysis.confidence || 1) * 100
-          )}٪)\n• پورت ارتباطی: **${analysis.port}**\n• اسکریپت راه‌اندازی: \`${
-            analysis.start_command || "node server.js"
-          }\`\n• فایل‌های کلیدی: \`${analysis.evidence_files?.join("`, `") || ""}\`\n\nسیستم آمادهٔ ساخت سرویس‌ها و انجام دپلوی است.`,
+          content: `${
+            analysis.persian_summary ||
+            `سورس‌کد با موفقیت تحلیل شد! 🔍\n\n• پلتفرم: **${analysis.detected_platform}** (ضریب اطمینان ${Math.round(
+              (analysis.confidence || 1) * 100
+            )}٪)\n• پورت ارتباطی: **${analysis.port}**\n• اسکریپت راه‌اندازی: \`${
+              analysis.start_command || "node server.js"
+            }\`\n• فایل‌های کلیدی: \`${analysis.evidence_files?.join("`, `") || ""}\``
+          }${dbInfoText}\n\nسیستم آمادهٔ ساخت سرویس‌ها و انجام دپلوی است.`,
           timestamp: new Date().toISOString(),
+          widget:
+            analysis.detected_databases && analysis.detected_databases.length > 0
+              ? {
+                  type: "plan_selector",
+                  data: {
+                    databases: analysis.detected_databases,
+                    sourcePath,
+                  },
+                }
+              : undefined,
         },
       ]);
     } catch (err: any) {

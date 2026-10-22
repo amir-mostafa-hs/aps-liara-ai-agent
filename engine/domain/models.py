@@ -11,6 +11,14 @@ class ProjectSource(BaseModel):
     ref: str | None = None
 
 
+class DetectedDatabase(BaseModel):
+    db_type: str  # "postgres" | "mysql" | "redis" | "mongodb" | "mariadb"
+    driver_or_orm: str
+    default_port: int = 5432
+    suggested_env_vars: list[str] = Field(default_factory=list)
+    evidence: str = ""
+
+
 class ProjectAnalysis(BaseModel):
     detected_language: str
     detected_platform: str
@@ -21,6 +29,8 @@ class ProjectAnalysis(BaseModel):
     evidence_files: list[str] = Field(default_factory=list)
     required_env_names: list[str] = Field(default_factory=list)
     missing_configurations: list[str] = Field(default_factory=list)
+    detected_databases: list[DetectedDatabase] = Field(default_factory=list)
+    persian_summary: str | None = None
 
 
 class InspectRequest(BaseModel):

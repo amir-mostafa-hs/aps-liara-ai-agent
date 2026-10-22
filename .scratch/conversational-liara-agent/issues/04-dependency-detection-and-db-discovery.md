@@ -5,11 +5,11 @@ Enhanced static code inspection in the Python engine that inspects project files
 
 **Blocked by:** 02 (Multi-Source Code Ingestion)
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] Static analyzer scanning manifest files and source imports for database drivers and client packages
-- [ ] Detection of required database types (`postgres`, `mysql`, `redis`, `mongodb`) and default port mappings
-- [ ] Extraction of required environment variable names (e.g. `DATABASE_URL`, `REDIS_URI`, `POSTGRES_PASSWORD`)
-- [ ] Agent conversational summary in Persian explaining detected dependencies and required cloud services
-- [ ] Unit tests for multi-language dependency detection across Node.js, Python, and generic projects
+- [x] Static analyzer scanning manifest files and source imports for database drivers and client packages
+- [x] Detection of required database types (`postgres`, `mysql`, `redis`, `mongodb`) and default port mappings
+- [x] Extraction of required environment variable names (e.g. `DATABASE_URL`, `REDIS_URI`, `POSTGRES_PASSWORD`)
+- [x] Agent conversational summary in Persian explaining detected dependencies and required cloud services
+- [x] Unit tests for multi-language dependency detection across Node.js, Python, and generic projects
 

@@ -81,3 +81,83 @@ async def test_inspect_sample_nodejs_app_success():
         assert "SERVICE_SECRET" in analysis["required_env_names"]
         assert "PORT" in analysis["required_env_names"]
 
+
+@pytest.mark.anyio
+async def test_inspect_detects_databases_and_persian_summary(tmp_path):
+    from engine.services.inspector import ProjectInspector
+
+    # Setup a mock Node.js project with pg and ioredis
+    pkg_json = tmp_path / "package.json"
+    pkg_json.write_text(
+        '{"name": "test-db-app", "scripts": {"start": "node index.js"}, "dependencies": {"pg": "^8.11.0", "ioredis": "^5.3.0"}}',
+        encoding="utf-8",
+    )
+    (tmp_path / "index.js").write_text("console.log('hello');", encoding="utf-8")
+
+    inspector = ProjectInspector(allowed_roots=[str(tmp_path)])
+    analysis = inspector.inspect(str(tmp_path))
+
+    assert analysis.detected_platform == "nodejs"
+    db_types = [db.db_type for db in analysis.detected_databases]
+    assert "postgres" in db_types
+    assert "redis" in db_types
+
+    # Check postgres details
+    pg_db = next(d for d in analysis.detected_databases if d.db_type == "postgres")
+    assert pg_db.default_port == 5432
+    assert "DATABASE_URL" in pg_db.suggested_env_vars
+
+    # Check redis details
+    redis_db = next(d for d in analysis.detected_databases if d.db_type == "redis")
+    assert redis_db.default_port == 6379
+    assert "REDIS_URL" in redis_db.suggested_env_vars
+
+    # Persian summary contains database mention
+    assert analysis.persian_summary is not None
+    assert "PostgreSQL" in analysis.persian_summary or "پایگاه داده" in analysis.persian_summary
+
+
+@pytest.mark.anyio
+async def test_inspect_detects_python_mysql_project(tmp_path):
+    from engine.services.inspector import ProjectInspector
+
+    reqs = tmp_path / "requirements.txt"
+    reqs.write_text("fastapi==0.110.0\npymysql==1.1.0\nuvicorn==0.28.0\n", encoding="utf-8")
+    (tmp_path / "main.py").write_text("import pymysql", encoding="utf-8")
+
+    inspector = ProjectInspector(allowed_roots=[str(tmp_path)])
+    analysis = inspector.inspect(str(tmp_path))
+
+    assert analysis.detected_platform == "python"
+    assert len(analysis.detected_databases) == 1
+    assert analysis.detected_databases[0].db_type == "mysql"
+    assert analysis.detected_databases[0].default_port == 3306
+    assert "requirements.txt: pymysql" in analysis.detected_databases[0].evidence
+    assert "MySQL" in (analysis.persian_summary or "")
+
+
+@pytest.mark.anyio
+async def test_inspect_detects_prisma_postgresql_schema(tmp_path):
+    from engine.services.inspector import ProjectInspector
+
+    pkg_json = tmp_path / "package.json"
+    pkg_json.write_text('{"name": "prisma-app", "dependencies": {"@prisma/client": "^5.0.0"}}', encoding="utf-8")
+    prisma_dir = tmp_path / "prisma"
+    prisma_dir.mkdir()
+    (prisma_dir / "schema.prisma").write_text(
+        'datasource db {\n  provider = "postgresql"\n  url = env("DATABASE_URL")\n}',
+        encoding="utf-8",
+    )
+
+    inspector = ProjectInspector(allowed_roots=[str(tmp_path)])
+    analysis = inspector.inspect(str(tmp_path))
+
+    assert analysis.detected_platform == "nodejs"
+    db_types = [db.db_type for db in analysis.detected_databases]
+    assert "postgres" in db_types
+    pg_db = next(d for d in analysis.detected_databases if d.db_type == "postgres")
+    assert pg_db.driver_or_orm in ["prisma", "@prisma/client"]
+    assert "DATABASE_URL" in pg_db.suggested_env_vars
+
+
+
