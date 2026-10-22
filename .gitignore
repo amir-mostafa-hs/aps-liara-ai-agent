@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+engine/.venv/
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Next.js build output
+.next/
+out/
+build/
+dist/
+
+# Python cache & build
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+.eggs/
+
+# IDE & OS
+.DS_Store
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Prisma generated engines (local binary cache if any)
+apps/web/prisma/*.db
+apps/web/prisma/*.db-journal

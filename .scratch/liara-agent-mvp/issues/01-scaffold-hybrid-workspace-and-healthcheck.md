@@ -5,12 +5,21 @@ A dual-tier development workspace containing the Next.js web application (`apps/
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 ## Acceptance Criteria
-- [ ] Running package dev scripts boots the Next.js frontend and Python FastAPI service concurrently.
-- [ ] PostgreSQL schema is initialized via Prisma with tables for `User`, `Run`, `ActionApproval`, and `AuditLog`.
-- [ ] An authenticated internal proxy route (`/api/health`) validates database connectivity and proxies to the Python engine's `/health` endpoint with the `X-Internal-Secret` header.
-- [ ] Direct requests to the Python engine without the correct `X-Internal-Secret` header are rejected with HTTP 403.
-- [ ] The dashboard renders a clear health badge confirming both Next.js and Python engine connectivity.
+- [x] Running package dev scripts boots the Next.js frontend and Python FastAPI service concurrently.
+- [x] PostgreSQL schema is initialized via Prisma with tables for `User`, `Run`, `ActionApproval`, and `AuditLog`.
+- [x] An authenticated internal proxy route (`/api/health`) validates database connectivity and proxies to the Python engine's `/health` endpoint with the `X-Internal-Secret` header.
+- [x] Direct requests to the Python engine without the correct `X-Internal-Secret` header are rejected with HTTP 403.
+- [x] The dashboard renders a clear health badge confirming both Next.js and Python engine connectivity.
+
+## Resolution
+Successfully scaffolded the hybrid workspace with:
+1. Root monorepo configuration with `pnpm` workspaces (`pnpm-workspace.yaml`, `package.json`).
+2. Next.js 15 App Router web application in `apps/web` with Tailwind CSS, shadcn/ui dark mode styling, and Prisma schema with `User`, `Run`, `ActionApproval`, and `AuditLog` models.
+3. Python FastAPI backend service in `engine/` with internal security authentication enforcing the `X-Internal-Secret` header.
+4. Internal health proxy endpoint at `/api/health` checking PostgreSQL and the Python engine.
+5. Interactive dashboard at `/` showing real-time health badges for all 3 components.
+6. 100% passing test suites across both Python (pytest) and Node.js (`node:test`).
 

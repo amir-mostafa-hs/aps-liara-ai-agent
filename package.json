@@ -1,0 +1,17 @@
+{
+  "name": "aps-liara-ai-agent-root",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter web dev\" \"pnpm run dev:engine\"",
+    "dev:web": "pnpm --filter web dev",
+    "dev:engine": "cd engine && .venv/bin/python -m uvicorn engine.main:app --host 127.0.0.1 --port 8000 --reload",
+    "build": "pnpm --filter web build",
+    "test": "pnpm --filter web test && pnpm run test:engine",
+    "test:engine": "cd engine && PYTHONPATH=. .venv/bin/pytest",
+    "lint": "pnpm --filter web lint"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}
