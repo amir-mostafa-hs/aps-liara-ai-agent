@@ -6,6 +6,7 @@ from typing import AsyncGenerator
 from engine.domain.models import ActionApprovalModel, DeploymentPlan
 from engine.security.redaction import redact_text
 from engine.services.approval import verify_action_approval
+from engine.services.inspector import project_inspector
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,15 @@ class DeploymentExecutor:
             )
 
             while True:
-                line = await process.stdout.readline()
+                try:
+                    line = await asyncio.wait_for(
+                        process.stdout.readline(), timeout=float(self.cli_timeout_seconds)
+                    )
+                except asyncio.TimeoutError:
+                    process.kill()
+                    yield f"[ERROR] Deployment process timed out after {self.cli_timeout_seconds}s.\n"
+                    break
+
                 if not line:
                     break
                 yield line.decode("utf-8", errors="replace")
@@ -38,7 +47,7 @@ class DeploymentExecutor:
                 )
             except asyncio.TimeoutError:
                 process.kill()
-                yield f"[ERROR] Deployment process timed out after {self.cli_timeout_seconds}s.\n"
+                yield f"[ERROR] Deployment process timed out waiting for process exit.\n"
 
             if process.returncode != 0:
                 yield f"[EXIT] Process exited with non-zero status code: {process.returncode}\n"

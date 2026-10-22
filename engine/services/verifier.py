@@ -58,17 +58,19 @@ class EndpointVerifier:
                             ready_for_sre=False,
                         )
                     else:
-                        # 4xx or 5xx indicates application failure
-                        return VerificationResult(
-                            endpoint_url=target_url,
-                            provider_status=provider_status,
-                            application_health="unhealthy",
-                            http_status_code=res.status_code,
-                            response_body_snippet=last_body,
-                            error_message=f"HTTP status {res.status_code}",
-                            latency_ms=latency_ms,
-                            ready_for_sre=True,
-                        )
+                        last_error = f"HTTP status {res.status_code}"
+                        # If retries remain for 5xx/4xx startup errors, retry after delay
+                        if attempt >= retries - 1:
+                            return VerificationResult(
+                                endpoint_url=target_url,
+                                provider_status=provider_status,
+                                application_health="unhealthy",
+                                http_status_code=res.status_code,
+                                response_body_snippet=last_body,
+                                error_message=last_error,
+                                latency_ms=latency_ms,
+                                ready_for_sre=True,
+                            )
 
             except httpx.TimeoutException as e:
                 last_error = f"Request timed out after {timeout}s: {e}"

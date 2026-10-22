@@ -108,7 +108,7 @@ def test_cli_run_full_sre_recovery(mock_analysis, mock_plan, capsys):
          patch("engine.cli.deployment_planner.generate_plan", return_value=mock_plan), \
          patch("engine.cli.deployment_executor.execute_deployment", side_effect=fake_deploy_stream), \
          patch("engine.cli.endpoint_verifier.verify_endpoint", AsyncMock(side_effect=[mock_verification_failed, mock_verification_healthy])), \
-         patch("engine.cli.sre_diagnoser.diagnose_logs", AsyncMock(return_value=mock_diagnosis)), \
+         patch("engine.cli.sre_diagnoser.diagnose_logs", return_value=mock_diagnosis), \
          patch("engine.cli.sre_diagnoser.apply_remediation", AsyncMock(return_value={"ok": True, "output": "Env set"})), \
          patch("builtins.input", side_effect=["y", "y"]):
         code = main(["run", "--path", "sample-apps/nodejs-demo", "--app", "demo-app"])

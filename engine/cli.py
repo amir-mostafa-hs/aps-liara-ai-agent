@@ -129,11 +129,10 @@ async def run_full_pipeline(
 
     # Step 6: SRE Diagnosis
     print(f"\n[6/6] 🛠️ Diagnosing crash logs with AI...")
-    diagnosis = await sre_diagnoser.diagnose_logs(
-        app_id=app_name,
+    diagnosis = sre_diagnoser.diagnose_logs(
         logs=all_logs,
+        app_id=app_name,
         provider_status=verification.provider_status,
-        api_token=api_token,
     )
 
     print(f"  • Root Cause       : {diagnosis.root_cause}")
