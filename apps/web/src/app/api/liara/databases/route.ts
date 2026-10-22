@@ -1,24 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { getActiveLiaraCredentials } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   try {
-    const user = await getCurrentUser();
-    let token = process.env.LIARA_API_TOKEN || "";
-    let teamId = process.env.LIARA_TEAM_ID || "";
-
-    if (user.authenticated && user.username) {
-      const dbUser = await prisma.user.findUnique({
-        where: { username: user.username },
-      });
-      if (dbUser?.liaraToken) {
-        token = dbUser.liaraToken;
-      }
-      if (dbUser?.liaraTeamId) {
-        teamId = dbUser.liaraTeamId;
-      }
-    }
+    const { token, teamId } = await getActiveLiaraCredentials();
 
     const body = await req.json().catch(() => ({}));
     const { dbName, dbType, planId } = body;

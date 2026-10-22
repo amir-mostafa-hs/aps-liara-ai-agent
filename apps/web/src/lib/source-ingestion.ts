@@ -13,18 +13,35 @@ export interface SourceValidationResult {
  */
 export function validateSourcePath(
   inputPath: string,
-  baseDir: string = process.cwd()
+  baseDir: string = process.cwd(),
+  allowedRoots?: string[]
 ): SourceValidationResult {
   if (!inputPath || typeof inputPath !== "string") {
     return { valid: false, error: "Project path cannot be empty." };
   }
 
   try {
+    const defaultRoots = [
+      path.resolve(baseDir),
+      path.resolve(baseDir, ".."),
+      process.cwd(),
+      path.resolve(process.cwd(), ".."),
+    ];
+    const permittedRoots = (allowedRoots || defaultRoots).map((r) =>
+      path.resolve(r)
+    );
+
     // If the path contains relative traversal tokens that try to escape
-    if (inputPath.includes("..") && (inputPath.startsWith("..") || inputPath.includes("/..") || inputPath.includes("\\.."))) {
+    if (
+      inputPath.includes("..") &&
+      (inputPath.startsWith("..") ||
+        inputPath.includes("/..") ||
+        inputPath.includes("\\.."))
+    ) {
       return {
         valid: false,
-        error: "Path traversal detected: directory is outside the allowed workspace.",
+        error:
+          "Path traversal detected: directory is outside the allowed workspace.",
       };
     }
 
@@ -37,6 +54,19 @@ export function validateSourcePath(
       if (fs.existsSync(parentResolved)) {
         resolvedPath = parentResolved;
       }
+    }
+
+    // Verify confinement: resolvedPath MUST start with at least one permitted root
+    const isConfined = permittedRoots.some(
+      (root) =>
+        resolvedPath === root || resolvedPath.startsWith(root + path.sep)
+    );
+    if (!isConfined) {
+      return {
+        valid: false,
+        error:
+          "Path traversal detected: directory is outside the allowed workspace.",
+      };
     }
 
     if (!fs.existsSync(resolvedPath)) {

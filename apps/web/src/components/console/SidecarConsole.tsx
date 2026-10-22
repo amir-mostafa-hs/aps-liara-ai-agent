@@ -63,7 +63,7 @@ export function SidecarConsole({
 
   if (isCollapsed) {
     return (
-      <aside className="w-12 bg-zinc-900 border-r border-zinc-800 flex flex-col items-center py-4 gap-4 shrink-0 transition-all select-none">
+      <aside className="w-full lg:w-12 h-12 lg:h-full bg-zinc-900 border-t lg:border-t-0 lg:border-r border-zinc-800 flex lg:flex-col items-center justify-between px-3 py-2 lg:py-4 lg:gap-4 shrink-0 transition-all select-none">
         <button
           onClick={() => setIsCollapsed(false)}
           className="p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors"
@@ -71,36 +71,38 @@ export function SidecarConsole({
         >
           <ChevronRight className="h-4 w-4" />
         </button>
-        <button
-          onClick={() => {
-            setIsCollapsed(false);
-            setActiveTab("terminal");
-          }}
-          className={`p-2 rounded-lg transition-colors ${
-            activeTab === "terminal" ? "bg-blue-600 text-white" : "text-zinc-400 hover:bg-zinc-800"
-          }`}
-          title="ترمینال"
-        >
-          <TerminalIcon className="h-4 w-4" />
-        </button>
-        <button
-          onClick={() => {
-            setIsCollapsed(false);
-            setActiveTab("services");
-          }}
-          className={`p-2 rounded-lg transition-colors ${
-            activeTab === "services" ? "bg-blue-600 text-white" : "text-zinc-400 hover:bg-zinc-800"
-          }`}
-          title="سرویس‌های ابری"
-        >
-          <Server className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setIsCollapsed(false);
+              setActiveTab("terminal");
+            }}
+            className={`p-2 rounded-lg transition-colors ${
+              activeTab === "terminal" ? "bg-blue-600 text-white" : "text-zinc-400 hover:bg-zinc-800"
+            }`}
+            title="ترمینال"
+          >
+            <TerminalIcon className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => {
+              setIsCollapsed(false);
+              setActiveTab("services");
+            }}
+            className={`p-2 rounded-lg transition-colors ${
+              activeTab === "services" ? "bg-blue-600 text-white" : "text-zinc-400 hover:bg-zinc-800"
+            }`}
+            title="سرویس‌های ابری"
+          >
+            <Server className="h-4 w-4" />
+          </button>
+        </div>
       </aside>
     );
   }
 
   return (
-    <aside className="w-[42%] max-w-xl min-w-[340px] bg-zinc-900/95 border-r border-zinc-800 flex flex-col shrink-0 transition-all overflow-hidden">
+    <aside className="w-full lg:w-[40%] lg:max-w-xl lg:min-w-[340px] h-[45vh] lg:h-full bg-zinc-900/95 border-t lg:border-t-0 lg:border-r border-zinc-800 flex flex-col shrink-0 transition-all overflow-hidden">
       {/* Top Bar with Tabs */}
       <div className="flex items-center justify-between border-b border-zinc-800 bg-zinc-950/40 px-3 py-2 shrink-0">
         <div className="flex items-center gap-1">

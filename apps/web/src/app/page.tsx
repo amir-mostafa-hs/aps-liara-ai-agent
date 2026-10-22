@@ -21,10 +21,7 @@ export default function HomePage() {
     authenticated: true,
     username: "admin",
   });
-  const [activeTeam, setActiveTeam] = useState<{ id: string; name: string } | null>({
-    id: "6ace4ec3ec13fe0c3c19c4db",
-    name: "لیارا",
-  });
+  const [activeTeam, setActiveTeam] = useState<{ id: string; name: string } | null>(null);
 
   // Chat State
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -78,6 +75,16 @@ export default function HomePage() {
         }
       })
       .catch(() => setSystemConnected(false));
+
+    // Fetch team settings
+    fetch("/api/settings/liara-token")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.teamId) {
+          setActiveTeam({ id: data.teamId, name: "تیم فعال" });
+        }
+      })
+      .catch(() => {});
   }, [router]);
 
   // Handle Source Ingestion from Widget
@@ -152,6 +159,7 @@ export default function HomePage() {
                   data: {
                     databases: analysis.detected_databases,
                     sourcePath,
+                    analysis,
                   },
                 }
               : {
@@ -159,6 +167,7 @@ export default function HomePage() {
                   data: {
                     sourcePath,
                     dbInfo: null,
+                    analysis,
                   },
                 },
         },
@@ -245,6 +254,7 @@ export default function HomePage() {
                   data: {
                     dbInfo,
                     sourcePath: widget.data?.sourcePath,
+                    analysis: widget.data?.analysis,
                   },
                 },
               },
@@ -257,22 +267,24 @@ export default function HomePage() {
     if (widget.type === "diff_preview") {
       const dbInfo = widget.data?.dbInfo;
       const sourcePath = widget.data?.sourcePath;
+      const analysis = widget.data?.analysis;
+      const platform = analysis?.detected_platform || "nodejs";
+      const port = analysis?.port || 3000;
+      const startCommand = analysis?.start_command || undefined;
       const appName = "aps-test";
 
       return (
         <DiffPreviewWidget
           sourcePath={sourcePath}
           appName={appName}
-          platform="nodejs"
-          port={3000}
+          platform={platform}
+          port={port}
+          startCommand={startCommand}
           envVars={dbInfo?.suggested_env_vars || {}}
           onApplied={async (result) => {
             setTerminalLogs((prev) => [
               ...prev,
               `✔ فایل‌های liara.json و .env با موفقیت به‌روزرسانی شدند: ${result.modifiedFiles.join(", ")}`,
-              result.cloudEnvSet
-                ? "✔ متغیرهای محیطی در فضای ابری لیارا تزریق شدند."
-                : "ℹ بدون تغییر در متغیرهای ابری",
             ]);
 
             setIsStreaming(true);
@@ -283,7 +295,7 @@ export default function HomePage() {
                 body: JSON.stringify({
                   sourcePath,
                   targetApp: appName,
-                  port: 3000,
+                  port,
                 }),
               });
               const runData = await resRun.json();
@@ -311,6 +323,7 @@ export default function HomePage() {
                       port: run.port,
                       planDigest: run.planDigest,
                       sourcePath,
+                      envVars: result.envVars,
                     },
                   },
                 },
@@ -349,6 +362,17 @@ export default function HomePage() {
               ...prev,
               `[DEPLOY] آغاز عملیات دپلوی برای ${targetApp} (Run ID: ${runId})...`,
             ]);
+            // Inject cloud environment variables upon verified operator deploy approval
+            if (widget.data?.envVars && Object.keys(widget.data.envVars).length > 0) {
+              fetch("/api/liara/env/set", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  appName: targetApp,
+                  envVars: widget.data.envVars,
+                }),
+              }).catch(console.error);
+            }
           }}
           onStreamChunk={(chunk) => {
             setTerminalLogs((prev) => [...prev, chunk]);
@@ -423,9 +447,59 @@ export default function HomePage() {
             } else {
               setTerminalLogs((prev) => [
                 ...prev,
-                `✖ دپلوی با خطا مواجه شد. در حال استخراج علت خطا...`,
+                `✖ دپلوی با خطا مواجه شد. در حال استخراج و تحلیل علت خطا با ایجنت SRE...`,
               ]);
+
+              try {
+                const diagRes = await fetch(`/api/runs/${runId}/diagnose`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    logs: logs || "",
+                    provider_status: "failed",
+                  }),
+                });
+                const diagData = await diagRes.json();
+                const diagnosis = diagData.diagnosis;
+
+                setMessages((prev) => [
+                  ...prev,
+                  {
+                    id: "ast-" + Date.now(),
+                    role: "assistant",
+                    content: `⚠️ فرآیند استقرار با خطا متوقف شد.\n\nتحلیل هوشمند ریشه خطا:\n\n**${
+                      diagnosis?.root_cause || "خطای بیلد یا کامپایل در حین دپلوی"
+                    }**\n\nراهکار پیشنهادی برای رفع مشکل:`,
+                    timestamp: new Date().toISOString(),
+                    widget: {
+                      type: "remediation_approval",
+                      data: {
+                        runId,
+                        targetApp,
+                        diagnosis,
+                      },
+                    },
+                  },
+                ]);
+              } catch (err: unknown) {
+                console.error("Diagnosis on deploy failure error:", err);
+              }
             }
+          }}
+          onReject={() => {
+            setTerminalLogs((prev) => [
+              ...prev,
+              `ℹ اجرای دپلوی توسط اپراتور لغو شد.`,
+            ]);
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: "ast-" + Date.now(),
+                role: "assistant",
+                content: `اجرای دپلوی با تصمیم اپراتور لغو گردید. در صورت تمایل می‌توانید تغییرات پروژه را اصلاح کرده یا سورس دیگری را وارد نمایید.`,
+                timestamp: new Date().toISOString(),
+              },
+            ]);
           }}
           disabled={isStreaming}
         />
@@ -487,25 +561,9 @@ export default function HomePage() {
         `[AGENT] دریافت دستور جدید از کاربر: "${text}"`,
       ]);
 
-      // If user provided a path or requested deployment of sample app
+      // If user requested analyzing or deploying sample app
       if (text.includes("sample-apps/nodejs-demo") || text.includes("پروژه نمونه")) {
-        setTimeout(() => {
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: "ast-" + Date.now(),
-              role: "assistant",
-              content:
-                "پروژه نمونه `sample-apps/nodejs-demo` دریافت شد.\n\nدر حال بررسی فایل‌های پروژه (package.json, liara.json, server.js) ...\n• پلتفرم شناسایی‌شده: **Node.js (node)**\n• پورت پیش‌فرض: **3000**\n• اسکریپت استارت: `node server.js`\n• نیازمندی‌های شناسایی‌شده: به متغیر محیطی `SERVICE_SECRET` و پایگاه داده نیاز دارد.\n\nآیا مایلید فایل تنظیمات `liara.json` را بررسی و دپلوی را آغاز کنیم؟",
-              timestamp: new Date().toISOString(),
-            },
-          ]);
-          setIsStreaming(false);
-          setTerminalLogs((prev) => [
-            ...prev,
-            "✔ آنالیز استاتیک پروژه با موفقیت انجام شد: Node.js روی پورت 3000",
-          ]);
-        }, 1200);
+        await handleSourceIngested("sample-apps/nodejs-demo", "path");
       } else if (text.includes("توکن") || text.includes("token")) {
         setTimeout(() => {
           setMessages((prev) => [
@@ -571,7 +629,7 @@ export default function HomePage() {
       />
 
       {/* Main Dual Workspace Area */}
-      <div className="flex-1 flex overflow-hidden relative">
+      <div className="flex-1 flex flex-col-reverse lg:flex-row overflow-hidden relative">
         {/* Left Sidecar Console (Terminal, Services & Status) */}
         <SidecarConsole
           logs={terminalLogs}

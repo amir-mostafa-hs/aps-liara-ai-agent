@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const { sourcePath, appName, platform, port, envVars } = body;
+    const { sourcePath, appName, platform, port, startCommand, envVars } = body;
 
     if (!sourcePath || !appName) {
       return NextResponse.json(
@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
         app_name: appName.trim(),
         platform: platform || "nodejs",
         port: port || 3000,
+        start_command: startCommand || undefined,
         env_vars: envVars || {},
       }),
       cache: "no-store",
@@ -48,3 +49,4 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+

@@ -95,3 +95,4 @@ async def test_cloud_env_injection_subprocess():
         assert result["ok"] is True
         assert result["app_name"] == "my-demo-app"
         assert "mock-token-xyz" not in result.get("output", "")
+

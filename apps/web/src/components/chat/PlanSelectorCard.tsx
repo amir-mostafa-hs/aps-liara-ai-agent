@@ -27,6 +27,7 @@ interface PlanSelectorCardProps {
     port: number;
     suggested_env_vars: Record<string, string>;
   }) => void;
+  onCancel?: () => void;
   disabled?: boolean;
 }
 
@@ -72,6 +73,7 @@ const DEFAULT_PLANS: PlanTier[] = [
 export function PlanSelectorCard({
   databases,
   onDatabaseCreated,
+  onCancel,
   disabled = false,
 }: PlanSelectorCardProps) {
   const primaryDb = databases[0] || {
@@ -86,6 +88,7 @@ export function PlanSelectorCard({
   const [selectedPlan, setSelectedPlan] = useState<string>("ir-standard-2");
   const [plans, setPlans] = useState<PlanTier[]>(DEFAULT_PLANS);
   const [loading, setLoading] = useState(false);
+  const [cancelled, setCancelled] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState(false);
 
@@ -152,6 +155,14 @@ export function PlanSelectorCard({
       : primaryDb.db_type.includes("mysql")
       ? "🐬"
       : "🗄️";
+
+  if (cancelled) {
+    return (
+      <div className="mt-3 rounded-xl border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+        ساخت دیتابیس توسط کاربر لغو گردید.
+      </div>
+    );
+  }
 
   if (created) {
     return (
@@ -255,24 +266,37 @@ export function PlanSelectorCard({
         <span className="text-[11px] text-muted-foreground">
           هزینه بر اساس مصرف دقیق ساعتی در حساب لیارا محاسبه می‌شود.
         </span>
-        <button
-          type="button"
-          onClick={handleCreate}
-          disabled={loading || disabled || !dbName.trim()}
-          className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-50 cursor-pointer shadow"
-        >
-          {loading ? (
-            <>
-              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-              <span>در حال ایجاد در لیارا...</span>
-            </>
-          ) : (
-            <>
-              <span>⚡</span>
-              <span>ایجاد دیتابیس در لیارا</span>
-            </>
-          )}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setCancelled(true);
+              if (onCancel) onCancel();
+            }}
+            disabled={loading || disabled}
+            className="rounded-xl border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted transition-all cursor-pointer"
+          >
+            انصراف
+          </button>
+          <button
+            type="button"
+            onClick={handleCreate}
+            disabled={loading || disabled || !dbName.trim()}
+            className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-50 cursor-pointer shadow"
+          >
+            {loading ? (
+              <>
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                <span>در حال ایجاد در لیارا...</span>
+              </>
+            ) : (
+              <>
+                <span>⚡</span>
+                <span>ایجاد دیتابیس در لیارا</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );

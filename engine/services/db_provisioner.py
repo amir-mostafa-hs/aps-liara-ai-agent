@@ -61,7 +61,73 @@ class DatabaseProvisioner:
     async def get_available_plans(
         self, api_token: str | None = None
     ) -> list[dict]:
-        # Return sensible default plans or query live API if needed
+        if api_token and api_token.strip():
+            try:
+                cmd = [
+                    "liara",
+                    "plan",
+                    "list",
+                    "--output",
+                    "json",
+                    "--api-token",
+                    api_token.strip(),
+                ]
+                proc = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                stdout, _ = await proc.communicate()
+                if proc.returncode == 0:
+                    import json
+
+                    data = json.loads(stdout.decode("utf-8"))
+                    if isinstance(data, list) and len(data) > 0:
+                        parsed_plans = []
+                        for item in data:
+                            plan_id = (
+                                item.get("Plan")
+                                or item.get("plan")
+                                or item.get("name")
+                            )
+                            if not plan_id:
+                                continue
+                            ram = item.get("RAM") or "1 GB"
+                            cpu = item.get("CPU") or "0.5"
+                            disk = item.get("Disk") or "20 GB"
+                            price = item.get("Price") or 120000
+                            parsed_plans.append(
+                                {
+                                    "plan_id": str(plan_id),
+                                    "name_fa": f"پلن {plan_id}",
+                                    "ram": f"{ram} GB"
+                                    if isinstance(ram, (int, float))
+                                    else str(ram),
+                                    "cpu": f"{cpu} هسته"
+                                    if isinstance(cpu, (int, float))
+                                    else str(cpu),
+                                    "disk": f"{disk} GB"
+                                    if isinstance(disk, (int, float))
+                                    else str(disk),
+                                    "price_monthly": int(
+                                        str(price).replace(",", "")
+                                    )
+                                    if str(price).replace(",", "").isdigit()
+                                    else 120000,
+                                    "is_recommended": "standard"
+                                    in str(plan_id).lower()
+                                    or "medium" in str(plan_id).lower(),
+                                }
+                            )
+                        if parsed_plans:
+                            return parsed_plans
+            except Exception as e:
+                logger.warning(
+                    "Failed to fetch plans from Liara CLI: %s. Falling back to defaults.",
+                    e,
+                )
+
+        # Return sensible default plans if no token or CLI unavailable
         return self.cached_plans
 
     async def provision_database(

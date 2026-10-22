@@ -13,6 +13,7 @@ interface RemediationApprovalWidgetProps {
     isRecovered: boolean;
     verification: any;
   }) => void;
+  onReject?: () => void;
   disabled?: boolean;
 }
 
@@ -24,10 +25,12 @@ export function RemediationApprovalWidget({
   missingVariable = "SERVICE_SECRET",
   suggestedValue = "",
   onRemediated,
+  onReject,
   disabled = false,
 }: RemediationApprovalWidgetProps) {
-  const [val, setVal] = useState<string>(suggestedValue);
+  const [envValue, setEnvValue] = useState<string>(suggestedValue);
   const [loading, setLoading] = useState(false);
+  const [rejected, setRejected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ isRecovered: boolean; verification: any } | null>(null);
 
@@ -40,7 +43,7 @@ export function RemediationApprovalWidget({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          env_value: val.trim() || undefined,
+          env_value: envValue.trim() || undefined,
         }),
       });
 
@@ -66,6 +69,11 @@ export function RemediationApprovalWidget({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleReject = () => {
+    setRejected(true);
+    if (onReject) onReject();
   };
 
   if (result?.isRecovered) {
@@ -140,8 +148,8 @@ export function RemediationApprovalWidget({
           </label>
           <input
             type="text"
-            value={val}
-            onChange={(e) => setVal(e.target.value)}
+            value={envValue}
+            onChange={(e) => setEnvValue(e.target.value)}
             disabled={loading || disabled}
             placeholder={`مقدار برای ${missingVariable}`}
             dir="ltr"
@@ -161,25 +169,40 @@ export function RemediationApprovalWidget({
         <span className="text-[11px] text-muted-foreground">
           پس از اعمال، سلامت سرویس به طور خودکار مجدداً بررسی می‌شود.
         </span>
-        <button
-          type="button"
-          onClick={handleApply}
-          disabled={loading || disabled}
-          className="flex items-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-black px-4 py-2 text-xs font-semibold transition-all disabled:opacity-50 cursor-pointer shadow"
-        >
-          {loading ? (
-            <>
-              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-black border-t-transparent" />
-              <span>در حال اعمال راهکار و بررسی سلامت...</span>
-            </>
-          ) : (
-            <>
-              <span>🩹</span>
-              <span>اعمال راهکار رفع مشکل و اعتبارسنجی مجدد</span>
-            </>
-          )}
-        </button>
+        {rejected ? (
+          <span className="text-xs text-muted-foreground">عملیات لغو گردید.</span>
+        ) : (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleReject}
+              disabled={loading || disabled}
+              className="rounded-xl border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted transition-all cursor-pointer"
+            >
+              انصراف
+            </button>
+            <button
+              type="button"
+              onClick={handleApply}
+              disabled={loading || disabled}
+              className="flex items-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-black px-4 py-2 text-xs font-semibold transition-all disabled:opacity-50 cursor-pointer shadow"
+            >
+              {loading ? (
+                <>
+                  <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-black border-t-transparent" />
+                  <span>در حال اعمال راهکار و بررسی سلامت...</span>
+                </>
+              ) : (
+                <>
+                  <span>🩹</span>
+                  <span>اعمال راهکار رفع مشکل و اعتبارسنجی مجدد</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
 }
+

@@ -20,6 +20,109 @@ interface ChatMessageListProps {
   renderWidget?: (widget: { type: string; data?: any }) => React.ReactNode;
 }
 
+function renderFormattedContent(text: string) {
+  if (!text) return null;
+
+  // Split content by code blocks ```...```
+  const parts = text.split(/(```[\s\S]*?```)/g);
+
+  return parts.map((part, index) => {
+    if (part.startsWith("```") && part.endsWith("```")) {
+      const firstLineEnd = part.indexOf("\n");
+      const lang = firstLineEnd !== -1 ? part.slice(3, firstLineEnd).trim() : "";
+      const code = firstLineEnd !== -1 ? part.slice(firstLineEnd + 1, -3) : part.slice(3, -3);
+
+      return (
+        <pre
+          key={index}
+          dir="ltr"
+          className="my-2 rounded-xl bg-neutral-950 p-3 font-mono text-xs text-emerald-300 border border-neutral-800 overflow-x-auto whitespace-pre leading-relaxed shadow-inner"
+        >
+          {lang && <div className="text-[10px] text-zinc-500 mb-1 select-none font-sans uppercase">{lang}</div>}
+          <code>{code}</code>
+        </pre>
+      );
+    }
+
+    // Process line-by-line formatting (bold, inline code, links)
+    const lines = part.split("\n");
+    return (
+      <div key={index} className="space-y-1">
+        {lines.map((line, lineIdx) => {
+          const inlineElements: React.ReactNode[] = [];
+          let remaining = line;
+          let inlineKey = 0;
+
+          while (remaining.length > 0) {
+            const linkMatch = remaining.match(/\[(.*?)\]\((.*?)\)/);
+            const codeMatch = remaining.match(/`([^`]+)`/);
+            const boldMatch = remaining.match(/\*\*(.*?)\*\*/);
+
+            const matches = [
+              linkMatch ? { type: "link", match: linkMatch, index: linkMatch.index! } : null,
+              codeMatch ? { type: "code", match: codeMatch, index: codeMatch.index! } : null,
+              boldMatch ? { type: "bold", match: boldMatch, index: boldMatch.index! } : null,
+            ].filter((m): m is NonNullable<typeof m> => m !== null).sort((a, b) => a.index - b.index);
+
+            if (matches.length === 0) {
+              inlineElements.push(remaining);
+              break;
+            }
+
+            const first = matches[0];
+            if (first.index > 0) {
+              inlineElements.push(remaining.substring(0, first.index));
+            }
+
+            if (first.type === "link") {
+              const [full, title, url] = first.match;
+              inlineElements.push(
+                <a
+                  key={inlineKey++}
+                  href={url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-blue-400 underline underline-offset-2 hover:text-blue-300 transition-colors mx-0.5"
+                  dir="ltr"
+                >
+                  {title}
+                </a>
+              );
+              remaining = remaining.substring(first.index + full.length);
+            } else if (first.type === "code") {
+              const [full, codeText] = first.match;
+              inlineElements.push(
+                <code
+                  key={inlineKey++}
+                  dir="ltr"
+                  className="rounded-md bg-zinc-800/90 px-1.5 py-0.5 font-mono text-xs text-sky-300 border border-zinc-700/60 mx-0.5 select-all"
+                >
+                  {codeText}
+                </code>
+              );
+              remaining = remaining.substring(first.index + full.length);
+            } else if (first.type === "bold") {
+              const [full, boldText] = first.match;
+              inlineElements.push(
+                <strong key={inlineKey++} className="font-bold text-zinc-100">
+                  {boldText}
+                </strong>
+              );
+              remaining = remaining.substring(first.index + full.length);
+            }
+          }
+
+          return (
+            <div key={lineIdx} className={line.startsWith("•") || line.startsWith("- ") ? "pr-2" : ""}>
+              {inlineElements}
+            </div>
+          );
+        })}
+      </div>
+    );
+  });
+}
+
 export function ChatMessageList({
   messages = [],
   isStreaming = false,
@@ -79,7 +182,9 @@ export function ChatMessageList({
                       : "bg-zinc-900 border border-zinc-800/80 text-zinc-200 rounded-bl-none"
                   }`}
                 >
-                  <div className="whitespace-pre-wrap break-words">{msg.content}</div>
+                  <div className="leading-relaxed break-words">
+                    {renderFormattedContent(msg.content)}
+                  </div>
 
                   {/* Optional Interactive Widget Slot */}
                   {msg.widget && renderWidget && (

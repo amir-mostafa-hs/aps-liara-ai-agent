@@ -55,6 +55,7 @@ class ConfigManager:
         app_name: str,
         platform: str,
         port: int = 3000,
+        start_command: str | None = None,
         env_vars: dict | None = None,
     ) -> dict:
         root = self.validate_path(source_path)
@@ -79,6 +80,8 @@ class ConfigManager:
             "app": app_name.strip(),
             "port": port,
         }
+        if start_command and start_command.strip():
+            new_data["command"] = start_command.strip()
         new_liara_str = json.dumps(new_data, indent=2, ensure_ascii=False) + "\n"
 
         liara_diff = list(
@@ -148,6 +151,7 @@ class ConfigManager:
         app_name: str,
         platform: str,
         port: int = 3000,
+        start_command: str | None = None,
         env_vars: dict | None = None,
     ) -> dict:
         root = self.validate_path(source_path)
@@ -156,6 +160,7 @@ class ConfigManager:
             app_name=app_name,
             platform=platform,
             port=port,
+            start_command=start_command,
             env_vars=env_vars,
         )
 
@@ -179,3 +184,4 @@ class ConfigManager:
 
 
 config_manager = ConfigManager()
+

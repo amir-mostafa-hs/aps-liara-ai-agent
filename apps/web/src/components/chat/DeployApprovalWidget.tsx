@@ -11,6 +11,7 @@ interface DeployApprovalWidgetProps {
   onDeployStarted?: () => void;
   onStreamChunk?: (text: string) => void;
   onDeployFinished?: (success: boolean, fullLogs: string) => void;
+  onReject?: () => void;
   disabled?: boolean;
 }
 
@@ -23,11 +24,27 @@ export function DeployApprovalWidget({
   onDeployStarted,
   onStreamChunk,
   onDeployFinished,
+  onReject,
   disabled = false,
 }: DeployApprovalWidgetProps) {
-  const [status, setStatus] = useState<"idle" | "approving" | "deploying" | "success" | "failed">("idle");
+  const [status, setStatus] = useState<"idle" | "approving" | "deploying" | "success" | "failed" | "rejected">("idle");
   const [phaseBadge, setPhaseBadge] = useState<string>("آماده دپلوی");
   const [error, setError] = useState<string | null>(null);
+
+  const handleReject = async () => {
+    try {
+      await fetch(`/api/runs/${runId}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: "رد شده توسط اپراتور در چت" }),
+      });
+      setStatus("rejected");
+      setPhaseBadge("توسط اپراتور لغو شد");
+      if (onReject) onReject();
+    } catch {
+      setStatus("rejected");
+    }
+  };
 
   const handleApproveAndDeploy = async () => {
     setStatus("approving");
@@ -183,15 +200,32 @@ export function DeployApprovalWidget({
         </span>
 
         {status === "idle" && (
-          <button
-            type="button"
-            onClick={handleApproveAndDeploy}
-            disabled={disabled}
-            className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-50 cursor-pointer shadow"
-          >
-            <span>⚡</span>
-            <span>تأیید و اجرای دپلوی خودکار</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleReject}
+              disabled={disabled}
+              className="rounded-xl border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted transition-all cursor-pointer"
+            >
+              رد / انصراف
+            </button>
+            <button
+              type="button"
+              onClick={handleApproveAndDeploy}
+              disabled={disabled}
+              className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-50 cursor-pointer shadow"
+            >
+              <span>⚡</span>
+              <span>تأیید و اجرای دپلوی خودکار</span>
+            </button>
+          </div>
+        )}
+
+        {status === "rejected" && (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span>✖</span>
+            <span>دپلوی توسط اپراتور لغو شد.</span>
+          </div>
         )}
 
         {(status === "approving" || status === "deploying") && (
@@ -223,3 +257,4 @@ export function DeployApprovalWidget({
     </div>
   );
 }
+

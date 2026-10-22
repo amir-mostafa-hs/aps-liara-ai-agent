@@ -7,10 +7,11 @@ interface DiffPreviewWidgetProps {
   appName: string;
   platform: string;
   port: number;
+  startCommand?: string;
   envVars: Record<string, string>;
   onApplied: (result: {
     modifiedFiles: string[];
-    cloudEnvSet: boolean;
+    envVars: Record<string, string>;
   }) => void;
   disabled?: boolean;
 }
@@ -20,6 +21,7 @@ export function DiffPreviewWidget({
   appName,
   platform,
   port,
+  startCommand,
   envVars,
   onApplied,
   disabled = false,
@@ -42,6 +44,7 @@ export function DiffPreviewWidget({
         appName,
         platform,
         port,
+        startCommand,
         envVars,
       }),
     })
@@ -80,6 +83,7 @@ export function DiffPreviewWidget({
           appName,
           platform,
           port,
+          startCommand,
           applyLiaraJson: true,
           applyLocalEnv,
           envVars,
@@ -90,27 +94,10 @@ export function DiffPreviewWidget({
         throw new Error(dataConfig.error || "خطا در اعمال تغییرات فایل‌ها");
       }
 
-      // 2. Set cloud environment variables on Liara
-      let cloudEnvSet = false;
-      if (envVars && Object.keys(envVars).length > 0) {
-        const resEnv = await fetch("/api/liara/env/set", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            appName,
-            envVars,
-          }),
-        });
-        const dataEnv = await resEnv.json();
-        if (resEnv.ok && dataEnv.ok) {
-          cloudEnvSet = true;
-        }
-      }
-
       setApplied(true);
       onApplied({
         modifiedFiles: dataConfig.modified_files || ["liara.json"],
-        cloudEnvSet,
+        envVars,
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -264,3 +251,4 @@ export function DiffPreviewWidget({
     </div>
   );
 }
+

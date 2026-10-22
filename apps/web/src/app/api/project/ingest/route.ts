@@ -80,6 +80,20 @@ export async function POST(req: NextRequest) {
       const tempZipPath = path.join(workspaceDir, "archive.zip");
       fs.writeFileSync(tempZipPath, buffer);
 
+      // Validate all zip entries against Zip Slip (CWE-22) before extracting
+      const { stdout: listOut } = await execFileAsync("unzip", ["-Z1", tempZipPath]);
+      const entries = listOut.split("\n").map((e) => e.trim()).filter(Boolean);
+      for (const entry of entries) {
+        if (!isSafeZipEntryPath(entry)) {
+          fs.unlinkSync(tempZipPath);
+          fs.rmSync(workspaceDir, { recursive: true, force: true });
+          return NextResponse.json(
+            { ok: false, error: `فایل ZIP حاوی مسیرهای ناامن است (${entry}).` },
+            { status: 400 }
+          );
+        }
+      }
+
       // Unpack using system unzip with argument array
       await execFileAsync("unzip", ["-q", tempZipPath, "-d", workspaceDir]);
       fs.unlinkSync(tempZipPath);

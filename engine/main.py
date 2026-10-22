@@ -47,6 +47,7 @@ class ConfigDiffRequest(BaseModel):
     app_name: str
     platform: str
     port: int = 3000
+    start_command: str | None = None
     env_vars: dict[str, str] = {}
 
 
@@ -55,6 +56,7 @@ class ConfigApplyRequest(BaseModel):
     app_name: str
     platform: str
     port: int = 3000
+    start_command: str | None = None
     apply_liara_json: bool = True
     apply_local_env: bool = False
     env_vars: dict[str, str] = {}
@@ -112,6 +114,7 @@ async def get_config_diff(payload: ConfigDiffRequest):
             app_name=payload.app_name,
             platform=payload.platform,
             port=payload.port,
+            start_command=payload.start_command,
             env_vars=payload.env_vars,
         )
         return diff_result
@@ -132,6 +135,7 @@ async def apply_config_changes(payload: ConfigApplyRequest):
             app_name=payload.app_name,
             platform=payload.platform,
             port=payload.port,
+            start_command=payload.start_command,
             env_vars=payload.env_vars,
         )
         return apply_result

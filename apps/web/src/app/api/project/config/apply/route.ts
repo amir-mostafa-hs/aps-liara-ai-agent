@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const { sourcePath, appName, platform, port, applyLiaraJson, applyLocalEnv, envVars } = body;
+    const { sourcePath, appName, platform, port, startCommand, applyLiaraJson, applyLocalEnv, envVars } = body;
 
     if (!sourcePath || !appName) {
       return NextResponse.json(
@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
         app_name: appName.trim(),
         platform: platform || "nodejs",
         port: port || 3000,
+        start_command: startCommand || undefined,
         apply_liara_json: applyLiaraJson !== false,
         apply_local_env: Boolean(applyLocalEnv),
         env_vars: envVars || {},
@@ -50,3 +51,4 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+

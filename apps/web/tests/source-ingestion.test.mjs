@@ -26,6 +26,11 @@ test("validateSourcePath allows existing project directories and rejects path tr
   assert.equal(traversalRes.valid, false);
   assert.match(traversalRes.error, /traversal|outside/i);
 
+  // Absolute path outside workspace roots must be rejected
+  const absoluteEscapeRes = validateSourcePath("/etc", repoRoot);
+  assert.equal(absoluteEscapeRes.valid, false);
+  assert.match(absoluteEscapeRes.error, /traversal|outside/i);
+
   // Non-existent directory
   const missingRes = validateSourcePath("sample-apps/non-existent-app-12345", repoRoot);
   assert.equal(missingRes.valid, false);
