@@ -89,11 +89,15 @@ async def run_full_pipeline(
     # Step 4: Execute Deployment & Stream Logs
     print(f"\n[4/6] 🚀 Executing Liara deployment with live streaming & secret redaction...")
     deploy_logs: List[str] = []
+    deploy_action = next(
+        (a for a in plan.actions if a.operation == "deploy"),
+        plan.actions[0] if plan.actions else None,
+    )
     approval_model = ActionApprovalModel(
         run_id="cli-run",
-        action_id=plan.actions[0].action_id if plan.actions else "a1",
-        operation="deploy",
-        target=app_name,
+        action_id=deploy_action.action_id if deploy_action else "deploy",
+        operation=deploy_action.operation if deploy_action else "deploy",
+        target=deploy_action.target if deploy_action else app_name,
         approved=True,
         plan_digest=plan.digest,
     )

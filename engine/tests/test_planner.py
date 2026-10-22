@@ -163,3 +163,58 @@ def test_approval_verification():
     )
     assert verify_action_approval(plan, action.action_id, rejected_approval) is False
 
+
+def test_verify_action_approval_with_generic_plan_approval_and_multiple_actions():
+    from engine.services.approval import verify_action_approval
+    from engine.domain.models import DeploymentPlan, ProposedAction, ActionApprovalModel
+
+    actions = [
+        ProposedAction(
+            action_id="create_app",
+            operation="create_app",
+            target="aps-test",
+            description="Create app",
+            requires_approval=True,
+        ),
+        ProposedAction(
+            action_id="deploy",
+            operation="deploy",
+            target="aps-test",
+            description="Deploy app",
+            requires_approval=True,
+        ),
+    ]
+    plan = DeploymentPlan(
+        plan_id="plan-test-123",
+        target_app="aps-test",
+        platform="nodejs",
+        port=3000,
+        actions=actions,
+        digest="",
+    )
+    plan.digest = plan.compute_digest()
+
+    # 1. Approval recorded with generic "plan-approval" action_id
+    generic_approval = ActionApprovalModel(
+        run_id="run-1",
+        action_id="plan-approval",
+        operation="deploy",
+        target="aps-test",
+        approved=True,
+        plan_digest=plan.digest,
+    )
+    assert verify_action_approval(plan, "plan-approval", generic_approval) is True
+    assert verify_action_approval(plan, "deploy", generic_approval) is True
+
+    # 2. Approval recorded with exact action_id
+    exact_approval = ActionApprovalModel(
+        run_id="run-1",
+        action_id="deploy",
+        operation="deploy",
+        target="aps-test",
+        approved=True,
+        plan_digest=plan.digest,
+    )
+    assert verify_action_approval(plan, "deploy", exact_approval) is True
+
+

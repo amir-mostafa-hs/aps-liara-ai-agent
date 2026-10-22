@@ -68,14 +68,26 @@ export async function POST(
       where: { username: user.username },
     });
 
+    // Resolve intended action from plan details
+    const planActions = ((plan.actions || []) as Array<{
+      action_id: string;
+      operation: string;
+      target: string;
+    }>);
+    const deployAction =
+      planActions.find((a) => a.operation === "deploy") || planActions[0];
+    const resolvedActionId = actionId || deployAction?.action_id || "deploy";
+    const resolvedOperation = deployAction?.operation || "deploy";
+    const resolvedTarget = deployAction?.target || run.targetApp || "unknown";
+
     // Record ActionApproval
     const approval = await prisma.actionApproval.create({
       data: {
         runId: run.id,
         userId: dbUser?.id,
-        actionId: actionId || "plan-approval",
-        operation: "deploy",
-        target: run.targetApp || "unknown",
+        actionId: resolvedActionId,
+        operation: resolvedOperation,
+        target: resolvedTarget,
         approved: true,
         planDigest: plan.digest,
       },

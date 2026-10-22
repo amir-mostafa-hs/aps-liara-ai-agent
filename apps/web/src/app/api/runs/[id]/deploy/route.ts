@@ -74,6 +74,22 @@ export async function POST(
     const internalSecret =
       process.env.INTERNAL_AGENT_SECRET || "dev-internal-secret-change-me";
 
+    const planDetails = run.planDetails as any;
+    const planActions = Array.isArray(planDetails?.actions) ? planDetails.actions : [];
+    const deployAction =
+      planActions.find((a: any) => a.operation === "deploy") ||
+      planActions.find((a: any) => a.action_id === validApproval?.actionId) ||
+      planActions[0];
+
+    const actionId =
+      validApproval?.actionId && validApproval.actionId !== "plan-approval"
+        ? validApproval.actionId
+        : (deployAction?.action_id || "deploy");
+    const operation =
+      deployAction?.operation || validApproval?.operation || "deploy";
+    const target =
+      deployAction?.target || validApproval?.target || run.targetApp || "";
+
     // Call Python engine SSE endpoint
     const engineRes = await fetch(`${engineUrl}/agent/deploy`, {
       method: "POST",
@@ -85,12 +101,12 @@ export async function POST(
         plan: run.planDetails,
         approval: {
           run_id: run.id,
-          action_id: validApproval?.actionId || "plan-approval",
-          operation: validApproval?.operation || "deploy",
-          target: validApproval?.target || run.targetApp || "",
+          action_id: actionId,
+          operation: operation,
+          target: target,
           approved: true,
           plan_digest:
-            validApproval?.planDigest || (run.planDetails as any)?.digest || "",
+            validApproval?.planDigest || planDetails?.digest || "",
         },
         source_path: run.sourcePath,
         api_token: apiToken,

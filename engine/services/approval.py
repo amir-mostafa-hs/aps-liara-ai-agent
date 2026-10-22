@@ -16,6 +16,13 @@ def verify_action_approval(
 
     # Check action exists in plan
     matching_action = next((a for a in plan.actions if a.action_id == action_id), None)
+    if not matching_action and (
+        action_id == "plan-approval" or approval.action_id == "plan-approval"
+    ):
+        matching_action = next(
+            (a for a in plan.actions if a.operation == approval.operation), None
+        )
+
     if not matching_action:
         return False
 
