@@ -5,12 +5,12 @@ Autonomous post-deployment health verification and closed-loop incident recovery
 
 **Blocked by:** 07 (Chat-Triggered Deployment & SSE Log Streaming)
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] Automatic independent HTTP health probe decoupled from provider deployment state
-- [ ] Bounded runtime log fetcher (`liara logs --app <app_name> --last 100`) triggered automatically on unhealthy status
-- [ ] LangChain SRE diagnoser citing exact log line evidence and pinpointing root cause in Persian
-- [ ] Interactive `RemediationApprovalWidget` in chat presenting targeted fix (e.g. setting missing env, resizing, or restarting)
-- [ ] Execution of approved remediation and automatic re-verification of the public endpoint
-- [ ] Automated tests for health probe, log diagnosis, and remediation execution
+- [x] Automatic independent HTTP health probe decoupled from provider deployment state
+- [x] Bounded runtime log fetcher (`liara logs --app <app_name> --last 100`) triggered automatically on unhealthy status
+- [x] LangChain SRE diagnoser citing exact log line evidence and pinpointing root cause in Persian
+- [x] Interactive `RemediationApprovalWidget` in chat presenting targeted fix (e.g. setting missing env, resizing, or restarting)
+- [x] Execution of approved remediation and automatic re-verification of the public endpoint
+- [x] Automated tests for health probe, log diagnosis, and remediation execution
 

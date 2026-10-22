@@ -5,11 +5,11 @@ A unified source ingestion subsystem and chat widget (`SourceInputWidget`). User
 
 **Blocked by:** 01 (Persian Chat Shell and Sidecar Console Layout)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Interactive `SourceInputWidget` rendered in chat with 3 tabs: Local Path, ZIP Upload, Git Clone
-- [ ] Backend ingestion API (`POST /api/project/ingest`) handling directory validation, safe ZIP extraction, and Git cloning
-- [ ] Path traversal validation preventing extraction or reading outside the intended workspace jail
-- [ ] Quick-select preset buttons for demo projects (`sample-apps/nodejs-demo`)
-- [ ] Automated tests for ZIP extraction security and invalid input rejection
+- [x] Interactive `SourceInputWidget` rendered in chat with 3 tabs: Local Path, ZIP Upload, Git Clone
+- [x] Backend ingestion API (`POST /api/project/ingest`) handling directory validation, safe ZIP extraction, and Git cloning
+- [x] Path traversal validation preventing extraction or reading outside the intended workspace jail
+- [x] Quick-select preset buttons for demo projects (`sample-apps/nodejs-demo`)
+- [x] Automated tests for ZIP extraction security and invalid input rejection
 

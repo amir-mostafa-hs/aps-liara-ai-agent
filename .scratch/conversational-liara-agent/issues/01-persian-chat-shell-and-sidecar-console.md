@@ -5,11 +5,11 @@ A modern, Persian-first (RTL) split layout replacing the legacy static multi-ste
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] RTL layout with Vazirmatn / Shabnam font stack and Persian labels
-- [ ] Conversational chat stream on the right with user and agent message bubbles
-- [ ] Sticky left sidecar console with terminal viewer, service status cards, and minimize/expand toggle
-- [ ] Responsive behavior: collapses into tabbed drawer on mobile screens
-- [ ] Unit tests for chat message rendering and layout responsiveness
+- [x] RTL layout with Vazirmatn / Shabnam font stack and Persian labels
+- [x] Conversational chat stream on the right with user and agent message bubbles
+- [x] Sticky left sidecar console with terminal viewer, service status cards, and minimize/expand toggle
+- [x] Responsive behavior: collapses into tabbed drawer on mobile screens
+- [x] Unit tests for chat message rendering and layout responsiveness
 

@@ -16,6 +16,8 @@ from engine.services.approval import verify_action_approval
 from engine.services.deployer import deployment_executor
 from engine.services.diagnoser import sre_diagnoser
 from engine.services.db_provisioner import db_provisioner
+from engine.services.config_manager import config_manager
+from engine.services.env_manager import env_manager
 from engine.services.inspector import project_inspector
 from engine.services.planner import deployment_planner
 from engine.services.verifier import endpoint_verifier
@@ -38,6 +40,32 @@ class CreateDatabaseRequest(BaseModel):
     plan_id: str
     api_token: str
     team_id: str | None = None
+
+
+class ConfigDiffRequest(BaseModel):
+    source_path: str
+    app_name: str
+    platform: str
+    port: int = 3000
+    env_vars: dict[str, str] = {}
+
+
+class ConfigApplyRequest(BaseModel):
+    source_path: str
+    app_name: str
+    platform: str
+    port: int = 3000
+    apply_liara_json: bool = True
+    apply_local_env: bool = False
+    env_vars: dict[str, str] = {}
+
+
+class CloudEnvSetRequest(BaseModel):
+    app_name: str
+    env_vars: dict[str, str]
+    api_token: str
+    team_id: str | None = None
+
 
 
 @app.get("/health", dependencies=[Depends(verify_internal_secret)])
@@ -74,6 +102,62 @@ async def create_database(payload: CreateDatabaseRequest):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(err),
         )
+
+
+@app.post("/agent/config/diff", dependencies=[Depends(verify_internal_secret)])
+async def get_config_diff(payload: ConfigDiffRequest):
+    try:
+        diff_result = config_manager.generate_diff(
+            source_path=payload.source_path,
+            app_name=payload.app_name,
+            platform=payload.platform,
+            port=payload.port,
+            env_vars=payload.env_vars,
+        )
+        return diff_result
+    except (PermissionError, FileNotFoundError, ValueError) as err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(err),
+        )
+
+
+@app.post("/agent/config/apply", dependencies=[Depends(verify_internal_secret)])
+async def apply_config_changes(payload: ConfigApplyRequest):
+    try:
+        apply_result = config_manager.apply_changes(
+            source_path=payload.source_path,
+            apply_liara_json=payload.apply_liara_json,
+            apply_local_env=payload.apply_local_env,
+            app_name=payload.app_name,
+            platform=payload.platform,
+            port=payload.port,
+            env_vars=payload.env_vars,
+        )
+        return apply_result
+    except (PermissionError, FileNotFoundError, ValueError) as err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(err),
+        )
+
+
+@app.post("/agent/cloud/env/set", dependencies=[Depends(verify_internal_secret)])
+async def set_cloud_environment_variables(payload: CloudEnvSetRequest):
+    try:
+        result = await env_manager.set_cloud_env(
+            app_name=payload.app_name,
+            env_vars=payload.env_vars,
+            api_token=payload.api_token,
+            team_id=payload.team_id,
+        )
+        return result
+    except ValueError as err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(err),
+        )
+
 
 
 

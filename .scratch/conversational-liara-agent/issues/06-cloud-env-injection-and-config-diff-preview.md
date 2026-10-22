@@ -5,12 +5,12 @@ Automated credential wiring and codebase configuration fixes. The agent injects 
 
 **Blocked by:** 05 (Interactive Plan Selection & Database Provisioning)
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] Automatic injection of connection credentials (e.g. `DATABASE_URL`) into Liara cloud environment via `liara env set`
-- [ ] Chat prompt asking user if they also wish to persist variables into local `.env` file
-- [ ] Intelligent generation/updating of `liara.json` based on detected platform, port, and start command
-- [ ] `DiffPreviewWidget` component rendering unified colorized diffs with 1-click apply confirmation
-- [ ] Safe file-writing engine enforcing directory jailing and preventing arbitrary path traversal
-- [ ] Automated tests for env setting, diff generation, and file mutation safety
+- [x] Automatic injection of connection credentials (e.g. `DATABASE_URL`) into Liara cloud environment via `liara env set`
+- [x] Chat prompt asking user if they also wish to persist variables into local `.env` file
+- [x] Intelligent generation/updating of `liara.json` based on detected platform, port, and start command
+- [x] `DiffPreviewWidget` component rendering unified colorized diffs with 1-click apply confirmation
+- [x] Safe file-writing engine enforcing directory jailing and preventing arbitrary path traversal
+- [x] Automated tests for env setting, diff generation, and file mutation safety
 

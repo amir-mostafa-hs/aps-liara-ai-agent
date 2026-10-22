@@ -5,11 +5,11 @@ A frictionless, conversational onboarding flow for users who have not yet config
 
 **Blocked by:** 01 (Persian Chat Shell and Sidecar Console Layout)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Chat detection of missing token transitioning agent to guide mode with illustrated Persian instructions
-- [ ] `TokenInputWidget` component embedded directly inside the chat feed with validation and masking
-- [ ] Direct credential persistence to `/api/settings/liara-token` with immediate scope and team verification
-- [ ] Strict redaction and isolation ensuring token is never included in the agent conversation history or LLM prompt
-- [ ] Automated tests for secure token submission and masking
+- [x] Chat detection of missing token transitioning agent to guide mode with illustrated Persian instructions
+- [x] `TokenInputWidget` component embedded directly inside the chat feed with validation and masking
+- [x] Direct credential persistence to `/api/settings/liara-token` with immediate scope and team verification
+- [x] Strict redaction and isolation ensuring token is never included in the agent conversation history or LLM prompt
+- [x] Automated tests for secure token submission and masking
 

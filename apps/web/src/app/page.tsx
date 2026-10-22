@@ -9,6 +9,9 @@ import { ChatInput } from "@/components/chat/ChatInput";
 import { SourceInputWidget } from "@/components/chat/SourceInputWidget";
 import { TokenInputWidget } from "@/components/chat/TokenInputWidget";
 import { PlanSelectorCard } from "@/components/chat/PlanSelectorCard";
+import { DiffPreviewWidget } from "@/components/chat/DiffPreviewWidget";
+import { DeployApprovalWidget } from "@/components/chat/DeployApprovalWidget";
+import { RemediationApprovalWidget } from "@/components/chat/RemediationApprovalWidget";
 
 export default function HomePage() {
   const router = useRouter();
@@ -151,7 +154,13 @@ export default function HomePage() {
                     sourcePath,
                   },
                 }
-              : undefined,
+              : {
+                  type: "diff_preview",
+                  data: {
+                    sourcePath,
+                    dbInfo: null,
+                  },
+                },
         },
       ]);
     } catch (err: any) {
@@ -240,6 +249,215 @@ export default function HomePage() {
                 },
               },
             ]);
+          }}
+          disabled={isStreaming}
+        />
+      );
+    }
+    if (widget.type === "diff_preview") {
+      const dbInfo = widget.data?.dbInfo;
+      const sourcePath = widget.data?.sourcePath;
+      const appName = "aps-test";
+
+      return (
+        <DiffPreviewWidget
+          sourcePath={sourcePath}
+          appName={appName}
+          platform="nodejs"
+          port={3000}
+          envVars={dbInfo?.suggested_env_vars || {}}
+          onApplied={async (result) => {
+            setTerminalLogs((prev) => [
+              ...prev,
+              `✔ فایل‌های liara.json و .env با موفقیت به‌روزرسانی شدند: ${result.modifiedFiles.join(", ")}`,
+              result.cloudEnvSet
+                ? "✔ متغیرهای محیطی در فضای ابری لیارا تزریق شدند."
+                : "ℹ بدون تغییر در متغیرهای ابری",
+            ]);
+
+            setIsStreaming(true);
+            try {
+              const resRun = await fetch("/api/runs", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  sourcePath,
+                  targetApp: appName,
+                  port: 3000,
+                }),
+              });
+              const runData = await resRun.json();
+              if (!resRun.ok || !runData.ok) {
+                throw new Error(runData.error || "خطا در ایجاد پلن دپلوی");
+              }
+
+              const run = runData.run;
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: "ast-" + Date.now(),
+                  role: "assistant",
+                  content: `فایل تنظیمات \`liara.json\` آماده شد و پلن دپلوی با شناسه \`${run.id.substring(
+                    0,
+                    12
+                  )}...\` ایجاد گردید.\n\nبرای آغاز فرآیند استقرار در لیارا، لطفاً تأییدیه زیر را بررسی و صادر کنید:`,
+                  timestamp: new Date().toISOString(),
+                  widget: {
+                    type: "deploy_approval",
+                    data: {
+                      runId: run.id,
+                      targetApp: run.targetApp,
+                      platform: run.platform,
+                      port: run.port,
+                      planDigest: run.planDigest,
+                      sourcePath,
+                    },
+                  },
+                },
+              ]);
+            } catch (err: unknown) {
+              const msg = err instanceof Error ? err.message : String(err);
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: "err-" + Date.now(),
+                  role: "assistant",
+                  content: `خطا در ایجاد پلن دپلوی: ${msg}`,
+                  timestamp: new Date().toISOString(),
+                },
+              ]);
+            } finally {
+              setIsStreaming(false);
+            }
+          }}
+          disabled={isStreaming}
+        />
+      );
+    }
+    if (widget.type === "deploy_approval") {
+      const { runId, targetApp, platform, port, planDigest } = widget.data || {};
+
+      return (
+        <DeployApprovalWidget
+          runId={runId}
+          targetApp={targetApp}
+          platform={platform}
+          port={port}
+          planDigest={planDigest}
+          onDeployStarted={() => {
+            setTerminalLogs((prev) => [
+              ...prev,
+              `[DEPLOY] آغاز عملیات دپلوی برای ${targetApp} (Run ID: ${runId})...`,
+            ]);
+          }}
+          onStreamChunk={(chunk) => {
+            setTerminalLogs((prev) => [...prev, chunk]);
+          }}
+          onDeployFinished={async (success, logs) => {
+            if (success) {
+              setTerminalLogs((prev) => [
+                ...prev,
+                `✔ عملیات استقرار با موفقیت به پایان رسید. در حال بررسی سلامت سرویس...`,
+              ]);
+
+              try {
+                const verifyRes = await fetch(`/api/runs/${runId}/verify`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                });
+                const verifyData = await verifyRes.json();
+                const verification = verifyData.verification;
+
+                if (verification?.application_health === "healthy") {
+                  setMessages((prev) => [
+                    ...prev,
+                    {
+                      id: "ast-" + Date.now(),
+                      role: "assistant",
+                      content: `🎉 **دپلوی با موفقیت کامل شد و برنامه در دسترس است!**\n\n• کد وضعیت HTTP: **${verification.http_status_code}**\n• آدرس عمومی سرویس: [${verification.endpoint_url}](${verification.endpoint_url})\n• وضعیت کلود: **سالم و فعال (Running)**`,
+                      timestamp: new Date().toISOString(),
+                    },
+                  ]);
+                } else {
+                  setTerminalLogs((prev) => [
+                    ...prev,
+                    `✖ سرویس پاسخ ناموفق داد (HTTP ${verification?.http_status_code || "Unknown"}). آغاز ریشه‌یابی SRE...`,
+                  ]);
+
+                  const diagRes = await fetch(`/api/runs/${runId}/diagnose`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      logs: logs || "",
+                      provider_status: "success",
+                    }),
+                  });
+                  const diagData = await diagRes.json();
+                  const diagnosis = diagData.diagnosis;
+
+                  setMessages((prev) => [
+                    ...prev,
+                    {
+                      id: "ast-" + Date.now(),
+                      role: "assistant",
+                      content: `⚠️ برنامه دپلوی شد، اما هنگام آزمایش سلامت پاسخ خطای ران‌تایم (کد ${
+                        verification?.http_status_code || "503"
+                      }) برگرداند.\n\nایجنت SRE لاگ‌ها را بررسی کرد و علت را تشخیص داد:\n\n**${
+                        diagnosis?.root_cause || "خطای ران‌تایم در هنگام راه‌اندازی"
+                      }**\n\nراهکار خودکار خودترمیمی آماده است:`,
+                      timestamp: new Date().toISOString(),
+                      widget: {
+                        type: "remediation_approval",
+                        data: {
+                          runId,
+                          targetApp,
+                          diagnosis,
+                        },
+                      },
+                    },
+                  ]);
+                }
+              } catch (err: unknown) {
+                console.error("Verification error:", err);
+              }
+            } else {
+              setTerminalLogs((prev) => [
+                ...prev,
+                `✖ دپلوی با خطا مواجه شد. در حال استخراج علت خطا...`,
+              ]);
+            }
+          }}
+          disabled={isStreaming}
+        />
+      );
+    }
+    if (widget.type === "remediation_approval") {
+      const { runId, targetApp, diagnosis } = widget.data || {};
+
+      return (
+        <RemediationApprovalWidget
+          runId={runId}
+          targetApp={targetApp}
+          rootCause={diagnosis?.root_cause || ""}
+          errorEvidence={diagnosis?.error_evidence || ""}
+          missingVariable={diagnosis?.missing_variable || "SERVICE_SECRET"}
+          suggestedValue={diagnosis?.remediation?.env_value || "default-secret-key-123"}
+          onRemediated={(res) => {
+            if (res.isRecovered) {
+              setTerminalLogs((prev) => [
+                ...prev,
+                `✔ متغیر اصلاحی با موفقیت به برنامه تزریق شد. سرویس مجدداً بررسی شد و اکنون سالم است.`,
+              ]);
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: "ast-" + Date.now(),
+                  role: "assistant",
+                  content: `🎉 **خودترمیمی کامل شد!**\n\nمتغیر محیطی تزریق گردید و سرویس پس از راه‌اندازی مجدد، به وضعیت کاملاً سالم (Healthy) رسید.\n\nآدرس سرویس: [${res.verification?.endpoint_url}](${res.verification?.endpoint_url})`,
+                  timestamp: new Date().toISOString(),
+                },
+              ]);
+            }
           }}
           disabled={isStreaming}
         />

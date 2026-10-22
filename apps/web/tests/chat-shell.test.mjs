@@ -54,3 +54,4 @@ test("Sidecar console state transitions correctly between terminal, services, an
   const state3 = toggleCollapsed(state2);
   assert.equal(state3.isCollapsed, false);
 });
+
