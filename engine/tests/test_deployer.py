@@ -129,6 +129,9 @@ async def test_deployer_includes_team_id_in_command(sample_plan, valid_approval,
 
     assert len(captured_cmds) == 1
     assert "--team-id" not in captured_cmds[0]
+    # Check that platform 'nodejs' was correctly normalized to 'node' for Liara CLI
+    platform_idx = captured_cmds[0].index("--platform")
+    assert captured_cmds[0][platform_idx + 1] == "node"
 
 
 

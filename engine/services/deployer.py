@@ -77,13 +77,19 @@ class DeploymentExecutor:
             raise FileNotFoundError(f"Source directory does not exist: {source_path}")
 
         # 3. Construct command using argument array (no shell string)
+        # Liara CLI expects "node" instead of "nodejs"
+        platform_mapping = {
+            "nodejs": "node",
+        }
+        cli_platform = platform_mapping.get(plan.platform, plan.platform)
+
         cmd = [
             "liara",
             "deploy",
             "--app",
             plan.target_app,
             "--platform",
-            plan.platform,
+            cli_platform,
             "--port",
             str(plan.port),
             "--path",
