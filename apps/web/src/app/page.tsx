@@ -7,6 +7,7 @@ import { SidecarConsole, CloudService } from "@/components/console/SidecarConsol
 import { ChatMessageList, ChatMessage } from "@/components/chat/ChatMessageList";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { SourceInputWidget } from "@/components/chat/SourceInputWidget";
+import { TokenInputWidget } from "@/components/chat/TokenInputWidget";
 
 export default function HomePage() {
   const router = useRouter();
@@ -147,6 +148,28 @@ export default function HomePage() {
         />
       );
     }
+    if (widget.type === "token_input") {
+      return (
+        <TokenInputWidget
+          onTokenSaved={(maskedToken) => {
+            setTerminalLogs((prev) => [
+              ...prev,
+              `✔ کلید دسترسی لیارا در پروفایل ذخیره شد: ${maskedToken}`,
+            ]);
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: "ast-" + Date.now(),
+                role: "assistant",
+                content: `توکن شما با موفقیت ذخیره و اعتبارسنجی شد (${maskedToken}). اکنون می‌توانید سورس پروژه خود را برای دپلوی ارسال نمایید.`,
+                timestamp: new Date().toISOString(),
+                widget: { type: "source_input" },
+              },
+            ]);
+          }}
+        />
+      );
+    }
     return null;
   };
 
@@ -198,8 +221,9 @@ export default function HomePage() {
               id: "ast-" + Date.now(),
               role: "assistant",
               content:
-                "برای دریافت توکن دسترسی لیارا، کافی است وارد کنسول کاربری خود در لیارا (console.liara.ir) شوید، از منوی پروفایل به بخش **«دسترسی به API»** رفته و یک کلید دسترسی جدید ایجاد کنید.\n\nمی‌توانید توکن خود را در فرم ورود امن ثبت کنید تا به صورت خودکار و بدون ارسال به مدل هوش مصنوعی در پروفایل شما ذخیره شود.",
+                "برای اتصال به حساب لیارا، لطفاً کلید دسترسی (API Token) خود را در فرم امن زیر وارد کنید:",
               timestamp: new Date().toISOString(),
+              widget: { type: "token_input" },
             },
           ]);
           setIsStreaming(false);
