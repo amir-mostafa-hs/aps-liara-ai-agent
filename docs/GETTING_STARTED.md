@@ -48,6 +48,9 @@ ENGINE_URL="http://127.0.0.1:8000"
 # Optional: Add your real Liara token here or set it later in the UI dashboard
 LIARA_API_TOKEN=""
 
+# Optional: Set default Liara Team ID for organizational accounts (e.g. 6ace4ec3ec13fe0c3c19c4db)
+LIARA_TEAM_ID=""
+
 # AI Engine Model (OpenAI-compatible)
 OPENAI_API_KEY=""
 OPENAI_MODEL_NAME="gpt-6-luna"
@@ -145,7 +148,7 @@ This builds and starts:
 
 1. **Dashboard Health:** Visit [http://localhost:3000](http://localhost:3000). You will see the **Hybrid System Status** banner showing green badges for Next.js, PostgreSQL, and Python Agent Engine.
 2. **Operator Login:** Click **Operator Login** (or visit `/login`). Sign in with username `admin` and password `adminpassword123`.
-3. **Liara Credentials & Live Test:** In **Step 1 (Liara Cloud Credentials)**, enter your Liara API token and click **Test Connection**. The engine securely verifies access and renders your active cloud projects.
+3. **Liara Credentials, Team Selection & Live Test:** In **Step 1 (Liara Cloud Credentials & Connection)**, enter your Liara API token and an optional **Team ID** (e.g. `6ace4ec3ec13fe0c3c19c4db`). Click **Test Connection**. The engine securely verifies access, detects your teams from Liara Cloud (`/v2/teams`), displays team switching chips, and lists active projects in the selected team scope. Clicking any active app in the list automatically selects it as the target app for deployment.
 4. **Static Project Inspection:** In **Step 2 (Static Project Inspection)**, click **Preset: Sample App** (`sample-apps/nodejs-demo`) and click **Inspect Project**. The engine statically analyzes the project, extracts runtime metadata (`nodejs`, port 3000, `node server.js`), detects evidence files, and flags required variables (`SERVICE_SECRET`, `PORT`).
 5. **AI Deployment Planning & Interactive Approval Gate:**
    - In **Step 3 (AI Deployment Plan & Human Approval Gate)**, enter your target Liara application name (or click **Generate Deployment Plan →** from Step 2).
