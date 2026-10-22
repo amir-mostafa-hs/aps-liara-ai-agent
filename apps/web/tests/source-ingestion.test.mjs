@@ -1,0 +1,60 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import path from "node:path";
+import fs from "node:fs";
+
+// Import the ingestion utilities under test
+import {
+  validateSourcePath,
+  validateGitUrl,
+  isSafeZipEntryPath,
+} from "../src/lib/source-ingestion.ts";
+
+test("validateSourcePath allows existing project directories and rejects path traversal", () => {
+  const repoRoot = fs.existsSync(path.resolve(process.cwd(), "sample-apps"))
+    ? process.cwd()
+    : path.resolve(process.cwd(), "..");
+  const samplePath = "sample-apps/nodejs-demo";
+
+  // Valid project path
+  const validRes = validateSourcePath(samplePath, repoRoot);
+  assert.equal(validRes.valid, true);
+  assert.ok(validRes.resolvedPath.endsWith("sample-apps/nodejs-demo"));
+
+  // Path traversal outside project root
+  const traversalRes = validateSourcePath("../../../etc/passwd", repoRoot);
+  assert.equal(traversalRes.valid, false);
+  assert.match(traversalRes.error, /traversal|outside/i);
+
+  // Non-existent directory
+  const missingRes = validateSourcePath("sample-apps/non-existent-app-12345", repoRoot);
+  assert.equal(missingRes.valid, false);
+  assert.match(missingRes.error, /not exist/i);
+});
+
+test("validateGitUrl accepts safe public git URLs and rejects shell injection attempts", () => {
+  // Safe URLs
+  const valid1 = validateGitUrl("https://github.com/liara-cloud/nodejs-platform.git");
+  assert.equal(valid1.valid, true);
+
+  const valid2 = validateGitUrl("https://gitlab.com/example/sample-project");
+  assert.equal(valid2.valid, true);
+
+  // Malicious / injection URLs
+  const invalid1 = validateGitUrl("https://github.com/foo/bar; rm -rf /");
+  assert.equal(invalid1.valid, false);
+
+  const invalid2 = validateGitUrl("ssh://git@github.com/secret/repo.git");
+  assert.equal(invalid2.valid, false); // Milestone spec: public HTTP/HTTPS only
+});
+
+test("isSafeZipEntryPath prevents Zip Slip vulnerabilities", () => {
+  assert.equal(isSafeZipEntryPath("server.js"), true);
+  assert.equal(isSafeZipEntryPath("src/index.js"), true);
+  assert.equal(isSafeZipEntryPath("node_modules/package/index.js"), true);
+
+  // Unsafe Zip entries attempting to escape target directory
+  assert.equal(isSafeZipEntryPath("../malicious.js"), false);
+  assert.equal(isSafeZipEntryPath("../../etc/shadow"), false);
+  assert.equal(isSafeZipEntryPath("/absolute/path.js"), false);
+});

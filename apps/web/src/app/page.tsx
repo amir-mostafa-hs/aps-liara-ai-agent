@@ -6,6 +6,7 @@ import { Header } from "@/components/layout/Header";
 import { SidecarConsole, CloudService } from "@/components/console/SidecarConsole";
 import { ChatMessageList, ChatMessage } from "@/components/chat/ChatMessageList";
 import { ChatInput } from "@/components/chat/ChatInput";
+import { SourceInputWidget } from "@/components/chat/SourceInputWidget";
 
 export default function HomePage() {
   const router = useRouter();
@@ -26,8 +27,11 @@ export default function HomePage() {
       id: "welcome-1",
       role: "assistant",
       content:
-        "سلام! من ایجنت هوشمند و خودکار دپلوی و مهندسی قابلیت اطمینان (SRE) لیارا هستم.\n\nمن می‌تونم سورس‌کد پروژه شما رو بررسی کنم، پلتفرم و پیش‌نیازهایی مثل دیتابیس (پستگرس، ردیس، مای‌اس‌کیو‌ال و ...) رو تشخیص بدم، در صورت تمایل سرویس‌ها رو در لیارا براتون بسازم، فایل liara.json رو تولید کنم و پروژه رو دپلوی کنم.\n\nبرای شروع، مسیر پوشه پروژه محلی‌تون رو بنویسید (یا از پیشنهادهای سریع زیر استفاده کنید).",
+        "سلام! من ایجنت هوشمند و خودکار دپلوی و مهندسی قابلیت اطمینان (SRE) لیارا هستم.\n\nمن می‌تونم سورس‌کد پروژه شما رو بررسی کنم، پلتفرم و پیش‌نیازهایی مثل دیتابیس (پستگرس، ردیس، مای‌اس‌کیو‌ال و ...) رو تشخیص بدم، در صورت تمایل سرویس‌ها رو در لیارا براتون بسازم، فایل liara.json رو تولید کنم و پروژه رو دپلوی کنم.\n\nبرای شروع، لطفاً سورس پروژه را با یکی از روش‌های زیر مشخص کنید:",
       timestamp: new Date().toISOString(),
+      widget: {
+        type: "source_input",
+      },
     },
   ]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -70,6 +74,81 @@ export default function HomePage() {
       })
       .catch(() => setSystemConnected(false));
   }, [router]);
+
+  // Handle Source Ingestion from Widget
+  const handleSourceIngested = async (sourcePath: string, type: string) => {
+    const userMsg: ChatMessage = {
+      id: "usr-" + Date.now(),
+      role: "user",
+      content: `پروژه از طریق ${
+        type === "zip" ? "فایل ZIP" : type === "git" ? "ریپازیتوری Git" : "مسیر محلی"
+      } با آدرس \`${sourcePath}\` انتخاب شد.`,
+      timestamp: new Date().toISOString(),
+    };
+
+    setMessages((prev) => [...prev, userMsg]);
+    setIsStreaming(true);
+    setTerminalLogs((prev) => [
+      ...prev,
+      `[AGENT] تحلیل استاتیک سورس‌کد از مسیر: ${sourcePath}...`,
+    ]);
+
+    try {
+      const res = await fetch("/api/project/inspect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: sourcePath }),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+
+      const analysis = data.analysis;
+      setTerminalLogs((prev) => [
+        ...prev,
+        `✔ پلتفرم شناسایی‌شده: ${analysis.detected_platform}`,
+        `✔ پورت: ${analysis.port}`,
+        `✔ اسکریپت اجرا: ${analysis.start_command}`,
+      ]);
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: "ast-" + Date.now(),
+          role: "assistant",
+          content: `سورس‌کد با موفقیت تحلیل شد! 🔍\n\n• پلتفرم: **${analysis.detected_platform}** (ضریب اطمینان ${Math.round(
+            (analysis.confidence || 1) * 100
+          )}٪)\n• پورت ارتباطی: **${analysis.port}**\n• اسکریپت راه‌اندازی: \`${
+            analysis.start_command || "node server.js"
+          }\`\n• فایل‌های کلیدی: \`${analysis.evidence_files?.join("`, `") || ""}\`\n\nسیستم آمادهٔ ساخت سرویس‌ها و انجام دپلوی است.`,
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+    } catch (err: any) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: "err-" + Date.now(),
+          role: "assistant",
+          content: `خطا در تحلیل پروژه: ${err.message}`,
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+    } finally {
+      setIsStreaming(false);
+    }
+  };
+
+  const renderWidget = (widget: { type: string; data?: any }) => {
+    if (widget.type === "source_input") {
+      return (
+        <SourceInputWidget
+          onSourceIngested={handleSourceIngested}
+          disabled={isStreaming}
+        />
+      );
+    }
+    return null;
+  };
 
   // Handle User Message in Chat
   const handleSendMessage = async (text: string) => {
@@ -189,6 +268,7 @@ export default function HomePage() {
           <ChatMessageList
             messages={messages}
             isStreaming={isStreaming}
+            renderWidget={renderWidget}
           />
           <ChatInput
             onSendMessage={handleSendMessage}
