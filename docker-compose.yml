@@ -1,0 +1,64 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: liara-agent-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-liara_agent}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d liara_agent"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  engine:
+    build:
+      context: .
+      dockerfile: engine/Dockerfile
+    container_name: liara-agent-engine
+    restart: unless-stopped
+    environment:
+      INTERNAL_AGENT_SECRET: ${INTERNAL_AGENT_SECRET:-dev-internal-secret-change-me}
+      LIARA_API_TOKEN: ${LIARA_API_TOKEN:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      OPENAI_MODEL_NAME: ${OPENAI_MODEL_NAME:-gpt-6-luna}
+      HOST: 0.0.0.0
+      PORT: 8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: liara-agent-web
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/liara_agent?schema=public}
+      ENGINE_URL: ${ENGINE_URL:-http://engine:8000}
+      INTERNAL_AGENT_SECRET: ${INTERNAL_AGENT_SECRET:-dev-internal-secret-change-me}
+      APP_SECRET: ${APP_SECRET:-dev-session-secret-change-me}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      engine:
+        condition: service_started
+
+volumes:
+  postgres_data:
+
