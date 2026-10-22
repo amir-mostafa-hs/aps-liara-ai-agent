@@ -49,6 +49,12 @@ def test_deployment_plan_digest_computation():
     tampered_plan.target_app = "malicious-app"
     assert tampered_plan.verify_digest() is False
 
+    # Verifying get_deploy_action returns the deploy action
+    deploy_action = plan.get_deploy_action()
+    assert deploy_action is not None
+    assert deploy_action.action_id == "act-2"
+    assert deploy_action.operation == "deploy"
+
 
 def test_planner_generates_structured_plan():
     from engine.services.planner import DeploymentPlanner
@@ -216,5 +222,6 @@ def test_verify_action_approval_with_generic_plan_approval_and_multiple_actions(
         plan_digest=plan.digest,
     )
     assert verify_action_approval(plan, "deploy", exact_approval) is True
+    assert verify_action_approval(plan, "unknown-action", exact_approval) is False
 
 

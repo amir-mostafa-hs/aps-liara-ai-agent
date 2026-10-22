@@ -94,6 +94,13 @@ class DeploymentPlan(BaseModel):
             return False
         return self.compute_digest() == self.digest
 
+    def get_deploy_action(self) -> ProposedAction | None:
+        """Returns the primary deploy action, or the first action if none has operation='deploy'."""
+        return next(
+            (a for a in self.actions if a.operation == "deploy"),
+            self.actions[0] if self.actions else None,
+        )
+
 
 class PlanRequest(BaseModel):
     analysis: ProjectAnalysis
@@ -187,6 +194,13 @@ class DiagnosisResult(BaseModel):
         if not self.digest:
             return False
         return self.compute_digest() == self.digest
+
+    def get_deploy_action(self) -> ProposedAction | None:
+        """Returns the primary deploy action, or the first action if none has operation='deploy'."""
+        return next(
+            (a for a in self.actions if a.operation == "deploy"),
+            self.actions[0] if self.actions else None,
+        )
 
 
 class DiagnoseRequest(BaseModel):

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getDeployAction } from "@/lib/plan-digest";
 
 export async function POST(
   req: NextRequest,
@@ -30,8 +31,20 @@ export async function POST(
       return NextResponse.json({ ok: false, error: "Run not found" }, { status: 404 });
     }
 
-    // Must be approved to deploy
-    const validApproval = run.approvals.find((a) => a.approved);
+    const planDetails = run.planDetails as any;
+    const planActions = Array.isArray(planDetails?.actions) ? planDetails.actions : [];
+    const deployAction = getDeployAction(planActions);
+    const deployActionId = deployAction?.action_id || "deploy";
+
+    // Must find an approved ActionApproval specifically matching the deploy action or operation
+    const validApproval = run.approvals.find(
+      (a) =>
+        a.approved &&
+        (a.actionId === deployActionId ||
+          a.actionId === "plan-approval" ||
+          a.operation === "deploy")
+    );
+
     if (!validApproval && run.status !== "approved") {
       return NextResponse.json(
         {
@@ -74,21 +87,14 @@ export async function POST(
     const internalSecret =
       process.env.INTERNAL_AGENT_SECRET || "dev-internal-secret-change-me";
 
-    const planDetails = run.planDetails as any;
-    const planActions = Array.isArray(planDetails?.actions) ? planDetails.actions : [];
-    const deployAction =
-      planActions.find((a: any) => a.operation === "deploy") ||
-      planActions.find((a: any) => a.action_id === validApproval?.actionId) ||
-      planActions[0];
-
     const actionId =
       validApproval?.actionId && validApproval.actionId !== "plan-approval"
         ? validApproval.actionId
-        : (deployAction?.action_id || "deploy");
+        : deployActionId;
     const operation =
-      deployAction?.operation || validApproval?.operation || "deploy";
+      validApproval?.operation || deployAction?.operation || "deploy";
     const target =
-      deployAction?.target || validApproval?.target || run.targetApp || "";
+      validApproval?.target || deployAction?.target || run.targetApp || "";
 
     // Call Python engine SSE endpoint
     const engineRes = await fetch(`${engineUrl}/agent/deploy`, {
@@ -105,8 +111,7 @@ export async function POST(
           operation: operation,
           target: target,
           approved: true,
-          plan_digest:
-            validApproval?.planDigest || planDetails?.digest || "",
+          plan_digest: validApproval?.planDigest || "",
         },
         source_path: run.sourcePath,
         api_token: apiToken,

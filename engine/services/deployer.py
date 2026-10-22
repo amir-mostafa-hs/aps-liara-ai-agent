@@ -10,6 +10,11 @@ from engine.services.inspector import project_inspector
 
 logger = logging.getLogger(__name__)
 
+# Liara CLI expects "node" instead of "nodejs"
+LIARA_CLI_PLATFORM_MAP: dict[str, str] = {
+    "nodejs": "node",
+}
+
 
 class DeploymentExecutor:
     def __init__(self, cli_timeout_seconds: int = 300):
@@ -77,11 +82,7 @@ class DeploymentExecutor:
             raise FileNotFoundError(f"Source directory does not exist: {source_path}")
 
         # 3. Construct command using argument array (no shell string)
-        # Liara CLI expects "node" instead of "nodejs"
-        platform_mapping = {
-            "nodejs": "node",
-        }
-        cli_platform = platform_mapping.get(plan.platform, plan.platform)
+        cli_platform = LIARA_CLI_PLATFORM_MAP.get(plan.platform, plan.platform)
 
         cmd = [
             "liara",

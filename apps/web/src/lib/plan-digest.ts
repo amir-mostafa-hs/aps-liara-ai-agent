@@ -60,3 +60,23 @@ export function verifyPlanIntegrity(plan: DeploymentPlanShape, expectedDigest: s
   return crypto.timingSafeEqual(Buffer.from(actualDigest), Buffer.from(expectedDigest));
 }
 
+export function getDeployAction(actions: PlanAction[] = []): PlanAction | undefined {
+  return actions.find((a) => a.operation === "deploy") || actions[0];
+}
+
+export function resolveActionForApproval(
+  actions: PlanAction[] = [],
+  requestedActionId?: string,
+  fallbackTarget = "unknown"
+): { actionId: string; operation: string; target: string } {
+  const matched = requestedActionId
+    ? actions.find((a) => a.action_id === requestedActionId)
+    : getDeployAction(actions);
+
+  return {
+    actionId: requestedActionId || matched?.action_id || "deploy",
+    operation: matched?.operation || "deploy",
+    target: matched?.target || fallbackTarget,
+  };
+}
+

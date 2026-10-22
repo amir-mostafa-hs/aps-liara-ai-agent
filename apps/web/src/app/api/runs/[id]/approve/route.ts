@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { resolveActionForApproval } from "@/lib/plan-digest";
 import { verifyPlanIntegrity } from "@/lib/plan-digest";
 
 export async function POST(
@@ -68,17 +69,13 @@ export async function POST(
       where: { username: user.username },
     });
 
-    // Resolve intended action from plan details
-    const planActions = ((plan.actions || []) as Array<{
-      action_id: string;
-      operation: string;
-      target: string;
-    }>);
-    const deployAction =
-      planActions.find((a) => a.operation === "deploy") || planActions[0];
-    const resolvedActionId = actionId || deployAction?.action_id || "deploy";
-    const resolvedOperation = deployAction?.operation || "deploy";
-    const resolvedTarget = deployAction?.target || run.targetApp || "unknown";
+    // Resolve intended action from plan details with accurate operation and target
+    const planActions = (plan.actions || []) as any[];
+    const {
+      actionId: resolvedActionId,
+      operation: resolvedOperation,
+      target: resolvedTarget,
+    } = resolveActionForApproval(planActions, actionId, run.targetApp || "unknown");
 
     // Record ActionApproval
     const approval = await prisma.actionApproval.create({
