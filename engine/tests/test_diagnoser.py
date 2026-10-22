@@ -36,6 +36,18 @@ def test_diagnoser_identifies_missing_env_and_produces_remediation():
     assert tampered.verify_digest() is False
 
 
+def test_diagnoser_handles_empty_logs_without_fabrication():
+    diagnoser = SREDiagnoser()
+    result = diagnoser.diagnose_logs(
+        logs="   ",
+        app_id="empty-app",
+        provider_status="success",
+    )
+    assert result.confidence == 0.0
+    assert result.remediation is None
+    assert "No runtime logs" in result.root_cause
+
+
 @pytest.mark.anyio
 async def test_apply_remediation_rejects_without_approval():
     diagnoser = SREDiagnoser()
@@ -63,6 +75,74 @@ async def test_apply_remediation_rejects_without_approval():
             approval=invalid_approval,
             api_token="test-token",
         )
+
+
+@pytest.mark.anyio
+async def test_apply_remediation_rejects_digest_mismatch():
+    diagnoser = SREDiagnoser()
+    remediation = RemediationAction(
+        action_id="rem-1",
+        operation="set_env",
+        target="my-demo-app",
+        env_variable="SERVICE_SECRET",
+        env_value="valid-token-secret-123",
+        description="Set missing SERVICE_SECRET",
+        requires_approval=True,
+    )
+    mismatched_approval = ActionApprovalModel(
+        run_id="run-1",
+        action_id="rem-1",
+        operation="set_env",
+        target="my-demo-app",
+        approved=True,
+        plan_digest="wrong-tampered-digest",
+    )
+
+    with pytest.raises(PermissionError, match="Approval mismatch: Cryptographic digest"):
+        await diagnoser.apply_remediation(
+            remediation=remediation,
+            approval=mismatched_approval,
+            api_token="test-token",
+            expected_digest="correct-expected-digest",
+        )
+
+
+@pytest.mark.anyio
+async def test_apply_remediation_fails_cleanly_when_cli_missing(monkeypatch):
+    import asyncio
+    diagnoser = SREDiagnoser()
+    remediation = RemediationAction(
+        action_id="rem-1",
+        operation="set_env",
+        target="my-demo-app",
+        env_variable="SERVICE_SECRET",
+        env_value="valid-token-secret-123",
+        description="Set missing SERVICE_SECRET",
+        requires_approval=True,
+    )
+    valid_approval = ActionApprovalModel(
+        run_id="run-1",
+        action_id="rem-1",
+        operation="set_env",
+        target="my-demo-app",
+        approved=True,
+        plan_digest="correct-expected-digest",
+    )
+
+    def fake_subprocess(*args, **kwargs):
+        raise FileNotFoundError("liara executable not found")
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_subprocess)
+
+    result = await diagnoser.apply_remediation(
+        remediation=remediation,
+        approval=valid_approval,
+        api_token="test-token",
+        expected_digest="correct-expected-digest",
+    )
+    assert result["ok"] is False
+    assert result["exit_code"] != 0
+    assert "not found" in result["output"].lower()
 
 
 def test_diagnose_and_remediate_api_endpoints():

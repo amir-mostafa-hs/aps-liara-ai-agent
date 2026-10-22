@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import time
 from datetime import datetime, timezone
 import httpx
@@ -39,8 +40,9 @@ class EndpointVerifier:
         for attempt in range(max(1, retries)):
             start_time = time.perf_counter()
             try:
+                ssl_verify = os.getenv("DISABLE_SSL_VERIFY", "").lower() not in ("true", "1")
                 async with httpx.AsyncClient(
-                    timeout=timeout, follow_redirects=True, verify=False
+                    timeout=timeout, follow_redirects=True, verify=ssl_verify
                 ) as client:
                     res = await client.get(target_url, headers=headers)
                     latency_ms = round((time.perf_counter() - start_time) * 1000, 2)

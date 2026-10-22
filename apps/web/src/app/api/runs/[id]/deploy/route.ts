@@ -48,11 +48,12 @@ export async function POST(
     });
     const apiToken = dbUser?.liaraToken || process.env.LIARA_API_TOKEN || "";
 
-    // Transition status to executing
+    // Transition status to executing and record exact start time
     await prisma.run.update({
       where: { id: run.id },
       data: {
         status: "executing",
+        startedAt: new Date(),
       },
     });
 
@@ -136,12 +137,14 @@ export async function POST(
             accumulatedLogs.includes("exit code 0") ||
             accumulatedLogs.includes("successfully pushed");
           const finalStatus = isSuccess ? "verifying" : "failed";
+          const providerStatus = isSuccess ? "success" : "failed";
 
           await prisma.run
             .update({
               where: { id: run.id },
               data: {
                 status: finalStatus,
+                providerStatus,
                 redactedLogs: accumulatedLogs,
                 finishedAt: new Date(),
               },

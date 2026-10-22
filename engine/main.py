@@ -115,8 +115,15 @@ async def verify_deployment_endpoint(payload: VerifyRequest):
 
 @app.post("/agent/diagnose", dependencies=[Depends(verify_internal_secret)])
 async def diagnose_failure(payload: DiagnoseRequest):
+    logs = payload.logs
+    if not logs or not logs.strip():
+        logs = await sre_diagnoser.fetch_runtime_logs(
+            app_id=payload.app_id,
+            api_token=payload.api_token,
+        )
+
     diagnosis = sre_diagnoser.diagnose_logs(
-        logs=payload.logs,
+        logs=logs,
         app_id=payload.app_id,
         provider_status=payload.provider_status,
     )
@@ -133,6 +140,7 @@ async def apply_sre_remediation(payload: RemediateRequest):
             remediation=payload.remediation,
             approval=payload.approval,
             api_token=payload.api_token,
+            expected_digest=payload.expected_digest,
         )
     except PermissionError as err:
         raise HTTPException(

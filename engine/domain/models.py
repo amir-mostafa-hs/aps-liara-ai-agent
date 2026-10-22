@@ -190,8 +190,9 @@ class DiagnosisResult(BaseModel):
 
 class DiagnoseRequest(BaseModel):
     app_id: str
-    logs: str
+    logs: str = ""
     provider_status: str = "success"
+    api_token: str | None = None
 
 
 class RemediateRequest(BaseModel):
@@ -199,6 +200,7 @@ class RemediateRequest(BaseModel):
     remediation: RemediationAction
     approval: ActionApprovalModel
     api_token: str | None = None
+    expected_digest: str | None = None
 
 
 

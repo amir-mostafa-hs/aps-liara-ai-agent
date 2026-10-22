@@ -29,11 +29,13 @@ export async function POST(
     const internalSecret =
       process.env.INTERNAL_AGENT_SECRET || "dev-internal-secret-change-me";
 
-    // Prepare logs from run or fall back to crash trace
-    const logs =
-      run.redactedLogs && run.redactedLogs.trim().length > 0
-        ? run.redactedLogs
-        : `[liara-node-demo] Server initialized.\n[FATAL] Missing required environment variable: SERVICE_SECRET\n[FATAL] Process exited with code 1.`;
+    const dbUser = await prisma.user.findUnique({
+      where: { username: user.username },
+    });
+    const apiToken = dbUser?.liaraToken || process.env.LIARA_API_TOKEN || "";
+
+    // Send deployment logs if available; otherwise pass empty string to let engine fetch bounded runtime logs via CLI
+    const logs = run.redactedLogs?.trim() || "";
 
     const res = await fetch(`${engineUrl}/agent/diagnose`, {
       method: "POST",
@@ -45,6 +47,7 @@ export async function POST(
         app_id: run.targetApp || "demo-app",
         logs,
         provider_status: run.providerStatus || "success",
+        api_token: apiToken,
       }),
       cache: "no-store",
     });

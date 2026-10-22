@@ -38,6 +38,28 @@ export async function POST(
 
     if (customValue) {
       diagnosis.remediation.env_value = customValue;
+      // Recompute canonical SHA-256 digest so ActionApproval never records a stale hash
+      const crypto = await import("crypto");
+      const canonicalObj = {
+        diagnosis_id: diagnosis.diagnosis_id,
+        error_evidence: diagnosis.error_evidence,
+        missing_variable: diagnosis.missing_variable || "",
+        remediation: {
+          action_id: diagnosis.remediation.action_id,
+          description: diagnosis.remediation.description,
+          env_value: customValue,
+          env_variable: diagnosis.remediation.env_variable,
+          operation: diagnosis.remediation.operation,
+          requires_approval: diagnosis.remediation.requires_approval,
+          target: diagnosis.remediation.target,
+        },
+        requires_approval: diagnosis.requires_approval,
+        root_cause: diagnosis.root_cause,
+      };
+      diagnosis.digest = crypto
+        .createHash("sha256")
+        .update(JSON.stringify(canonicalObj, Object.keys(canonicalObj).sort()))
+        .digest("hex");
     }
 
     const remediation = diagnosis.remediation;
@@ -48,7 +70,7 @@ export async function POST(
     });
     const apiToken = dbUser?.liaraToken || process.env.LIARA_API_TOKEN || "";
 
-    // 1. Record ActionApproval for remediation
+    // 1. Record ActionApproval for remediation with fresh matching digest
     const approval = await prisma.actionApproval.create({
       data: {
         runId: run.id,
@@ -83,6 +105,7 @@ export async function POST(
           approved: true,
           plan_digest: approval.planDigest,
         },
+        expected_digest: approval.planDigest,
         api_token: apiToken,
       }),
       cache: "no-store",

@@ -33,6 +33,19 @@ class SREDiagnoser:
         """Inspects crash logs, extracts root cause evidence, and constructs a structured remediation plan."""
         clean_logs = redact_text(logs)
 
+        # Early return if no logs are available: do not fabricate false findings
+        if not clean_logs.strip():
+            return DiagnosisResult(
+                diagnosis_id=f"diag-{uuid.uuid4().hex[:8]}",
+                root_cause="No runtime logs or crash stack traces could be retrieved for this application.",
+                error_evidence="N/A (Logs were empty)",
+                missing_variable=None,
+                remediation=None,
+                confidence=0.0,
+                requires_approval=False,
+                digest="",
+            )
+
         # Attempt LangChain structured diagnosis if API key is present
         if self.api_key:
             try:
@@ -113,11 +126,36 @@ class SREDiagnoser:
         diagnosis.digest = diagnosis.compute_digest()
         return diagnosis
 
+    async def fetch_runtime_logs(
+        self,
+        app_id: str,
+        lines: int = 100,
+        api_token: str | None = None,
+    ) -> str:
+        """Fetches bounded runtime logs using liara logs --app <app_id>."""
+        cmd = ["liara", "logs", "--app", app_id, "--lines", str(lines)]
+        if api_token and api_token.strip():
+            cmd.extend(["--api-token", api_token.strip()])
+
+        try:
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,
+            )
+            stdout, _ = await asyncio.wait_for(process.communicate(), timeout=15.0)
+            raw = stdout.decode("utf-8", errors="replace")
+            return redact_text(raw, api_token)
+        except Exception as e:
+            logger.warning(f"Failed to fetch runtime logs via CLI: {e}")
+            return ""
+
     async def apply_remediation(
         self,
         remediation: RemediationAction,
         approval: ActionApprovalModel,
         api_token: str | None = None,
+        expected_digest: str | None = None,
     ) -> dict:
         """Executes approved remediation (liara env set) via argument array."""
         # Precondition: Approval check
@@ -126,6 +164,9 @@ class SREDiagnoser:
 
         if approval.operation != remediation.operation or approval.target != remediation.target:
             raise PermissionError("Approval mismatch: Target or operation does not match approval record.")
+
+        if expected_digest and approval.plan_digest != expected_digest:
+            raise PermissionError("Approval mismatch: Cryptographic digest does not match expected remediation plan.")
 
         cmd = [
             "liara",
@@ -158,9 +199,9 @@ class SREDiagnoser:
             }
         except FileNotFoundError:
             return {
-                "ok": True,
-                "exit_code": 0,
-                "output": f"[SIMULATED] Successfully updated environment variable {remediation.env_variable} on {remediation.target}.",
+                "ok": False,
+                "exit_code": 127,
+                "output": "Error: 'liara' CLI executable not found on PATH.",
             }
         except Exception as e:
             return {
