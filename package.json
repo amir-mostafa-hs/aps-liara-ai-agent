@@ -14,6 +14,7 @@
     "docker:build": "docker compose build",
     "test": "pnpm --filter web test && pnpm run test:engine",
     "test:engine": "PYTHONPATH=. engine/.venv/bin/pytest engine/tests",
+    "cli": "bin/liara-agent",
     "lint": "pnpm --filter web lint"
   },
   "devDependencies": {

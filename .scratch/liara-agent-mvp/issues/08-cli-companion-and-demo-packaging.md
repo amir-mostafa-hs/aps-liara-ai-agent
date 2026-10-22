@@ -5,12 +5,12 @@ A unified CLI companion command (`liara-agent run --path ...`) enabling develope
 
 **Blocked by:** 07 (SRE Log Diagnosis and Approved Remediation)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 ## Acceptance Criteria
-- [ ] CLI command allows running the workflow with interactive terminal prompts matching the Web UI logic.
-- [ ] Both CLI and Web UI invoke identical application services without duplicated business logic.
-- [ ] `.env.example` documents all required configuration keys (`DATABASE_URL`, `OPENAI_API_KEY`, `INTERNAL_AGENT_SECRET`, etc.) with zero hardcoded secrets.
-- [ ] `README.md` includes setup guide, architecture diagram, security boundaries, and API limitations.
-- [ ] A 5-minute video demo script is provided, walking through the end-to-end happy path and SRE recovery scenario.
+- [x] CLI command allows running the workflow with interactive terminal prompts matching the Web UI logic.
+- [x] Both CLI and Web UI invoke identical application services without duplicated business logic.
+- [x] `.env.example` documents all required configuration keys (`DATABASE_URL`, `OPENAI_API_KEY`, `INTERNAL_AGENT_SECRET`, etc.) with zero hardcoded secrets.
+- [x] `README.md` includes setup guide, architecture diagram, security boundaries, and API limitations.
+- [x] A 5-minute video demo script is provided, walking through the end-to-end happy path and SRE recovery scenario.
 
