@@ -36,8 +36,24 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const token = typeof body.token === "string" ? body.token.trim() : "";
-    const teamId = typeof body.teamId === "string" ? body.teamId.trim() : "";
+
+    const dbUser = await prisma.user.findUnique({
+      where: { username: user.username },
+    });
+
+    const token =
+      body.token !== undefined
+        ? typeof body.token === "string"
+          ? body.token.trim()
+          : ""
+        : (dbUser?.liaraToken ?? process.env.LIARA_API_TOKEN ?? "");
+
+    const teamId =
+      body.teamId !== undefined
+        ? typeof body.teamId === "string"
+          ? body.teamId.trim()
+          : ""
+        : (dbUser?.liaraTeamId ?? process.env.LIARA_TEAM_ID ?? "");
 
     // Persist in database
     await prisma.user.upsert({
@@ -55,7 +71,9 @@ export async function POST(req: NextRequest) {
     });
 
     // Also update process environment in-memory
-    process.env.LIARA_API_TOKEN = token;
+    if (token) {
+      process.env.LIARA_API_TOKEN = token;
+    }
     process.env.LIARA_TEAM_ID = teamId;
 
     return NextResponse.json({

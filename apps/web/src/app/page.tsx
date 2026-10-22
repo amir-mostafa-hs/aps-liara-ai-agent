@@ -677,7 +677,9 @@ export default function HomePage() {
                   {tokenData?.teamId ? (
                     <>
                       <Users className="h-3.5 w-3.5 text-blue-400" />
-                      <span>Team ({tokenData.teamId})</span>
+                      <span>
+                        تیم: {connectionResult?.teams?.find((t) => t.id === tokenData.teamId)?.name || "Team"} ({tokenData.teamId})
+                      </span>
                     </>
                   ) : (
                     <span>Personal Account</span>

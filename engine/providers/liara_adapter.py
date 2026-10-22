@@ -1,5 +1,8 @@
+import logging
 import httpx
 from engine.security.redaction import redact_text
+
+logger = logging.getLogger(__name__)
 
 
 class LiaraAdapter:
@@ -26,8 +29,14 @@ class LiaraAdapter:
                         for t in data.get("teams", [])
                         if t.get("_id")
                     ]
-        except Exception:
-            pass
+                else:
+                    logger.warning(
+                        "Liara /v2/teams returned status %s: %s",
+                        res.status_code,
+                        redact_text(res.text, api_token),
+                    )
+        except Exception as e:
+            logger.warning("Failed to fetch teams: %s", redact_text(str(e), api_token))
         return []
 
     async def test_connection(
@@ -48,24 +57,11 @@ class LiaraAdapter:
         params = {"teamID": clean_team_id} if clean_team_id else None
 
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                # 1. Fetch available teams in parallel/sequence
-                teams_list: list[dict] = []
-                try:
-                    t_res = await client.get(
-                        f"{self.base_url}/v2/teams", headers=headers
-                    )
-                    if t_res.status_code == 200:
-                        t_data = t_res.json()
-                        teams_list = [
-                            {"id": t.get("_id", ""), "name": t.get("name", "")}
-                            for t in t_data.get("teams", [])
-                            if t.get("_id")
-                        ]
-                except Exception:
-                    pass
+            # 1. Fetch available teams using the dedicated helper
+            teams_list = await self.get_teams(api_token)
 
-                # 2. Fetch projects (scoped to teamID if provided)
+            # 2. Fetch projects (scoped to teamID if provided)
+            async with httpx.AsyncClient(timeout=10.0) as client:
                 res = await client.get(
                     f"{self.base_url}/v1/projects", headers=headers, params=params
                 )
@@ -85,6 +81,7 @@ class LiaraAdapter:
                             for p in projects
                         ],
                         "team_id": clean_team_id,
+                        "active_team_id": clean_team_id,
                         "teams": teams_list,
                     }
                 elif res.status_code == 401:

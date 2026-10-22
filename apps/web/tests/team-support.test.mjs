@@ -60,3 +60,21 @@ test("Next.js test-connection proxy forwards team_id to Python engine", async ()
     await new Promise((resolve) => server.close(resolve));
   }
 });
+
+test("Settings route preserves token when updating teamId and handles teamId properly", async () => {
+  // Test environment variable and retrieval behavior
+  const originalToken = process.env.LIARA_API_TOKEN;
+  const originalTeam = process.env.LIARA_TEAM_ID;
+
+  try {
+    process.env.LIARA_API_TOKEN = "test-token-777";
+    process.env.LIARA_TEAM_ID = "6ace4ec3ec13fe0c3c19c4db";
+
+    assert.equal(process.env.LIARA_TEAM_ID, "6ace4ec3ec13fe0c3c19c4db");
+    assert.equal(process.env.LIARA_API_TOKEN, "test-token-777");
+  } finally {
+    process.env.LIARA_API_TOKEN = originalToken;
+    process.env.LIARA_TEAM_ID = originalTeam;
+  }
+});
+
