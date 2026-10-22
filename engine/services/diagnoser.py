@@ -131,11 +131,14 @@ class SREDiagnoser:
         app_id: str,
         lines: int = 100,
         api_token: str | None = None,
+        team_id: str | None = None,
     ) -> str:
         """Fetches bounded runtime logs using liara logs --app <app_id>."""
         cmd = ["liara", "logs", "--app", app_id, "--lines", str(lines)]
         if api_token and api_token.strip():
             cmd.extend(["--api-token", api_token.strip()])
+        if team_id and team_id.strip():
+            cmd.extend(["--team-id", team_id.strip()])
 
         try:
             process = await asyncio.create_subprocess_exec(
@@ -156,6 +159,7 @@ class SREDiagnoser:
         approval: ActionApprovalModel,
         api_token: str | None = None,
         expected_digest: str | None = None,
+        team_id: str | None = None,
     ) -> dict:
         """Executes approved remediation (liara env set) via argument array."""
         # Precondition: Approval check
@@ -180,6 +184,9 @@ class SREDiagnoser:
 
         if api_token and api_token.strip():
             cmd.extend(["--api-token", api_token.strip()])
+
+        if team_id and team_id.strip():
+            cmd.extend(["--team-id", team_id.strip()])
 
         try:
             process = await asyncio.create_subprocess_exec(

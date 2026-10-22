@@ -89,6 +89,49 @@ async def test_deployer_streams_redacted_output(sample_plan, valid_approval, mon
     assert "Building Node.js container image [1/3]" in full_output
 
 
+@pytest.mark.anyio
+async def test_deployer_includes_team_id_in_command(sample_plan, valid_approval, monkeypatch, tmp_path):
+    executor = DeploymentExecutor()
+    captured_cmds = []
+
+    async def mock_run_command(cmd, cwd=None):
+        captured_cmds.append(list(cmd))
+        yield "Deployment successful.\n"
+
+    monkeypatch.setattr(executor, "_stream_command", mock_run_command)
+
+    # 1. With team_id
+    async for _ in executor.execute_deployment(
+        plan=sample_plan,
+        approval=valid_approval,
+        source_path=str(tmp_path),
+        api_token="mock-token",
+        team_id="6ace4ec3ec13fe0c3c19c4db",
+    ):
+        pass
+
+    assert len(captured_cmds) == 1
+    cmd = captured_cmds[0]
+    assert "--team-id" in cmd
+    team_idx = cmd.index("--team-id")
+    assert cmd[team_idx + 1] == "6ace4ec3ec13fe0c3c19c4db"
+
+    # 2. Without team_id
+    captured_cmds.clear()
+    async for _ in executor.execute_deployment(
+        plan=sample_plan,
+        approval=valid_approval,
+        source_path=str(tmp_path),
+        api_token="mock-token",
+        team_id=None,
+    ):
+        pass
+
+    assert len(captured_cmds) == 1
+    assert "--team-id" not in captured_cmds[0]
+
+
+
 def test_deploy_api_endpoint(sample_plan, valid_approval, tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
     from engine.main import app

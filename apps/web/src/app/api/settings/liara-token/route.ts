@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 export async function GET() {
   const user = await getCurrentUser();
   let token = process.env.LIARA_API_TOKEN || "";
+  let teamId = process.env.LIARA_TEAM_ID || "";
 
   if (user.authenticated && user.username) {
     const dbUser = await prisma.user.findUnique({
@@ -13,6 +14,9 @@ export async function GET() {
     if (dbUser?.liaraToken) {
       token = dbUser.liaraToken;
     }
+    if (dbUser?.liaraTeamId) {
+      teamId = dbUser.liaraTeamId;
+    }
   }
 
   const configured = Boolean(token && token.trim().length > 0);
@@ -20,6 +24,7 @@ export async function GET() {
   return NextResponse.json({
     configured,
     maskedToken: maskToken(token),
+    teamId: teamId.trim(),
   });
 }
 
@@ -32,29 +37,35 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const token = typeof body.token === "string" ? body.token.trim() : "";
+    const teamId = typeof body.teamId === "string" ? body.teamId.trim() : "";
 
     // Persist in database
     await prisma.user.upsert({
       where: { username: user.username },
-      update: { liaraToken: token },
+      update: {
+        liaraToken: token,
+        liaraTeamId: teamId,
+      },
       create: {
         username: user.username,
         passwordHash: "managed-by-env",
         liaraToken: token,
+        liaraTeamId: teamId,
       },
     });
 
     // Also update process environment in-memory
     process.env.LIARA_API_TOKEN = token;
+    process.env.LIARA_TEAM_ID = teamId;
 
     return NextResponse.json({
       ok: true,
       configured: Boolean(token),
       maskedToken: maskToken(token),
+      teamId,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }
-

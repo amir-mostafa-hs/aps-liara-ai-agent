@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const { sourcePath, targetApp, port } = body;
+    const { sourcePath, targetApp, port, teamId } = body;
 
     if (!sourcePath || typeof sourcePath !== "string") {
       return NextResponse.json(
@@ -103,10 +103,17 @@ export async function POST(req: NextRequest) {
       where: { username: user.username },
     });
 
+    const resolvedTeamId =
+      (typeof teamId === "string" && teamId.trim()) ||
+      dbUser?.liaraTeamId ||
+      process.env.LIARA_TEAM_ID ||
+      undefined;
+
     // 3. Persist Run in PostgreSQL with awaiting_approval status
     const run = await prisma.run.create({
       data: {
         userId: dbUser?.id,
+        teamId: resolvedTeamId,
         sourceKind: "local",
         sourcePath: sourcePath.trim(),
         targetApp: plan.target_app,

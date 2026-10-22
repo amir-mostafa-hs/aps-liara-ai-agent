@@ -64,6 +64,7 @@ class DeploymentExecutor:
         approval: ActionApprovalModel,
         source_path: str,
         api_token: str,
+        team_id: str | None = None,
     ) -> AsyncGenerator[str, None]:
         """Validates approval and streams live, secret-redacted deployment logs."""
         # 1. Strict approval enforcement check
@@ -92,6 +93,9 @@ class DeploymentExecutor:
 
         if api_token and api_token.strip():
             cmd.extend(["--api-token", api_token.strip()])
+
+        if team_id and team_id.strip():
+            cmd.extend(["--team-id", team_id.strip()])
 
         yield f"[AGENT] Initiating deployment for app '{plan.target_app}' ({plan.platform}) on port {plan.port}...\n"
 

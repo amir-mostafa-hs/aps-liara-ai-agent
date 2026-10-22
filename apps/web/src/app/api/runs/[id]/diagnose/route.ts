@@ -33,6 +33,7 @@ export async function POST(
       where: { username: user.username },
     });
     const apiToken = dbUser?.liaraToken || process.env.LIARA_API_TOKEN || "";
+    const teamId = run.teamId || dbUser?.liaraTeamId || process.env.LIARA_TEAM_ID || "";
 
     // Send deployment logs if available; otherwise pass empty string to let engine fetch bounded runtime logs via CLI
     const logs = run.redactedLogs?.trim() || "";
@@ -48,6 +49,7 @@ export async function POST(
         logs,
         provider_status: run.providerStatus || "success",
         api_token: apiToken,
+        team_id: teamId || undefined,
       }),
       cache: "no-store",
     });

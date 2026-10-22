@@ -145,6 +145,71 @@ async def test_apply_remediation_fails_cleanly_when_cli_missing(monkeypatch):
     assert "not found" in result["output"].lower()
 
 
+@pytest.mark.anyio
+async def test_sre_diagnoser_includes_team_id_in_commands(monkeypatch):
+    import asyncio
+    diagnoser = SREDiagnoser()
+    captured_cmds = []
+
+    class FakeProcess:
+        def __init__(self, returncode=0, stdout_data=b"output\n"):
+            self.returncode = returncode
+            self._stdout_data = stdout_data
+
+        async def communicate(self):
+            return self._stdout_data, b""
+
+    async def fake_subprocess(*args, **kwargs):
+        captured_cmds.append(list(args))
+        return FakeProcess()
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_subprocess)
+
+    # 1. fetch_runtime_logs with team_id
+    await diagnoser.fetch_runtime_logs(
+        app_id="aps-test",
+        lines=50,
+        api_token="mock-token",
+        team_id="6ace4ec3ec13fe0c3c19c4db",
+    )
+    assert len(captured_cmds) == 1
+    cmd = captured_cmds[0]
+    assert "--team-id" in cmd
+    idx = cmd.index("--team-id")
+    assert cmd[idx + 1] == "6ace4ec3ec13fe0c3c19c4db"
+
+    # 2. apply_remediation with team_id
+    remediation = RemediationAction(
+        action_id="rem-team-1",
+        operation="set_env",
+        target="aps-test",
+        env_variable="PORT",
+        env_value="3000",
+        description="Set port",
+        requires_approval=True,
+    )
+    approval = ActionApprovalModel(
+        run_id="run-team-1",
+        action_id="rem-team-1",
+        operation="set_env",
+        target="aps-test",
+        approved=True,
+        plan_digest="valid-digest",
+    )
+    await diagnoser.apply_remediation(
+        remediation=remediation,
+        approval=approval,
+        api_token="mock-token",
+        team_id="6ace4ec3ec13fe0c3c19c4db",
+    )
+    assert len(captured_cmds) == 2
+    rem_cmd = captured_cmds[1]
+    assert "--team-id" in rem_cmd
+    rem_idx = rem_cmd.index("--team-id")
+    assert rem_cmd[rem_idx + 1] == "6ace4ec3ec13fe0c3c19c4db"
+
+
+
 def test_diagnose_and_remediate_api_endpoints():
     from fastapi.testclient import TestClient
     from engine.main import app

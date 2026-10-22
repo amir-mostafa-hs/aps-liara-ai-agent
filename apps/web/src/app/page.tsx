@@ -35,6 +35,7 @@ import {
   Wrench,
   Sparkles,
   Check,
+  Users,
 } from "lucide-react";
 
 interface HealthData {
@@ -60,6 +61,7 @@ interface UserData {
 interface TokenData {
   configured: boolean;
   maskedToken?: string;
+  teamId?: string;
 }
 
 interface LiaraApp {
@@ -68,10 +70,17 @@ interface LiaraApp {
   status: string;
 }
 
+interface LiaraTeam {
+  id: string;
+  name: string;
+}
+
 interface TestConnectionResult {
   ok: boolean;
   app_count?: number;
   apps?: LiaraApp[];
+  team_id?: string | null;
+  teams?: LiaraTeam[];
   error?: string;
 }
 
@@ -93,6 +102,7 @@ export default function HomePage() {
   const [user, setUser] = useState<UserData | null>(null);
   const [tokenData, setTokenData] = useState<TokenData | null>(null);
   const [newToken, setNewToken] = useState("");
+  const [newTeamId, setNewTeamId] = useState("");
   const [isEditingToken, setIsEditingToken] = useState(false);
   const [savingToken, setSavingToken] = useState(false);
 
@@ -149,6 +159,9 @@ export default function HomePage() {
       setHealth(hData);
       setUser(uData);
       setTokenData(tData);
+      if (tData?.teamId !== undefined) {
+        setNewTeamId(tData.teamId || "");
+      }
       setLastChecked(new Date().toLocaleTimeString());
     } catch {
       setHealth({
@@ -168,24 +181,65 @@ export default function HomePage() {
 
   const handleSaveToken = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newToken.trim()) return;
+    if (!newToken.trim() && !tokenData?.configured) return;
     setSavingToken(true);
     try {
       const res = await fetch("/api/settings/liara-token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: newToken }),
+        body: JSON.stringify({
+          token: newToken.trim() || undefined,
+          teamId: newTeamId.trim(),
+        }),
       });
       const data = await res.json();
       if (res.ok) {
-        setTokenData({ configured: data.configured, maskedToken: data.maskedToken });
+        setTokenData({
+          configured: data.configured,
+          maskedToken: data.maskedToken,
+          teamId: data.teamId,
+        });
         setIsEditingToken(false);
         setNewToken("");
       } else {
-        alert(data.error || "Failed to update token");
+        alert(data.error || "Failed to update configuration");
       }
     } finally {
       setSavingToken(false);
+    }
+  };
+
+  const handleSelectTeam = async (selectedTeamId: string) => {
+    const trimmed = selectedTeamId.trim();
+    setNewTeamId(trimmed);
+    try {
+      const res = await fetch("/api/settings/liara-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          teamId: trimmed,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTokenData((prev) => (prev ? { ...prev, teamId: data.teamId } : prev));
+        // Auto re-test with newly selected team
+        setTestingConnection(true);
+        setConnectionResult(null);
+        try {
+          const testRes = await fetch("/api/liara/test-connection", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ team_id: trimmed }),
+          });
+          const testData = await testRes.json();
+          setConnectionResult(testData);
+        } finally {
+          setTestingConnection(false);
+        }
+      }
+    } catch (err: unknown) {
+      console.error("Failed to switch team:", err);
     }
   };
 
@@ -196,7 +250,9 @@ export default function HomePage() {
       const res = await fetch("/api/liara/test-connection", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({
+          team_id: tokenData?.teamId || newTeamId || undefined,
+        }),
       });
       const data = await res.json();
       setConnectionResult(data);
@@ -248,6 +304,7 @@ export default function HomePage() {
           sourcePath: projectPath.trim(),
           targetApp: targetApp.trim() || undefined,
           port: analysis?.port || 3000,
+          teamId: tokenData?.teamId || undefined,
         }),
       });
       const data = await res.json();
@@ -559,50 +616,98 @@ export default function HomePage() {
 
         {/* Token Display or Edit Form */}
         {isEditingToken ? (
-          <form onSubmit={handleSaveToken} className="flex gap-3 rounded-lg border border-zinc-800 bg-zinc-950 p-3">
-            <div className="relative flex-1">
-              <Key className="absolute left-3 top-2.5 h-4 w-4 text-zinc-500" />
-              <input
-                type="password"
-                value={newToken}
-                onChange={(e) => setNewToken(e.target.value)}
-                placeholder="Paste your Liara API Token here..."
-                required
-                className="w-full rounded-md border border-zinc-700 bg-zinc-900 py-1.5 pl-9 pr-3 text-xs text-zinc-100 placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
-              />
+          <form onSubmit={handleSaveToken} className="space-y-3 rounded-lg border border-zinc-800 bg-zinc-950 p-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="relative">
+                <label className="block text-[11px] font-medium text-zinc-400 mb-1">Liara API Token</label>
+                <div className="relative">
+                  <Key className="absolute left-3 top-2.5 h-4 w-4 text-zinc-500" />
+                  <input
+                    type="password"
+                    value={newToken}
+                    onChange={(e) => setNewToken(e.target.value)}
+                    placeholder={tokenData?.configured ? "Leave empty to keep existing token..." : "Paste Liara API Token..."}
+                    className="w-full rounded-md border border-zinc-700 bg-zinc-900 py-1.5 pl-9 pr-3 text-xs text-zinc-100 placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="relative">
+                <label className="block text-[11px] font-medium text-zinc-400 mb-1">
+                  Liara Team ID <span className="text-zinc-500 text-[10px]">(Optional)</span>
+                </label>
+                <div className="relative">
+                  <Users className="absolute left-3 top-2.5 h-4 w-4 text-zinc-500" />
+                  <input
+                    type="text"
+                    value={newTeamId}
+                    onChange={(e) => setNewTeamId(e.target.value)}
+                    placeholder="e.g. 6ace4ec3ec13fe0c3c19c4db"
+                    className="w-full rounded-md border border-zinc-700 bg-zinc-900 py-1.5 pl-9 pr-3 text-xs text-zinc-100 placeholder-zinc-500 focus:border-blue-500 focus:outline-none font-mono"
+                  />
+                </div>
+              </div>
             </div>
-            <button
-              type="submit"
-              disabled={savingToken}
-              className="rounded-md bg-blue-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-blue-500 disabled:opacity-50"
-            >
-              {savingToken ? "Saving..." : "Save Token"}
-            </button>
+
+            <div className="flex items-center justify-between pt-1">
+              <p className="text-[11px] text-zinc-400">
+                Leave Team ID empty to target your personal account projects, or enter your team ID for organization apps.
+              </p>
+              <button
+                type="submit"
+                disabled={savingToken}
+                className="rounded-md bg-blue-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-blue-500 disabled:opacity-50 transition"
+              >
+                {savingToken ? "Saving..." : "Save Credentials"}
+              </button>
+            </div>
           </form>
         ) : (
-          <div className="flex items-center justify-between rounded-lg border border-zinc-800/80 bg-zinc-950/60 px-4 py-2.5 text-xs">
-            <div className="flex items-center gap-2">
-              <span className="text-zinc-400">Current Token:</span>
-              <span className="font-mono text-zinc-200">
-                {tokenData?.configured ? tokenData.maskedToken : "Not Configured"}
-              </span>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 rounded-lg border border-zinc-800/80 bg-zinc-950/60 px-4 py-2.5 text-xs">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-zinc-400">Current Token:</span>
+                <span className="font-mono text-zinc-200">
+                  {tokenData?.configured ? tokenData.maskedToken : "Not Configured"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-zinc-400">Active Scope:</span>
+                <span className="inline-flex items-center gap-1 font-mono text-zinc-200">
+                  {tokenData?.teamId ? (
+                    <>
+                      <Users className="h-3.5 w-3.5 text-blue-400" />
+                      <span>Team ({tokenData.teamId})</span>
+                    </>
+                  ) : (
+                    <span>Personal Account</span>
+                  )}
+                </span>
+              </div>
             </div>
-            <span
-              className={`rounded-full px-2 py-0.5 text-[11px] font-medium border ${
-                tokenData?.configured
-                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                  : "bg-zinc-800 text-zinc-400 border-zinc-700"
-              }`}
-            >
-              {tokenData?.configured ? "Token Active (Masked)" : "No Token"}
-            </span>
+            <div className="flex items-center gap-2">
+              <span
+                className={`rounded-full px-2 py-0.5 text-[11px] font-medium border ${
+                  tokenData?.configured
+                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                    : "bg-zinc-800 text-zinc-400 border-zinc-700"
+                }`}
+              >
+                {tokenData?.configured ? "Token Active (Masked)" : "No Token"}
+              </span>
+              {tokenData?.teamId && (
+                <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[11px] font-medium text-blue-400 border border-blue-500/20">
+                  Team Mode
+                </span>
+              )}
+            </div>
           </div>
         )}
 
         {/* Test Connection Results View */}
         {connectionResult && (
           <div
-            className={`rounded-xl border p-4 text-xs ${
+            className={`rounded-xl border p-4 text-xs space-y-3 ${
               connectionResult.ok
                 ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-300"
                 : "border-red-500/30 bg-red-500/5 text-red-300"
@@ -616,27 +721,79 @@ export default function HomePage() {
               )}
               <span>
                 {connectionResult.ok
-                  ? `Liara Cloud Connection Verified — Found ${connectionResult.app_count} Active Project(s)`
+                  ? `Liara Cloud Connection Verified — Found ${connectionResult.app_count} Active Project(s) ${
+                      connectionResult.team_id ? `in Team (${connectionResult.team_id})` : "in Personal Account"
+                    }`
                   : `Connection Failed: ${connectionResult.error}`}
               </span>
             </div>
 
-            {connectionResult.ok && connectionResult.apps && connectionResult.apps.length > 0 && (
-              <div className="mt-3 grid gap-2 sm:grid-cols-2 md:grid-cols-3">
-                {connectionResult.apps.map((app) => (
-                  <div
-                    key={app.project_id}
-                    className="flex items-center justify-between rounded-lg border border-emerald-500/20 bg-zinc-900/80 p-2.5 text-zinc-200"
+            {/* Quick Team Switcher Chips */}
+            {connectionResult.ok && connectionResult.teams && connectionResult.teams.length > 0 && (
+              <div className="pt-1 border-t border-emerald-500/10">
+                <div className="text-[11px] font-medium text-zinc-400 mb-1.5">Switch Scope:</div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleSelectTeam("")}
+                    className={`rounded px-2.5 py-1 text-[11px] font-medium transition border ${
+                      !tokenData?.teamId
+                        ? "bg-blue-600 text-white border-blue-500 shadow-sm"
+                        : "bg-zinc-800/80 text-zinc-300 border-zinc-700 hover:bg-zinc-700"
+                    }`}
                   >
-                    <div>
-                      <div className="font-semibold text-zinc-100">{app.project_id}</div>
-                      <div className="text-[10px] text-zinc-400">Type: {app.type}</div>
+                    Personal Account
+                  </button>
+                  {connectionResult.teams.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => handleSelectTeam(t.id)}
+                      className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-[11px] font-medium transition border ${
+                        tokenData?.teamId === t.id
+                          ? "bg-blue-600 text-white border-blue-500 shadow-sm"
+                          : "bg-zinc-800/80 text-zinc-300 border-zinc-700 hover:bg-zinc-700"
+                      }`}
+                    >
+                      <Users className="h-3 w-3" />
+                      <span>{t.name}</span>
+                      <span className="font-mono text-[10px] text-zinc-400">({t.id})</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Projects Grid */}
+            {connectionResult.ok && connectionResult.apps && connectionResult.apps.length > 0 && (
+              <div className="space-y-1.5">
+                <div className="text-[11px] text-zinc-400">Available Apps (click to select as Target):</div>
+                <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
+                  {connectionResult.apps.map((app) => (
+                    <div
+                      key={app.project_id}
+                      onClick={() => setTargetApp(app.project_id)}
+                      className={`flex cursor-pointer items-center justify-between rounded-lg border p-2.5 transition ${
+                        targetApp === app.project_id
+                          ? "border-blue-500 bg-blue-500/10 text-white ring-1 ring-blue-500/50"
+                          : "border-emerald-500/20 bg-zinc-900/80 text-zinc-200 hover:border-blue-500/40 hover:bg-zinc-850"
+                      }`}
+                    >
+                      <div>
+                        <div className="font-semibold text-zinc-100 flex items-center gap-1.5">
+                          <span>{app.project_id}</span>
+                          {targetApp === app.project_id && (
+                            <span className="text-[10px] bg-blue-500/20 text-blue-300 px-1 rounded">Selected</span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-zinc-400">Platform: {app.type}</div>
+                      </div>
+                      <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] text-emerald-300">
+                        {app.status}
+                      </span>
                     </div>
-                    <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] text-emerald-300">
-                      {app.status}
-                    </span>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -1047,7 +1204,7 @@ export default function HomePage() {
                 <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/80"></span>
               </div>
               <span className="font-mono text-[11px] text-zinc-400 ml-2">
-                terminal &mdash; liara deploy {activeRun ? `--app ${activeRun.targetApp}` : ""}
+                terminal &mdash; liara deploy {activeRun ? `--app ${activeRun.targetApp}` : ""} {activeRun?.teamId || tokenData?.teamId ? `--team-id ${activeRun?.teamId || tokenData?.teamId}` : ""}
               </span>
             </div>
 
@@ -1381,7 +1538,7 @@ export default function HomePage() {
                   <div className="space-y-1 pt-1">
                     <span className="text-[11px] font-medium text-zinc-400">Command Preview:</span>
                     <div className="rounded border border-zinc-800 bg-zinc-950 p-2 font-mono text-xs text-zinc-300 overflow-x-auto">
-                      liara env:set {activeRun.remediationPlan.remediation.env_variable}=*** --app {activeRun.targetApp}
+                      liara env:set {activeRun.remediationPlan.remediation.env_variable}=*** --app {activeRun.targetApp} {activeRun?.teamId || tokenData?.teamId ? `--team-id ${activeRun?.teamId || tokenData?.teamId}` : ""}
                     </div>
                   </div>
                 </div>

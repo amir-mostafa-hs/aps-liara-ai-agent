@@ -47,6 +47,7 @@ export async function POST(
       where: { username: user.username },
     });
     const apiToken = dbUser?.liaraToken || process.env.LIARA_API_TOKEN || "";
+    const teamId = run.teamId || dbUser?.liaraTeamId || process.env.LIARA_TEAM_ID || "";
 
     // Transition status to executing and record exact start time
     await prisma.run.update({
@@ -93,6 +94,7 @@ export async function POST(
         },
         source_path: run.sourcePath,
         api_token: apiToken,
+        team_id: teamId || undefined,
       }),
       cache: "no-store",
     });

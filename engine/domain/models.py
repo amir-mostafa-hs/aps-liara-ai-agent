@@ -115,6 +115,7 @@ class DeployRequest(BaseModel):
     approval: ActionApprovalModel
     source_path: str
     api_token: str | None = None
+    team_id: str | None = None
 
 
 class VerificationResult(BaseModel):
@@ -193,6 +194,7 @@ class DiagnoseRequest(BaseModel):
     logs: str = ""
     provider_status: str = "success"
     api_token: str | None = None
+    team_id: str | None = None
 
 
 class RemediateRequest(BaseModel):
@@ -201,6 +203,7 @@ class RemediateRequest(BaseModel):
     approval: ActionApprovalModel
     api_token: str | None = None
     expected_digest: str | None = None
+    team_id: str | None = None
 
 
 

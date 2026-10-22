@@ -116,3 +116,32 @@ def test_cli_run_full_sre_recovery(mock_analysis, mock_plan, capsys):
         captured = capsys.readouterr()
         assert "Service Successfully Recovered" in captured.out
 
+
+def test_cli_run_passes_team_id(mock_analysis, mock_plan):
+    mock_verification_healthy = VerificationResult(
+        endpoint_url="https://aps-test.liara.run",
+        provider_status="success",
+        application_health="healthy",
+        http_status_code=200,
+    )
+    captured_kwargs = {}
+
+    async def fake_deploy_stream(*args, **kwargs):
+        captured_kwargs.update(kwargs)
+        yield "Deployed.\n"
+
+    with patch("engine.cli.project_inspector.inspect", return_value=mock_analysis), \
+         patch("engine.cli.deployment_planner.generate_plan", return_value=mock_plan), \
+         patch("engine.cli.deployment_executor.execute_deployment", side_effect=fake_deploy_stream), \
+         patch("engine.cli.endpoint_verifier.verify_endpoint", AsyncMock(return_value=mock_verification_healthy)):
+        code = main([
+            "run",
+            "--path", "sample-apps/nodejs-demo",
+            "--app", "aps-test",
+            "--team-id", "6ace4ec3ec13fe0c3c19c4db",
+            "-y",
+        ])
+        assert code == 0
+        assert captured_kwargs.get("team_id") == "6ace4ec3ec13fe0c3c19c4db"
+
+

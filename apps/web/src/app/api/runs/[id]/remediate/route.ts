@@ -69,6 +69,7 @@ export async function POST(
       where: { username: user.username },
     });
     const apiToken = dbUser?.liaraToken || process.env.LIARA_API_TOKEN || "";
+    const teamId = run.teamId || dbUser?.liaraTeamId || process.env.LIARA_TEAM_ID || "";
 
     // 1. Record ActionApproval for remediation with fresh matching digest
     const approval = await prisma.actionApproval.create({
@@ -107,6 +108,7 @@ export async function POST(
         },
         expected_digest: approval.planDigest,
         api_token: apiToken,
+        team_id: teamId || undefined,
       }),
       cache: "no-store",
     });

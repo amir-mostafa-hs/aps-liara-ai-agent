@@ -6,20 +6,32 @@ export async function POST(req: NextRequest) {
   try {
     const user = await getCurrentUser();
     const body = await req.json().catch(() => ({}));
-    let token = body.api_token;
+    let token = typeof body.api_token === "string" ? body.api_token.trim() : "";
+    let teamId = typeof body.team_id === "string" ? body.team_id.trim() : "";
 
-    // If token not provided in body, fetch saved token
+    // If token or teamId not provided in body, fetch saved user configuration
+    let dbUser = null;
+    if (user.authenticated && user.username) {
+      dbUser = await prisma.user.findUnique({
+        where: { username: user.username },
+      });
+    }
+
     if (!token) {
-      if (user.authenticated && user.username) {
-        const dbUser = await prisma.user.findUnique({
-          where: { username: user.username },
-        });
-        if (dbUser?.liaraToken) {
-          token = dbUser.liaraToken;
-        }
+      if (dbUser?.liaraToken) {
+        token = dbUser.liaraToken;
       }
       if (!token) {
         token = process.env.LIARA_API_TOKEN || "";
+      }
+    }
+
+    if (!teamId) {
+      if (dbUser?.liaraTeamId) {
+        teamId = dbUser.liaraTeamId;
+      }
+      if (!teamId) {
+        teamId = process.env.LIARA_TEAM_ID || "";
       }
     }
 
@@ -39,7 +51,10 @@ export async function POST(req: NextRequest) {
         "Content-Type": "application/json",
         "X-Internal-Secret": internalSecret,
       },
-      body: JSON.stringify({ api_token: token }),
+      body: JSON.stringify({
+        api_token: token.trim(),
+        team_id: teamId.trim() || undefined,
+      }),
       cache: "no-store",
     });
 
@@ -60,4 +75,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-

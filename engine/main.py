@@ -28,6 +28,7 @@ app = FastAPI(
 
 class TestConnectionRequest(BaseModel):
     api_token: str
+    team_id: str | None = None
 
 
 @app.get("/health", dependencies=[Depends(verify_internal_secret)])
@@ -41,7 +42,9 @@ async def health_check():
 
 @app.post("/liara/test-connection", dependencies=[Depends(verify_internal_secret)])
 async def test_liara_connection(payload: TestConnectionRequest):
-    result = await liara_adapter.test_connection(payload.api_token)
+    result = await liara_adapter.test_connection(
+        api_token=payload.api_token, team_id=payload.team_id
+    )
     return result
 
 
@@ -90,6 +93,7 @@ async def execute_deploy(payload: DeployRequest):
                 approval=payload.approval,
                 source_path=payload.source_path,
                 api_token=payload.api_token or "",
+                team_id=payload.team_id,
             ):
                 yield f"data: {json.dumps({'text': line})}\n\n"
         except Exception as e:
@@ -120,6 +124,7 @@ async def diagnose_failure(payload: DiagnoseRequest):
         logs = await sre_diagnoser.fetch_runtime_logs(
             app_id=payload.app_id,
             api_token=payload.api_token,
+            team_id=payload.team_id,
         )
 
     diagnosis = sre_diagnoser.diagnose_logs(
@@ -141,6 +146,7 @@ async def apply_sre_remediation(payload: RemediateRequest):
             approval=payload.approval,
             api_token=payload.api_token,
             expected_digest=payload.expected_digest,
+            team_id=payload.team_id,
         )
     except PermissionError as err:
         raise HTTPException(

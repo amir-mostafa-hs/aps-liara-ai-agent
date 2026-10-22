@@ -55,11 +55,15 @@ async def run_full_pipeline(
     app_name: str,
     token: Optional[str] = None,
     auto_approve: bool = False,
+    team_id: Optional[str] = None,
 ) -> int:
     api_token = token or os.getenv("LIARA_API_TOKEN") or ""
+    active_team = team_id or os.getenv("LIARA_TEAM_ID") or None
 
     # Step 1: Inspect
     print(f"\n[1/6] 🔍 Inspecting project at: {path}")
+    if active_team:
+        print(f"  ✓ Liara Team ID     : {active_team}")
     analysis = project_inspector.inspect(path)
     print(f"  ✓ Platform detected: {analysis.detected_platform} on port {analysis.port}")
     print(f"  ✓ Evidence files: {', '.join(analysis.evidence_files)}")
@@ -99,6 +103,7 @@ async def run_full_pipeline(
         approval=approval_model,
         source_path=path,
         api_token=api_token,
+        team_id=active_team,
     ):
         deploy_logs.append(chunk)
         print(f"  {chunk}", end="")
@@ -172,6 +177,7 @@ async def run_full_pipeline(
         remediation=rem,
         approval=rem_approval,
         api_token=api_token,
+        team_id=active_team,
     )
 
     print(f"  • Remediation output: {rem_result.get('output', 'Applied')}")
@@ -208,6 +214,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     run_parser.add_argument("--path", default="sample-apps/nodejs-demo", help="Path to project directory")
     run_parser.add_argument("--app", default="demo-node-app", help="Target Liara application name")
     run_parser.add_argument("--token", default=None, help="Liara API token (optional, defaults to env)")
+    run_parser.add_argument("--team-id", default=None, help="Liara Team ID (optional, defaults to LIARA_TEAM_ID env)")
     run_parser.add_argument("-y", "--yes", action="store_true", help="Auto-approve prompts (non-interactive)")
 
     # Command: inspect
@@ -232,6 +239,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 app_name=args.app,
                 token=args.token,
                 auto_approve=args.yes,
+                team_id=args.team_id,
             )
         )
 

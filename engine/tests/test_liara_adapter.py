@@ -74,3 +74,44 @@ async def test_liara_test_connection_invalid_token():
             # Ensure token was not reflected in error
             assert "bad-token-xyz" not in str(data)
 
+
+@pytest.mark.anyio
+async def test_liara_test_connection_with_team_id():
+    from engine.main import app
+
+    transport = ASGITransport(app=app)
+    mock_team_apps = [
+        {"project_id": "aps-test", "type": "node", "status": "ACTIVE"},
+    ]
+    mock_teams = [
+        {"_id": "6ace4ec3ec13fe0c3c19c4db", "name": "لیارا"}
+    ]
+
+    async def mock_get(self, url, headers=None, params=None):
+        if "v2/teams" in str(url):
+            return Response(status_code=200, json={"teams": mock_teams})
+        if "v1/projects" in str(url):
+            assert params == {"teamID": "6ace4ec3ec13fe0c3c19c4db"}
+            return Response(status_code=200, json={"projects": mock_team_apps})
+        return Response(status_code=404)
+
+    with patch("httpx.AsyncClient.get", new=mock_get):
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                "/liara/test-connection",
+                headers={"X-Internal-Secret": TEST_SECRET},
+                json={
+                    "api_token": "valid-token-123",
+                    "team_id": "6ace4ec3ec13fe0c3c19c4db",
+                },
+            )
+            assert response.status_code == 200
+            data = response.json()
+            assert data["ok"] is True
+            assert data["app_count"] == 1
+            assert data["apps"][0]["project_id"] == "aps-test"
+            assert data.get("team_id") == "6ace4ec3ec13fe0c3c19c4db"
+            assert len(data.get("teams", [])) == 1
+            assert data["teams"][0]["id"] == "6ace4ec3ec13fe0c3c19c4db"
+
+
