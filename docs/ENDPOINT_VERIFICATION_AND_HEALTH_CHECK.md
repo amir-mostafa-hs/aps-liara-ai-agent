@@ -126,3 +126,4 @@ pnpm test
   - Asserts internal secret header security on `/agent/verify`.
 - **Web Tests (`apps/web/tests/verify.test.mjs`):**
   - Asserts Next.js proxy forwards internal secret and correctly handles health verification outcomes.
+

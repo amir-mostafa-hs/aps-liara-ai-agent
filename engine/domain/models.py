@@ -137,4 +137,69 @@ class VerifyRequest(BaseModel):
     retries: int = 2
 
 
+class RemediationAction(BaseModel):
+    action_id: str
+    operation: str = "set_env"
+    target: str
+    env_variable: str
+    env_value: str
+    description: str
+    requires_approval: bool = True
+
+
+class DiagnosisResult(BaseModel):
+    diagnosis_id: str
+    root_cause: str
+    error_evidence: str
+    missing_variable: str | None = None
+    remediation: RemediationAction | None = None
+    confidence: float = 1.0
+    requires_approval: bool = True
+    digest: str = ""
+
+    def canonical_dict(self) -> dict:
+        return {
+            "diagnosis_id": self.diagnosis_id,
+            "error_evidence": self.error_evidence,
+            "missing_variable": self.missing_variable or "",
+            "remediation": {
+                "action_id": self.remediation.action_id,
+                "description": self.remediation.description,
+                "env_value": self.remediation.env_value,
+                "env_variable": self.remediation.env_variable,
+                "operation": self.remediation.operation,
+                "requires_approval": self.remediation.requires_approval,
+                "target": self.remediation.target,
+            }
+            if self.remediation
+            else None,
+            "requires_approval": self.requires_approval,
+            "root_cause": self.root_cause,
+        }
+
+    def compute_digest(self) -> str:
+        data = self.canonical_dict()
+        canonical_json = json.dumps(data, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(canonical_json.encode("utf-8")).hexdigest()
+
+    def verify_digest(self) -> bool:
+        if not self.digest:
+            return False
+        return self.compute_digest() == self.digest
+
+
+class DiagnoseRequest(BaseModel):
+    app_id: str
+    logs: str
+    provider_status: str = "success"
+
+
+class RemediateRequest(BaseModel):
+    app_id: str
+    remediation: RemediationAction
+    approval: ActionApprovalModel
+    api_token: str | None = None
+
+
+
 

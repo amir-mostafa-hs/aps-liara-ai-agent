@@ -2,11 +2,19 @@ import json
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from engine.domain.models import DeployRequest, InspectRequest, PlanRequest, VerifyRequest
+from engine.domain.models import (
+    DeployRequest,
+    DiagnoseRequest,
+    InspectRequest,
+    PlanRequest,
+    RemediateRequest,
+    VerifyRequest,
+)
 from engine.providers.liara_adapter import liara_adapter
 from engine.security import verify_internal_secret
 from engine.services.approval import verify_action_approval
 from engine.services.deployer import deployment_executor
+from engine.services.diagnoser import sre_diagnoser
 from engine.services.inspector import project_inspector
 from engine.services.planner import deployment_planner
 from engine.services.verifier import endpoint_verifier
@@ -103,6 +111,47 @@ async def verify_deployment_endpoint(payload: VerifyRequest):
         "ok": True,
         "verification": result.model_dump(),
     }
+
+
+@app.post("/agent/diagnose", dependencies=[Depends(verify_internal_secret)])
+async def diagnose_failure(payload: DiagnoseRequest):
+    diagnosis = sre_diagnoser.diagnose_logs(
+        logs=payload.logs,
+        app_id=payload.app_id,
+        provider_status=payload.provider_status,
+    )
+    return {
+        "ok": True,
+        "diagnosis": diagnosis.model_dump(),
+    }
+
+
+@app.post("/agent/remediate", dependencies=[Depends(verify_internal_secret)])
+async def apply_sre_remediation(payload: RemediateRequest):
+    try:
+        rem_result = await sre_diagnoser.apply_remediation(
+            remediation=payload.remediation,
+            approval=payload.approval,
+            api_token=payload.api_token,
+        )
+    except PermissionError as err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(err),
+        )
+
+    # Automatically re-verify public endpoint health to confirm recovery
+    verification = await endpoint_verifier.verify_endpoint(
+        app_id=payload.app_id,
+        provider_status="success",
+    )
+
+    return {
+        "ok": rem_result.get("ok", False),
+        "remediation_result": rem_result,
+        "verification": verification.model_dump(),
+    }
+
 
 
 

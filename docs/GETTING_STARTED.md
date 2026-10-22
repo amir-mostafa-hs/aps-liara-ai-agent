@@ -165,3 +165,10 @@ This builds and starts:
    - The engine sends an HTTP probe to `https://<app_id>.liara.run` and evaluates response status codes, latency, and response bodies.
    - The dashboard reports **Provider Status** (e.g. `SUCCESS`) and **Application Health** (e.g. `UNHEALTHY` if `SERVICE_SECRET` was omitted, or `HEALTHY` if present) as distinct signals.
    - In the deliberate failure test scenario, the agent detects the startup crash without falsely claiming success, priming the workflow for closed-loop SRE Diagnosis (Ticket 07).
+8. **Autonomous SRE Log Diagnosis & Approved Remediation:**
+   - In **Step 6 (Autonomous SRE Diagnosis & Approved Remediation)**, click **Diagnose Failure with AI**.
+   - The engine analyzes the crash stack trace, isolates root cause evidence, and cites the exact missing variable (`SERVICE_SECRET`).
+   - A targeted remediation proposal (`liara env:set SERVICE_SECRET=... --app <targetApp>`) is generated with a cryptographic plan digest.
+   - The operator inspects the proposed remediation and clicks **Approve Fix & Recover Service**.
+   - The engine applies the environment variable on Liara Cloud, restarts the application container, and re-probes `https://<targetApp>.liara.run`.
+   - Once verified, the dashboard displays: **"🎉 Service Successfully Recovered! Incident Closed."** with HTTP 200 health confirmed and all steps marked complete.

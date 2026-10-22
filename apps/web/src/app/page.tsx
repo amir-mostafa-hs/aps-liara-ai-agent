@@ -32,6 +32,9 @@ import {
   Globe,
   Activity,
   ExternalLink,
+  Wrench,
+  Sparkles,
+  Check,
 } from "lucide-react";
 
 interface HealthData {
@@ -118,6 +121,12 @@ export default function HomePage() {
   // Step 5 State: Endpoint Verification (Ticket 06 Feature)
   const [verifyingEndpoint, setVerifyingEndpoint] = useState(false);
   const [verificationError, setVerificationError] = useState<string | null>(null);
+
+  // Step 6 State: SRE Diagnosis & Remediation (Ticket 07 Feature)
+  const [diagnosing, setDiagnosing] = useState(false);
+  const [remediating, setRemediating] = useState(false);
+  const [sreError, setSreError] = useState<string | null>(null);
+  const [customEnvValue, setCustomEnvValue] = useState("prod-secret-session-recovery-key-2026");
 
   const [loading, setLoading] = useState(true);
   const [lastChecked, setLastChecked] = useState<string>("");
@@ -392,6 +401,56 @@ export default function HomePage() {
       setVerificationError(`Verification request error: ${msg}`);
     } finally {
       setVerifyingEndpoint(false);
+    }
+  };
+
+  const handleDiagnose = async () => {
+    if (!activeRun?.id) return;
+    setDiagnosing(true);
+    setSreError(null);
+
+    try {
+      const res = await fetch(`/api/runs/${activeRun.id}/diagnose`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        setActiveRun(data.run);
+      } else {
+        setSreError(data.error || "SRE log diagnosis failed.");
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setSreError(`Diagnosis error: ${msg}`);
+    } finally {
+      setDiagnosing(false);
+    }
+  };
+
+  const handleApplyRemediation = async () => {
+    if (!activeRun?.id) return;
+    setRemediating(true);
+    setSreError(null);
+
+    try {
+      const res = await fetch(`/api/runs/${activeRun.id}/remediate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          env_value: customEnvValue.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        setActiveRun(data.run);
+      } else {
+        setSreError(data.error || "Failed to apply remediation.");
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setSreError(`Remediation execution error: ${msg}`);
+    } finally {
+      setRemediating(false);
     }
   };
 
@@ -1201,7 +1260,7 @@ export default function HomePage() {
                 </div>
                 <p className="text-xs text-zinc-300 leading-relaxed">
                   The cloud provider reported deployment success, but the HTTP probe detected an application crash / connection error.
-                  The agent did <strong>not</strong> report a false success. The run is now primed for autonomous SRE Log Diagnosis & Remediation in Ticket 07.
+                  The agent did <strong>not</strong> report a false success. Proceed to Step 6 below for autonomous SRE Log Diagnosis & Remediation.
                 </p>
               </div>
             )}
@@ -1211,6 +1270,170 @@ export default function HomePage() {
             {activeRun
               ? "Deploy your application in Step 4, then click 'Verify Health' to inspect live public availability."
               : "Complete the previous deployment steps first."}
+          </div>
+        )}
+      </div>
+
+      {/* Step 6: Autonomous SRE Diagnosis & Approved Remediation (Ticket 07 Feature) */}
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-6 space-y-5">
+        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/10 text-amber-400">
+              <Wrench className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider">Step 6</span>
+                <h3 className="font-semibold text-zinc-100">Autonomous SRE Diagnosis & Approved Remediation</h3>
+              </div>
+              <p className="text-xs text-zinc-400">
+                Closed-loop incident recovery: analyze crash logs, cite root cause evidence, propose targeted fix, and enforce operator approval
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDiagnose}
+              disabled={diagnosing || !activeRun}
+              className="flex items-center gap-1.5 rounded-lg bg-amber-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-amber-600/20 hover:bg-amber-500 transition disabled:opacity-50"
+            >
+              <Sparkles className={`h-3.5 w-3.5 ${diagnosing ? "animate-spin" : ""}`} />
+              {diagnosing ? "Diagnosing Crash Logs..." : "Diagnose Failure with AI"}
+            </button>
+          </div>
+        </div>
+
+        {sreError && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>{sreError}</span>
+          </div>
+        )}
+
+        {/* Diagnosis & Remediation Box */}
+        {activeRun?.remediationPlan ? (
+          <div className="space-y-5 rounded-xl border border-amber-500/30 bg-zinc-950/80 p-5">
+            {/* Incident Summary Card */}
+            <div className="space-y-3 rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                  <ShieldAlert className="h-4 w-4" />
+                  SRE Root Cause Diagnosis
+                </span>
+                <span className="rounded-full bg-amber-500/10 px-2 py-0.5 font-mono text-[11px] font-semibold text-amber-300 border border-amber-500/20">
+                  Target: {activeRun.remediationPlan.missing_variable || "Configuration Issue"}
+                </span>
+              </div>
+              <p className="text-xs text-zinc-200 leading-relaxed">
+                {activeRun.remediationPlan.root_cause}
+              </p>
+
+              {/* Exact Log Evidence Citation */}
+              {activeRun.remediationPlan.error_evidence && (
+                <div className="space-y-1 pt-1">
+                  <span className="text-[11px] font-medium text-zinc-400">Exact Log Evidence Cited by Agent:</span>
+                  <div className="rounded border border-red-500/30 bg-red-950/20 p-2.5 font-mono text-xs text-red-300 overflow-x-auto">
+                    {activeRun.remediationPlan.error_evidence}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Proposed Remediation Action & Approval Gate */}
+            {activeRun.remediationPlan.remediation && (
+              <div className="space-y-4 rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-semibold text-zinc-200">Proposed Autonomous Remediation Plan</span>
+                    <p className="text-[11px] text-zinc-400">
+                      Gated by operator sign-off before executing mutating CLI command on Liara
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded bg-zinc-800 px-2 py-0.5 font-mono text-[10px] text-zinc-400 border border-zinc-700">
+                      SHA-256: {activeRun.remediationPlan.digest?.slice(0, 12)}...
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-zinc-400">Environment Variable:</span>
+                    <span className="font-mono font-bold text-amber-300">
+                      {activeRun.remediationPlan.remediation.env_variable}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-medium text-zinc-400">
+                      Remediation Value (Secret will be injected and redacted):
+                    </label>
+                    <input
+                      type="text"
+                      value={customEnvValue}
+                      onChange={(e) => setCustomEnvValue(e.target.value)}
+                      placeholder="Enter value for missing secret..."
+                      className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-xs text-zinc-100 placeholder-zinc-500 focus:border-amber-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1 pt-1">
+                    <span className="text-[11px] font-medium text-zinc-400">Command Preview:</span>
+                    <div className="rounded border border-zinc-800 bg-zinc-950 p-2 font-mono text-xs text-zinc-300 overflow-x-auto">
+                      liara env:set {activeRun.remediationPlan.remediation.env_variable}=*** --app {activeRun.targetApp}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Operator Approval Button */}
+                <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-zinc-800">
+                  <span className="text-[11px] text-zinc-400">
+                    Executing remediation will set the variable on Liara Cloud and trigger container reboot.
+                  </span>
+                  <button
+                    onClick={handleApplyRemediation}
+                    disabled={remediating || activeRun.status === "succeeded"}
+                    className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-emerald-600/20 hover:bg-emerald-500 transition disabled:opacity-50 shrink-0"
+                  >
+                    <ShieldCheck className={`h-3.5 w-3.5 ${remediating ? "animate-spin" : ""}`} />
+                    {remediating
+                      ? "Applying Fix & Probing..."
+                      : activeRun.status === "succeeded"
+                      ? "Remediation Applied"
+                      : "Approve Fix & Recover Service"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Success Celebration Banner */}
+            {activeRun.status === "succeeded" && activeRun.verification?.application_health === "healthy" && (
+              <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 space-y-2">
+                <div className="flex items-center gap-2 text-sm font-bold text-emerald-300">
+                  <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
+                  <span>🎉 Service Successfully Recovered! Incident Closed.</span>
+                </div>
+                <p className="text-xs text-zinc-300 leading-relaxed">
+                  The missing variable was applied to Liara Cloud, the container restarted cleanly, and the public health check on{" "}
+                  <a
+                    href={`https://${activeRun.targetApp}.liara.run`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-mono text-emerald-300 underline underline-offset-2"
+                  >
+                    https://{activeRun.targetApp}.liara.run
+                  </a>{" "}
+                  returned <strong>HTTP 200 OK</strong>. The closed-loop SRE workflow completed end-to-end.
+                </p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-dashed border-zinc-800 p-6 text-center text-xs text-zinc-500">
+            {activeRun?.verification?.ready_for_sre
+              ? "Crash detected in Step 5! Click 'Diagnose Failure with AI' above to analyze root cause logs and formulate remediation."
+              : "Verify your deployment in Step 5. If an application failure occurs, SRE self-healing activates here."}
           </div>
         )}
       </div>
@@ -1308,24 +1531,26 @@ export default function HomePage() {
 
       {/* Pipeline Navigation */}
       <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-6 space-y-4">
-        <h3 className="font-semibold text-zinc-100">Core Deployment & SRE Pipeline</h3>
-        <div className="grid gap-4 md:grid-cols-4">
+        <h3 className="font-semibold text-zinc-100">End-to-End Autonomous Pipeline</h3>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
           <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4 space-y-1">
             <div className="flex items-center justify-between text-xs font-bold text-blue-400">
               <span>STEP 1</span>
               <CheckCircle2 className="h-3.5 w-3.5" />
             </div>
             <div className="text-sm font-medium text-zinc-200">Operator Setup</div>
-            <div className="text-xs text-zinc-400">Login & Liara Token connection verified</div>
+            <div className="text-xs text-zinc-400">Auth & Liara Token verified</div>
           </div>
+
           <div className="rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-4 space-y-1">
             <div className="flex items-center justify-between text-xs font-bold text-indigo-400">
               <span>STEP 2</span>
               {analysis ? <CheckCircle2 className="h-3.5 w-3.5" /> : null}
             </div>
-            <div className="text-sm font-medium text-zinc-200">Project Inspection</div>
-            <div className="text-xs text-zinc-400">Static Node.js inspection & evidence check (Ready)</div>
+            <div className="text-sm font-medium text-zinc-200">Inspection</div>
+            <div className="text-xs text-zinc-400">Static Node.js evidence parsed</div>
           </div>
+
           <div
             className={`rounded-lg p-4 space-y-1 border ${
               activeRun?.status === "approved"
@@ -1349,23 +1574,18 @@ export default function HomePage() {
                 <XCircle className="h-3.5 w-3.5 text-red-400" />
               ) : null}
             </div>
-            <div className="text-sm font-medium text-zinc-200">Plan & Approval Gate</div>
+            <div className="text-sm font-medium text-zinc-200">Plan & Gate</div>
             <div className="text-xs text-zinc-400">
-              {activeRun
-                ? `Plan ${activeRun.status.replace("_", " ")}`
-                : "LLM structured plan & human sign-off (Active)"}
+              {activeRun ? `Plan ${activeRun.status.replace("_", " ")}` : "Pydantic structured plan"}
             </div>
           </div>
+
           <div
             className={`rounded-lg p-4 space-y-1 border ${
               activeRun?.status === "executing"
                 ? "border-cyan-500/30 bg-cyan-500/5 text-cyan-300"
-                : activeRun?.status === "verifying"
-                ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-300"
-                : activeRun?.status === "failed"
-                ? "border-amber-500/30 bg-amber-500/5 text-amber-300"
-                : activeRun?.status === "approved"
-                ? "border-cyan-500/20 bg-cyan-500/5 text-cyan-300"
+                : activeRun?.redactedLogs
+                ? "border-cyan-500/30 bg-cyan-500/5 text-cyan-300"
                 : "border-zinc-800/60 bg-zinc-900/60 opacity-80"
             }`}
           >
@@ -1373,21 +1593,69 @@ export default function HomePage() {
               <span>STEP 4</span>
               {activeRun?.status === "executing" ? (
                 <Rocket className="h-3.5 w-3.5 text-cyan-400 animate-spin" />
-              ) : activeRun?.status === "verifying" ? (
+              ) : activeRun?.redactedLogs ? (
+                <CheckCircle2 className="h-3.5 w-3.5 text-cyan-400" />
+              ) : null}
+            </div>
+            <div className="text-sm font-medium text-zinc-200">Deploy & SSE</div>
+            <div className="text-xs text-zinc-400">
+              {activeRun?.status === "executing"
+                ? "Streaming CLI logs..."
+                : activeRun?.redactedLogs
+                ? "Logs streamed & redacted"
+                : "Real Liara deployment"}
+            </div>
+          </div>
+
+          <div
+            className={`rounded-lg p-4 space-y-1 border ${
+              activeRun?.verification?.application_health === "healthy"
+                ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-300"
+                : activeRun?.verification?.application_health === "unhealthy"
+                ? "border-amber-500/30 bg-amber-500/5 text-amber-300"
+                : "border-zinc-800/60 bg-zinc-900/60 opacity-80"
+            }`}
+          >
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span>STEP 5</span>
+              {activeRun?.verification?.application_health === "healthy" ? (
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-              ) : activeRun?.status === "failed" ? (
+              ) : activeRun?.verification?.application_health === "unhealthy" ? (
                 <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
               ) : null}
             </div>
-            <div className="text-sm font-medium text-zinc-200">Deploy & SRE Loop</div>
+            <div className="text-sm font-medium text-zinc-200">Verify Health</div>
             <div className="text-xs text-zinc-400">
-              {activeRun?.status === "executing"
-                ? "Executing Liara deployment..."
-                : activeRun?.status === "verifying"
-                ? "Deployed (Ready for Verification)"
-                : activeRun?.status === "failed"
-                ? "Deployment Failed (SRE Loop Ready)"
-                : "Real deploy, logs stream & SRE loop"}
+              {activeRun?.verification?.application_health
+                ? `Health: ${activeRun.verification.application_health}`
+                : "Independent HTTP probe"}
+            </div>
+          </div>
+
+          <div
+            className={`rounded-lg p-4 space-y-1 border ${
+              activeRun?.status === "succeeded" && activeRun?.verification?.application_health === "healthy"
+                ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-300"
+                : activeRun?.remediationPlan
+                ? "border-amber-500/30 bg-amber-500/5 text-amber-300"
+                : "border-zinc-800/60 bg-zinc-900/60 opacity-80"
+            }`}
+          >
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span>STEP 6</span>
+              {activeRun?.status === "succeeded" && activeRun?.verification?.application_health === "healthy" ? (
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+              ) : activeRun?.remediationPlan ? (
+                <Wrench className="h-3.5 w-3.5 text-amber-400" />
+              ) : null}
+            </div>
+            <div className="text-sm font-medium text-zinc-200">SRE Self-Healing</div>
+            <div className="text-xs text-zinc-400">
+              {activeRun?.status === "succeeded" && activeRun?.verification?.application_health === "healthy"
+                ? "Service recovered (HTTP 200)"
+                : activeRun?.remediationPlan
+                ? "Diagnosis & fix pending"
+                : "Root cause analysis & fix"}
             </div>
           </div>
         </div>

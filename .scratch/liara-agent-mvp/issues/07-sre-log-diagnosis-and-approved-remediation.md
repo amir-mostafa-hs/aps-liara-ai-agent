@@ -5,12 +5,12 @@ A closed-loop SRE troubleshooting pipeline. When an application failure or crash
 
 **Blocked by:** 06 (Endpoint Verification and Health Check)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 ## Acceptance Criteria
-- [ ] Bounded runtime logs are queried and sanitized before model evaluation.
-- [ ] LangChain diagnosis generates an evidence-backed root cause citing exact log error lines.
-- [ ] Remediation plan proposes setting the missing variable via `liara env set` and explicitly requests approval.
-- [ ] Consequential remediation is blocked until explicit user confirmation is recorded.
-- [ ] After approved execution, the public endpoint is re-checked, verifying HTTP 200 health and closing the incident.
+- [x] Bounded runtime logs are queried and sanitized before model evaluation.
+- [x] LangChain diagnosis generates an evidence-backed root cause citing exact log error lines.
+- [x] Remediation plan proposes setting the missing variable via `liara env set` and explicitly requests approval.
+- [x] Consequential remediation is blocked until explicit user confirmation is recorded.
+- [x] After approved execution, the public endpoint is re-checked, verifying HTTP 200 health and closing the incident.
 
