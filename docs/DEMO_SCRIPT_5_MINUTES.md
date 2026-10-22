@@ -111,3 +111,4 @@ This rehearsed script guides presenters, evaluators, and operators through a 5-m
   > *Furthermore, every capability you saw here is also accessible via our unified CLI companion: `bin/liara-agent run`, sharing the exact same business logic.*
   > 
   > *Thank you for watching the Liara Deployment & SRE Agent demo!"*
+

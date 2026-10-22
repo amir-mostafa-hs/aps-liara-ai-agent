@@ -115,3 +115,4 @@ def test_cli_run_full_sre_recovery(mock_analysis, mock_plan, capsys):
         assert code == 0
         captured = capsys.readouterr()
         assert "Service Successfully Recovered" in captured.out
+

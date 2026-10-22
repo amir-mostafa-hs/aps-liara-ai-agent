@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "concurrently \"pnpm --filter web dev\" \"pnpm run dev:engine\"",
     "dev:web": "pnpm --filter web dev",
-    "dev:engine": "cd engine && .venv/bin/python -m uvicorn engine.main:app --host 127.0.0.1 --port 8000 --reload",
+    "dev:engine": "PYTHONPATH=. engine/.venv/bin/python -m uvicorn engine.main:app --host 127.0.0.1 --port 8000 --reload",
     "build": "pnpm --filter web build",
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose stop postgres",

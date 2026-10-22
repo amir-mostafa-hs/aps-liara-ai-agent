@@ -104,3 +104,4 @@ class DiagnosisResult(BaseModel):
    - Click **Approve Fix & Recover Service**.
    - The agent calls Liara CLI to set the secret, restarts the container, and verifies the public URL.
    - UI displays: **"🎉 Service Successfully Recovered! Incident Closed."**
+
