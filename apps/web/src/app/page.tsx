@@ -14,8 +14,11 @@ import {
   Cloud,
   LogOut,
   LogIn,
-  ExternalLink,
-  ChevronRight,
+  Search,
+  FileCode2,
+  Cpu,
+  Layers,
+  ArrowRight,
   ShieldAlert,
 } from "lucide-react";
 
@@ -57,6 +60,18 @@ interface TestConnectionResult {
   error?: string;
 }
 
+interface ProjectAnalysis {
+  detected_language: string;
+  detected_platform: string;
+  confidence: number;
+  entrypoint?: string;
+  start_command?: string;
+  port: number;
+  evidence_files: string[];
+  required_env_names: string[];
+  missing_configurations: string[];
+}
+
 export default function HomePage() {
   const router = useRouter();
   const [health, setHealth] = useState<HealthData | null>(null);
@@ -68,6 +83,12 @@ export default function HomePage() {
 
   const [testingConnection, setTestingConnection] = useState(false);
   const [connectionResult, setConnectionResult] = useState<TestConnectionResult | null>(null);
+
+  // Step 2 State: Project Inspection
+  const [projectPath, setProjectPath] = useState("sample-apps/nodejs-demo");
+  const [inspecting, setInspecting] = useState(false);
+  const [analysis, setAnalysis] = useState<ProjectAnalysis | null>(null);
+  const [inspectError, setInspectError] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [lastChecked, setLastChecked] = useState<string>("");
@@ -149,6 +170,34 @@ export default function HomePage() {
     }
   };
 
+  const handleInspect = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!projectPath.trim()) return;
+
+    setInspecting(true);
+    setInspectError(null);
+    try {
+      const res = await fetch("/api/project/inspect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: projectPath.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        setAnalysis(data.analysis);
+      } else {
+        setInspectError(data.error || "Project inspection failed.");
+        setAnalysis(null);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setInspectError(`Failed to connect to inspection service: ${msg}`);
+      setAnalysis(null);
+    } finally {
+      setInspecting(false);
+    }
+  };
+
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
     setUser({ authenticated: false });
@@ -216,7 +265,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Liara Cloud Configuration & Live Connection Card (Ticket 02 Feature) */}
+      {/* Step 1: Liara Cloud Configuration & Live Connection Card */}
       <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-6 space-y-5">
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
           <div className="flex items-center gap-3">
@@ -224,7 +273,10 @@ export default function HomePage() {
               <Cloud className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="font-semibold text-zinc-100">Liara Cloud Credentials & Connection</h3>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold text-blue-400 uppercase tracking-wider">Step 1</span>
+                <h3 className="font-semibold text-zinc-100">Liara Cloud Credentials & Connection</h3>
+              </div>
               <p className="text-xs text-zinc-400">
                 Configure your Liara API token and verify access to your cloud projects
               </p>
@@ -335,6 +387,144 @@ export default function HomePage() {
         )}
       </div>
 
+      {/* Step 2: Static Project Inspection (Ticket 03 Feature) */}
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-6 space-y-5">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-400">
+            <Search className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold text-indigo-400 uppercase tracking-wider">Step 2</span>
+              <h3 className="font-semibold text-zinc-100">Static Project Inspection</h3>
+            </div>
+            <p className="text-xs text-zinc-400">
+              Inspect project files safely without executing untrusted code or repository hooks
+            </p>
+          </div>
+        </div>
+
+        {/* Input Form */}
+        <form onSubmit={handleInspect} className="space-y-3">
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="relative flex-1">
+              <FileCode2 className="absolute left-3 top-2.5 h-4 w-4 text-zinc-500" />
+              <input
+                type="text"
+                value={projectPath}
+                onChange={(e) => setProjectPath(e.target.value)}
+                placeholder="Enter project path (e.g. sample-apps/nodejs-demo)"
+                required
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 py-2 pl-9 pr-3 text-xs text-zinc-100 placeholder-zinc-500 focus:border-indigo-500 focus:outline-none"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setProjectPath("sample-apps/nodejs-demo");
+              }}
+              className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-xs font-medium text-zinc-300 hover:bg-zinc-700 transition"
+            >
+              Preset: Sample App
+            </button>
+            <button
+              type="submit"
+              disabled={inspecting}
+              className="flex items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-medium text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 transition disabled:opacity-50"
+            >
+              <Search className={`h-3.5 w-3.5 ${inspecting ? "animate-spin" : ""}`} />
+              {inspecting ? "Inspecting..." : "Inspect Project"}
+            </button>
+          </div>
+        </form>
+
+        {/* Inspection Error Alert */}
+        {inspectError && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>{inspectError}</span>
+          </div>
+        )}
+
+        {/* Analysis Results Card */}
+        {analysis && (
+          <div className="rounded-xl border border-indigo-500/20 bg-zinc-950/70 p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-zinc-800/80 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-zinc-100 text-sm">Project Analysis Results</span>
+                <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-400 border border-emerald-500/20">
+                  Confidence: {Math.round(analysis.confidence * 100)}%
+                </span>
+              </div>
+              <span className="font-mono text-[11px] text-zinc-400">
+                Language: <strong className="text-zinc-200 capitalize">{analysis.detected_language}</strong>
+              </span>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4 text-xs">
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
+                <span className="text-zinc-500 block text-[11px]">Detected Platform</span>
+                <span className="font-semibold text-indigo-400 font-mono text-sm capitalize">
+                  {analysis.detected_platform}
+                </span>
+              </div>
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
+                <span className="text-zinc-500 block text-[11px]">Start Command</span>
+                <span className="font-mono text-zinc-200">{analysis.start_command || "node server.js"}</span>
+              </div>
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
+                <span className="text-zinc-500 block text-[11px]">Default Port</span>
+                <span className="font-mono text-zinc-200">{analysis.port}</span>
+              </div>
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
+                <span className="text-zinc-500 block text-[11px]">Entrypoint</span>
+                <span className="font-mono text-zinc-200">{analysis.entrypoint || "server.js"}</span>
+              </div>
+            </div>
+
+            {/* Evidence Files & Required Variables */}
+            <div className="grid gap-4 sm:grid-cols-2 text-xs">
+              <div className="space-y-1.5">
+                <span className="text-zinc-400 font-medium">Evidence Files:</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {analysis.evidence_files.map((file) => (
+                    <span
+                      key={file}
+                      className="rounded bg-zinc-800 px-2 py-0.5 font-mono text-[11px] text-zinc-300 border border-zinc-700"
+                    >
+                      {file}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <span className="text-zinc-400 font-medium">Required Environment Variables:</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {analysis.required_env_names.map((env) => (
+                    <span
+                      key={env}
+                      className={`rounded px-2 py-0.5 font-mono text-[11px] font-semibold border ${
+                        env === "SERVICE_SECRET"
+                          ? "bg-amber-500/10 text-amber-300 border-amber-500/30"
+                          : "bg-blue-500/10 text-blue-300 border-blue-500/30"
+                      }`}
+                    >
+                      {env}
+                      {env === "SERVICE_SECRET" && " (Mandatory for SRE Demo)"}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg bg-amber-500/5 border border-amber-500/20 p-3 text-[11px] text-amber-300">
+              ℹ️ <strong>SRE Demo Scenario Ready:</strong> The detected test app requires <code>SERVICE_SECRET</code>. The deployment plan in Step 3 will be prepared, and deploying without this variable will trigger the controlled SRE crash and remediation loop.
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Services Grid */}
       <div className="grid gap-6 md:grid-cols-3">
         {/* Web Application Tier */}
@@ -438,10 +628,13 @@ export default function HomePage() {
             <div className="text-sm font-medium text-zinc-200">Operator Setup</div>
             <div className="text-xs text-zinc-400">Login & Liara Token connection verified</div>
           </div>
-          <div className="rounded-lg border border-zinc-800/60 bg-zinc-900/60 p-4 space-y-1 opacity-80">
-            <div className="text-xs font-bold text-zinc-400">STEP 2</div>
+          <div className="rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-4 space-y-1">
+            <div className="flex items-center justify-between text-xs font-bold text-indigo-400">
+              <span>STEP 2</span>
+              {analysis ? <CheckCircle2 className="h-3.5 w-3.5" /> : null}
+            </div>
             <div className="text-sm font-medium text-zinc-200">Project Inspection</div>
-            <div className="text-xs text-zinc-400">Static Node.js inspection & evidence check (Ticket 03)</div>
+            <div className="text-xs text-zinc-400">Static Node.js inspection & evidence check (Ready)</div>
           </div>
           <div className="rounded-lg border border-zinc-800/60 bg-zinc-900/60 p-4 space-y-1 opacity-80">
             <div className="text-xs font-bold text-zinc-400">STEP 3</div>

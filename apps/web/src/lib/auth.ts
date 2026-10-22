@@ -22,3 +22,4 @@ export async function getCurrentUser(): Promise<{ authenticated: boolean; userna
     return { authenticated: false };
   }
 }
+

@@ -27,3 +27,4 @@ test("verifySessionToken rejects tampered signature", () => {
   const verified = verifySessionToken(tampered);
   assert.equal(verified.valid, false);
 });
+

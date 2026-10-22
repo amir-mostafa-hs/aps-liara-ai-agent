@@ -28,3 +28,4 @@ def redact_text(text: str, secret: str | None = None) -> str:
     )
 
     return redacted
+

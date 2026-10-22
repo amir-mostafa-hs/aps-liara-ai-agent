@@ -1,0 +1,11 @@
+{
+  "name": "liara-node-demo",
+  "version": "1.0.0",
+  "description": "Minimal Node.js web application for Liara Agent deployment and SRE demo",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test.mjs"
+  },
+  "dependencies": {}
+}

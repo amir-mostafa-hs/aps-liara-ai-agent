@@ -73,3 +73,4 @@ async def test_liara_test_connection_invalid_token():
             assert "Authentication failed" in data["error"]
             # Ensure token was not reflected in error
             assert "bad-token-xyz" not in str(data)
+
