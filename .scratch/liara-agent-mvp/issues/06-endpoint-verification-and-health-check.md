@@ -5,12 +5,12 @@ An independent verification service that determines application health by queryi
 
 **Blocked by:** 05 (Real Liara Deployment Execution and Live Log Streaming)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 ## Acceptance Criteria
-- [ ] Agent queries the deployed application's public URL with configurable timeout and retries.
-- [ ] Provider deployment status and application HTTP health are tracked and reported as distinct signals in `VerificationResult`.
-- [ ] Receiving HTTP 200 OK transitions the run to `succeeded` and renders a green "Healthy" badge.
-- [ ] Process crashes, HTTP 500, or connection failures mark application health as `unhealthy` without falsely claiming overall success.
-- [ ] Indeterminate network outcomes or unresponsive endpoints yield an explicit `inconclusive` status.
+- [x] Agent queries the deployed application's public URL with configurable timeout and retries.
+- [x] Provider deployment status and application HTTP health are tracked and reported as distinct signals in `VerificationResult`.
+- [x] Receiving HTTP 200 OK transitions the run to `succeeded` and renders a green "Healthy" badge.
+- [x] Process crashes, HTTP 500, or connection failures mark application health as `unhealthy` without falsely claiming overall success.
+- [x] Indeterminate network outcomes or unresponsive endpoints yield an explicit `inconclusive` status.
 

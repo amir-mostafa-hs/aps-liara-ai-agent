@@ -56,3 +56,4 @@ test("Next.js deploy SSE proxy forwards request with X-Internal-Secret and strea
     await new Promise((resolve) => server.close(resolve));
   }
 });
+

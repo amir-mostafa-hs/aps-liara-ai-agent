@@ -2,13 +2,14 @@ import json
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from engine.domain.models import DeployRequest, InspectRequest, PlanRequest
+from engine.domain.models import DeployRequest, InspectRequest, PlanRequest, VerifyRequest
 from engine.providers.liara_adapter import liara_adapter
 from engine.security import verify_internal_secret
 from engine.services.approval import verify_action_approval
 from engine.services.deployer import deployment_executor
 from engine.services.inspector import project_inspector
 from engine.services.planner import deployment_planner
+from engine.services.verifier import endpoint_verifier
 
 app = FastAPI(
     title="Liara Agent Engine",
@@ -87,6 +88,22 @@ async def execute_deploy(payload: DeployRequest):
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
     return StreamingResponse(sse_event_generator(), media_type="text/event-stream")
+
+
+@app.post("/agent/verify", dependencies=[Depends(verify_internal_secret)])
+async def verify_deployment_endpoint(payload: VerifyRequest):
+    result = await endpoint_verifier.verify_endpoint(
+        app_id=payload.app_id,
+        endpoint_url=payload.endpoint_url,
+        provider_status=payload.provider_status,
+        timeout_seconds=payload.timeout_seconds,
+        retries=payload.retries,
+    )
+    return {
+        "ok": True,
+        "verification": result.model_dump(),
+    }
+
 
 
 

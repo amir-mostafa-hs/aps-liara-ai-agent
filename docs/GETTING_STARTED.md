@@ -160,3 +160,8 @@ This builds and starts:
    - Real-time build progress and deployment output stream directly to the web dashboard terminal via Server-Sent Events (SSE).
    - All secret tokens, Authorization headers, and sensitive strings are redacted on-the-fly before reaching the browser or database.
    - Upon completion, the full redacted output and exit code are persisted in the PostgreSQL `Run` record.
+7. **Public Endpoint Health Verification & Health Decoupling:**
+   - In **Step 5 (Public Endpoint Verification & Health Decoupling)**, click **Verify Health** (or follow the prompt in the deployment card).
+   - The engine sends an HTTP probe to `https://<app_id>.liara.run` and evaluates response status codes, latency, and response bodies.
+   - The dashboard reports **Provider Status** (e.g. `SUCCESS`) and **Application Health** (e.g. `UNHEALTHY` if `SERVICE_SECRET` was omitted, or `HEALTHY` if present) as distinct signals.
+   - In the deliberate failure test scenario, the agent detects the startup crash without falsely claiming success, priming the workflow for closed-loop SRE Diagnosis (Ticket 07).

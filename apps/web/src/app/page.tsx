@@ -29,6 +29,9 @@ import {
   Play,
   Copy,
   Trash2,
+  Globe,
+  Activity,
+  ExternalLink,
 } from "lucide-react";
 
 interface HealthData {
@@ -111,6 +114,10 @@ export default function HomePage() {
   const [deploying, setDeploying] = useState(false);
   const [deployLogs, setDeployLogs] = useState<string[]>([]);
   const [deployError, setDeployError] = useState<string | null>(null);
+
+  // Step 5 State: Endpoint Verification (Ticket 06 Feature)
+  const [verifyingEndpoint, setVerifyingEndpoint] = useState(false);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [lastChecked, setLastChecked] = useState<string>("");
@@ -362,6 +369,29 @@ export default function HomePage() {
       setDeployError(`Stream error: ${msg}`);
     } finally {
       setDeploying(false);
+    }
+  };
+
+  const handleVerifyEndpoint = async () => {
+    if (!activeRun?.id) return;
+    setVerifyingEndpoint(true);
+    setVerificationError(null);
+
+    try {
+      const res = await fetch(`/api/runs/${activeRun.id}/verify`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        setActiveRun(data.run);
+      } else {
+        setVerificationError(data.error || "Endpoint verification failed.");
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setVerificationError(`Verification request error: ${msg}`);
+    } finally {
+      setVerifyingEndpoint(false);
     }
   };
 
@@ -1016,6 +1046,173 @@ export default function HomePage() {
             )}
           </div>
         </div>
+
+        {/* Verification Trigger Banner once deployed */}
+        {activeRun && (activeRun.status === "verifying" || activeRun.status === "failed" || activeRun.status === "succeeded") && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-cyan-500/30 bg-cyan-500/10 p-3 text-xs text-cyan-300">
+            <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4 text-cyan-400 shrink-0" />
+              <span>
+                Deployment finished. Run the independent health check to verify endpoint availability on Liara.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleVerifyEndpoint}
+              disabled={verifyingEndpoint}
+              className="shrink-0 flex items-center justify-center gap-1.5 rounded-lg bg-cyan-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-lg shadow-cyan-600/20 hover:bg-cyan-500 transition disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${verifyingEndpoint ? "animate-spin" : ""}`} />
+              {verifyingEndpoint ? "Verifying..." : "Verify Public Endpoint →"}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Step 5: Public Endpoint Verification & Health Decoupling (Ticket 06 Feature) */}
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-6 space-y-5">
+        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400">
+              <Globe className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">Step 5</span>
+                <h3 className="font-semibold text-zinc-100">Public Endpoint Verification & Health Decoupling</h3>
+              </div>
+              <p className="text-xs text-zinc-400">
+                Independent HTTP verification strictly distinguishing provider deployment state from actual application health
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {activeRun?.targetApp && (
+              <a
+                href={`https://${activeRun.targetApp}.liara.run`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs font-mono text-zinc-300 hover:bg-zinc-700 transition"
+              >
+                <span>https://{activeRun.targetApp}.liara.run</span>
+                <ExternalLink className="h-3.5 w-3.5 text-zinc-400" />
+              </a>
+            )}
+            <button
+              onClick={handleVerifyEndpoint}
+              disabled={verifyingEndpoint || !activeRun}
+              className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-1.5 text-xs font-medium text-white shadow-lg shadow-emerald-600/20 hover:bg-emerald-500 transition disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${verifyingEndpoint ? "animate-spin" : ""}`} />
+              {verifyingEndpoint ? "Checking..." : "Verify Health"}
+            </button>
+          </div>
+        </div>
+
+        {verificationError && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>{verificationError}</span>
+          </div>
+        )}
+
+        {/* Verification Results Cards */}
+        {activeRun?.verification ? (
+          <div className="space-y-4 rounded-xl border border-emerald-500/20 bg-zinc-950/70 p-5">
+            <div className="grid gap-4 sm:grid-cols-3 text-xs">
+              {/* Card 1: Provider Status */}
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3.5 space-y-1">
+                <span className="text-zinc-500 block text-[11px]">Provider Deployment Status</span>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`rounded-full px-2 py-0.5 font-mono text-[11px] font-bold uppercase border ${
+                      activeRun.verification.provider_status === "success"
+                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                        : "bg-red-500/10 text-red-400 border-red-500/30"
+                    }`}
+                  >
+                    {activeRun.verification.provider_status}
+                  </span>
+                </div>
+                <p className="text-[10px] text-zinc-400 pt-1">
+                  Provider image release and process launch status.
+                </p>
+              </div>
+
+              {/* Card 2: Application HTTP Health */}
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3.5 space-y-1">
+                <span className="text-zinc-500 block text-[11px]">Application HTTP Health</span>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`rounded-full px-2 py-0.5 font-mono text-[11px] font-bold uppercase border ${
+                      activeRun.verification.application_health === "healthy"
+                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                        : activeRun.verification.application_health === "unhealthy"
+                        ? "bg-red-500/10 text-red-400 border-red-500/30 animate-pulse"
+                        : "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                    }`}
+                  >
+                    {activeRun.verification.application_health}
+                  </span>
+                </div>
+                <p className="text-[10px] text-zinc-400 pt-1">
+                  Public endpoint probe response on <code>*.liara.run</code>.
+                </p>
+              </div>
+
+              {/* Card 3: Status Code & Latency */}
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3.5 space-y-1">
+                <span className="text-zinc-500 block text-[11px]">HTTP Response & Latency</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-zinc-200 font-bold">
+                    {activeRun.verification.http_status_code
+                      ? `HTTP ${activeRun.verification.http_status_code}`
+                      : "No HTTP Response"}
+                  </span>
+                  {activeRun.verification.latency_ms && (
+                    <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] font-mono text-zinc-400">
+                      {activeRun.verification.latency_ms} ms
+                    </span>
+                  )}
+                </div>
+                <p className="text-[10px] text-zinc-400 pt-1">
+                  Round-trip latency to deployed service.
+                </p>
+              </div>
+            </div>
+
+            {/* Response Snippet or Error Details */}
+            {(activeRun.verification.response_body_snippet || activeRun.verification.error_message) && (
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/90 p-3 text-xs space-y-1">
+                <span className="text-zinc-400 text-[11px] block font-medium">Endpoint Response / Error:</span>
+                <pre className="font-mono text-[11px] text-zinc-300 bg-zinc-950 p-2.5 rounded border border-zinc-800/80 overflow-x-auto whitespace-pre-wrap">
+                  {activeRun.verification.response_body_snippet || activeRun.verification.error_message}
+                </pre>
+              </div>
+            )}
+
+            {/* Deliberate SRE Failure Notice */}
+            {activeRun.verification.ready_for_sre && (
+              <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 space-y-2">
+                <div className="flex items-center gap-2 text-xs font-bold text-amber-300">
+                  <AlertCircle className="h-4 w-4 text-amber-400 shrink-0" />
+                  <span>Deliberate SRE Scenario Detected: Provider Deployed But App Crashed</span>
+                </div>
+                <p className="text-xs text-zinc-300 leading-relaxed">
+                  The cloud provider reported deployment success, but the HTTP probe detected an application crash / connection error.
+                  The agent did <strong>not</strong> report a false success. The run is now primed for autonomous SRE Log Diagnosis & Remediation in Ticket 07.
+                </p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-dashed border-zinc-800 p-6 text-center text-xs text-zinc-500">
+            {activeRun
+              ? "Deploy your application in Step 4, then click 'Verify Health' to inspect live public availability."
+              : "Complete the previous deployment steps first."}
+          </div>
+        )}
       </div>
 
       {/* Services Grid */}

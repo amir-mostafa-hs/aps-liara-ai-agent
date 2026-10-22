@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import hashlib
 import json
 from pydantic import BaseModel, Field, field_validator
@@ -114,5 +115,26 @@ class DeployRequest(BaseModel):
     approval: ActionApprovalModel
     source_path: str
     api_token: str | None = None
+
+
+class VerificationResult(BaseModel):
+    endpoint_url: str
+    provider_status: str = "success"
+    application_health: str = "inconclusive"  # "healthy", "unhealthy", "inconclusive"
+    http_status_code: int | None = None
+    response_body_snippet: str | None = None
+    error_message: str | None = None
+    latency_ms: float | None = None
+    checked_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    ready_for_sre: bool = False
+
+
+class VerifyRequest(BaseModel):
+    app_id: str
+    endpoint_url: str | None = None
+    provider_status: str = "success"
+    timeout_seconds: float = 5.0
+    retries: int = 2
+
 
 

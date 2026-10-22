@@ -121,3 +121,4 @@ pnpm test
 - **Web Deployment Proxy Tests (`apps/web/tests/deploy.test.mjs`):**
   - Asserts `X-Internal-Secret` forwarding to engine
   - Asserts `text/event-stream` headers and chunk streaming
+
