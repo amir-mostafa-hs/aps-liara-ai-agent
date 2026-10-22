@@ -154,3 +154,9 @@ This builds and starts:
    - The operator inspects the proposed actions, impact level, and tamper-proof digest.
    - Clicking **Reject Plan** cleanly marks the run as `cancelled` and halts execution.
    - Clicking **Approve Plan & Proceed** validates the cryptographic digest against the canonical plan, records an immutable `ActionApproval` record in PostgreSQL with operator user ID and timestamp, and transitions the run to `approved` (ready for autonomous deployment in Ticket 05).
+6. **Real Liara Deployment Execution & Live SSE Log Streaming:**
+   - Once the plan is approved, **Step 4 (Live Deployment & Log Streaming)** unblocks the **Execute Deployment** action.
+   - Clicking **Execute Deployment** launches the non-interactive `liara deploy` process via argument arrays on the Python Engine.
+   - Real-time build progress and deployment output stream directly to the web dashboard terminal via Server-Sent Events (SSE).
+   - All secret tokens, Authorization headers, and sensitive strings are redacted on-the-fly before reaching the browser or database.
+   - Upon completion, the full redacted output and exit code are persisted in the PostgreSQL `Run` record.

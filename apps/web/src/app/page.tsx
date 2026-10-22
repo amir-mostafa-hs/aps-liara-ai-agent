@@ -24,6 +24,11 @@ import {
   Lock,
   XCircle,
   AlertTriangle,
+  Terminal,
+  Rocket,
+  Play,
+  Copy,
+  Trash2,
 } from "lucide-react";
 
 interface HealthData {
@@ -101,6 +106,11 @@ export default function HomePage() {
   const [planError, setPlanError] = useState<string | null>(null);
   const [approving, setApproving] = useState(false);
   const [rejecting, setRejecting] = useState(false);
+
+  // Step 4 State: Live Deployment & Streaming Logs (Ticket 05 Feature)
+  const [deploying, setDeploying] = useState(false);
+  const [deployLogs, setDeployLogs] = useState<string[]>([]);
+  const [deployError, setDeployError] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [lastChecked, setLastChecked] = useState<string>("");
@@ -286,6 +296,72 @@ export default function HomePage() {
       alert(`Rejection error: ${msg}`);
     } finally {
       setRejecting(false);
+    }
+  };
+
+  const handleExecuteDeploy = async () => {
+    if (!activeRun?.id) return;
+    setDeploying(true);
+    setDeployError(null);
+    setDeployLogs([`[AGENT] Connecting to deployment stream for ${activeRun.targetApp}...`]);
+
+    try {
+      const res = await fetch(`/api/runs/${activeRun.id}/deploy`, {
+        method: "POST",
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setDeployError(data.error || `Deployment execution failed (HTTP ${res.status})`);
+        setDeploying(false);
+        return;
+      }
+
+      const reader = res.body?.getReader();
+      if (!reader) {
+        setDeployError("Response stream is not readable.");
+        setDeploying(false);
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const payload = JSON.parse(line.slice(6));
+              if (payload.text) {
+                setDeployLogs((prev) => [...prev, payload.text.trimEnd()]);
+              } else if (payload.error) {
+                setDeployLogs((prev) => [...prev, `[ERROR] ${payload.error}`]);
+              }
+            } catch {
+              setDeployLogs((prev) => [...prev, line.slice(6)]);
+            }
+          }
+        }
+      }
+
+      // Refresh run to get updated status and database records
+      const runRes = await fetch(`/api/runs/${activeRun.id}`, { cache: "no-store" });
+      const runData = await runRes.json();
+      if (runRes.ok && runData.ok) {
+        setActiveRun(runData.run);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setDeployError(`Stream error: ${msg}`);
+    } finally {
+      setDeploying(false);
     }
   };
 
@@ -793,11 +869,22 @@ export default function HomePage() {
             )}
 
             {activeRun.status === "approved" && (
-              <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-300">
-                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                <span>
-                  <strong>Plan Approved:</strong> Cryptographic approval token recorded in PostgreSQL audit logs. Ready for autonomous deployment execution (Ticket 05).
-                </span>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-300">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                  <span>
+                    <strong>Plan Approved:</strong> Cryptographic approval token recorded in PostgreSQL. Ready for deployment execution.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleExecuteDeploy}
+                  disabled={deploying}
+                  className="shrink-0 flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-lg shadow-emerald-600/20 hover:bg-emerald-500 transition disabled:opacity-50"
+                >
+                  <Rocket className={`h-3.5 w-3.5 ${deploying ? "animate-spin" : ""}`} />
+                  {deploying ? "Deploying..." : "Execute Deployment →"}
+                </button>
               </div>
             )}
 
@@ -817,6 +904,118 @@ export default function HomePage() {
               : "Complete Step 2 (Project Inspection) first, then generate the AI deployment plan."}
           </div>
         )}
+      </div>
+
+      {/* Step 4: Real Liara Deployment Execution & Live Log Streaming (Ticket 05 Feature) */}
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-6 space-y-5">
+        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-400">
+              <Rocket className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold text-cyan-400 uppercase tracking-wider">Step 4</span>
+                <h3 className="font-semibold text-zinc-100">Live Deployment & Log Streaming</h3>
+              </div>
+              <p className="text-xs text-zinc-400">
+                Execute approved CLI operations with Server-Sent Events (SSE) streaming and real-time secret redaction
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExecuteDeploy}
+              disabled={
+                deploying ||
+                !activeRun ||
+                (activeRun.status !== "approved" && activeRun.status !== "executing")
+              }
+              className="flex items-center gap-1.5 rounded-lg bg-cyan-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-cyan-600/20 hover:bg-cyan-500 transition disabled:opacity-40"
+            >
+              <Rocket className={`h-3.5 w-3.5 ${deploying ? "animate-spin" : ""}`} />
+              {deploying ? "Streaming Deployment..." : "Execute Deployment"}
+            </button>
+          </div>
+        </div>
+
+        {deployError && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>{deployError}</span>
+          </div>
+        )}
+
+        {/* Live Terminal Window */}
+        <div className="rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden shadow-2xl">
+          {/* Terminal Window Header */}
+          <div className="flex items-center justify-between border-b border-zinc-800/80 bg-zinc-900/90 px-4 py-2.5">
+            <div className="flex items-center gap-2">
+              <div className="flex gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-red-500/80"></span>
+                <span className="h-2.5 w-2.5 rounded-full bg-amber-500/80"></span>
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/80"></span>
+              </div>
+              <span className="font-mono text-[11px] text-zinc-400 ml-2">
+                terminal &mdash; liara deploy {activeRun ? `--app ${activeRun.targetApp}` : ""}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {deploying && (
+                <span className="flex items-center gap-1.5 text-[11px] font-mono text-cyan-400">
+                  <span className="h-2 w-2 rounded-full bg-cyan-400 animate-ping"></span>
+                  STREAMING
+                </span>
+              )}
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(deployLogs.join("\n"));
+                }}
+                className="text-zinc-400 hover:text-zinc-200 p-1 transition"
+                title="Copy logs"
+              >
+                <Copy className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => setDeployLogs([])}
+                className="text-zinc-400 hover:text-zinc-200 p-1 transition"
+                title="Clear terminal"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Terminal Output */}
+          <div className="p-4 font-mono text-xs max-h-80 min-h-48 overflow-y-auto space-y-1 select-text">
+            {deployLogs.length > 0 ? (
+              deployLogs.map((log, index) => (
+                <div
+                  key={index}
+                  className={`leading-relaxed ${
+                    log.includes("[ERROR]")
+                      ? "text-red-400 font-bold"
+                      : log.includes("[EXIT]")
+                      ? "text-amber-300 font-bold"
+                      : log.includes("[AGENT]")
+                      ? "text-cyan-300 font-semibold"
+                      : log.includes("Successfully") || log.includes("success")
+                      ? "text-emerald-400 font-semibold"
+                      : "text-zinc-300"
+                  }`}
+                >
+                  {log}
+                </div>
+              ))
+            ) : (
+              <div className="text-zinc-600 italic py-6 text-center">
+                Terminal idle. Approve the plan in Step 3 and click &quot;Execute Deployment&quot; to stream real-time logs.
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Services Grid */}
@@ -960,10 +1159,39 @@ export default function HomePage() {
                 : "LLM structured plan & human sign-off (Active)"}
             </div>
           </div>
-          <div className="rounded-lg border border-zinc-800/60 bg-zinc-900/60 p-4 space-y-1 opacity-80">
-            <div className="text-xs font-bold text-zinc-400">STEP 4</div>
+          <div
+            className={`rounded-lg p-4 space-y-1 border ${
+              activeRun?.status === "executing"
+                ? "border-cyan-500/30 bg-cyan-500/5 text-cyan-300"
+                : activeRun?.status === "verifying"
+                ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-300"
+                : activeRun?.status === "failed"
+                ? "border-amber-500/30 bg-amber-500/5 text-amber-300"
+                : activeRun?.status === "approved"
+                ? "border-cyan-500/20 bg-cyan-500/5 text-cyan-300"
+                : "border-zinc-800/60 bg-zinc-900/60 opacity-80"
+            }`}
+          >
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span>STEP 4</span>
+              {activeRun?.status === "executing" ? (
+                <Rocket className="h-3.5 w-3.5 text-cyan-400 animate-spin" />
+              ) : activeRun?.status === "verifying" ? (
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+              ) : activeRun?.status === "failed" ? (
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
+              ) : null}
+            </div>
             <div className="text-sm font-medium text-zinc-200">Deploy & SRE Loop</div>
-            <div className="text-xs text-zinc-400">Real deploy, logs stream & crash recovery (Tickets 05-07)</div>
+            <div className="text-xs text-zinc-400">
+              {activeRun?.status === "executing"
+                ? "Executing Liara deployment..."
+                : activeRun?.status === "verifying"
+                ? "Deployed (Ready for Verification)"
+                : activeRun?.status === "failed"
+                ? "Deployment Failed (SRE Loop Ready)"
+                : "Real deploy, logs stream & SRE loop"}
+            </div>
           </div>
         </div>
       </div>

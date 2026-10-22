@@ -13,7 +13,7 @@
     "docker:down": "docker compose down",
     "docker:build": "docker compose build",
     "test": "pnpm --filter web test && pnpm run test:engine",
-    "test:engine": "cd engine && PYTHONPATH=. .venv/bin/pytest",
+    "test:engine": "PYTHONPATH=. engine/.venv/bin/pytest engine/tests",
     "lint": "pnpm --filter web lint"
   },
   "devDependencies": {

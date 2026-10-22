@@ -5,12 +5,12 @@ A robust execution engine that invokes real deployments against Liara infrastruc
 
 **Blocked by:** 04 (LLM Deployment Planning and Interactive Approval Gate)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 ## Acceptance Criteria
-- [ ] Mutating deployment is executed only when a verified, matching approval record exists for the run.
-- [ ] Command execution uses argument arrays with subprocess timeouts; arbitrary shell injection is impossible.
-- [ ] Real-time output and deployment progress are streamed to the web dashboard via SSE.
-- [ ] Secret redaction cleanses all tokens, bearer headers, and passwords from logs before database persistence and UI rendering.
-- [ ] Final exit status, start time, end time, and redacted output summary are recorded in PostgreSQL.
+- [x] Mutating deployment is executed only when a verified, matching approval record exists for the run.
+- [x] Command execution uses argument arrays with subprocess timeouts; arbitrary shell injection is impossible.
+- [x] Real-time output and deployment progress are streamed to the web dashboard via SSE.
+- [x] Secret redaction cleanses all tokens, bearer headers, and passwords from logs before database persistence and UI rendering.
+- [x] Final exit status, start time, end time, and redacted output summary are recorded in PostgreSQL.
 

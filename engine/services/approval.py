@@ -27,3 +27,4 @@ def verify_action_approval(
         return False
 
     return True
+

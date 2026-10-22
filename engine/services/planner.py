@@ -60,6 +60,7 @@ class DeploymentPlanner:
                     plan.target_app = app_name
                     plan.platform = analysis.detected_platform or "nodejs"
                     plan.port = app_port
+                    plan.cost_warning = True
                     plan.requires_approval = True
                     plan.digest = plan.compute_digest()
                     return plan
@@ -107,3 +108,4 @@ class DeploymentPlanner:
 
 
 deployment_planner = DeploymentPlanner()
+

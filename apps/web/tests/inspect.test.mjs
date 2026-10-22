@@ -60,3 +60,4 @@ test("Next.js inspect proxy forwards request with X-Internal-Secret", async () =
     await new Promise((resolve) => server.close(resolve));
   }
 });
+

@@ -80,3 +80,4 @@ async def test_inspect_sample_nodejs_app_success():
         assert "server.js" in analysis["evidence_files"]
         assert "SERVICE_SECRET" in analysis["required_env_names"]
         assert "PORT" in analysis["required_env_names"]
+

@@ -1,6 +1,6 @@
 import hashlib
 import json
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class ProjectSource(BaseModel):
@@ -46,6 +46,19 @@ class DeploymentPlan(BaseModel):
     requires_approval: bool = True
     actions: list[ProposedAction] = Field(default_factory=list)
     digest: str = ""
+
+    @field_validator("impact_level", mode="before")
+    @classmethod
+    def normalize_impact_level(cls, v: str) -> str:
+        if not v:
+            return "medium"
+        s = str(v).lower().strip()
+        if s in ["moderate"]:
+            return "medium"
+        if s in ["low", "medium", "high"]:
+            return s
+        return "medium"
+
 
     def canonical_dict(self) -> dict:
         return {
@@ -94,4 +107,12 @@ class ActionApprovalModel(BaseModel):
     target: str
     approved: bool
     plan_digest: str
+
+
+class DeployRequest(BaseModel):
+    plan: DeploymentPlan
+    approval: ActionApprovalModel
+    source_path: str
+    api_token: str | None = None
+
 

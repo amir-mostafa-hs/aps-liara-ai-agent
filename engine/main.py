@@ -1,8 +1,12 @@
+import json
 from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from engine.domain.models import InspectRequest, PlanRequest
+from engine.domain.models import DeployRequest, InspectRequest, PlanRequest
 from engine.providers.liara_adapter import liara_adapter
 from engine.security import verify_internal_secret
+from engine.services.approval import verify_action_approval
+from engine.services.deployer import deployment_executor
 from engine.services.inspector import project_inspector
 from engine.services.planner import deployment_planner
 
@@ -58,6 +62,32 @@ async def generate_plan(payload: PlanRequest):
         "ok": True,
         "plan": plan.model_dump(),
     }
+
+
+@app.post("/agent/deploy", dependencies=[Depends(verify_internal_secret)])
+async def execute_deploy(payload: DeployRequest):
+    if not verify_action_approval(
+        payload.plan, payload.approval.action_id, payload.approval
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Approval required: Invalid or missing ActionApproval.",
+        )
+
+    async def sse_event_generator():
+        try:
+            async for line in deployment_executor.execute_deployment(
+                plan=payload.plan,
+                approval=payload.approval,
+                source_path=payload.source_path,
+                api_token=payload.api_token or "",
+            ):
+                yield f"data: {json.dumps({'text': line})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+    return StreamingResponse(sse_event_generator(), media_type="text/event-stream")
+
 
 
 

@@ -48,3 +48,4 @@ test("server starts successfully when SERVICE_SECRET is provided", async () => {
     child.kill("SIGTERM");
   }
 });
+

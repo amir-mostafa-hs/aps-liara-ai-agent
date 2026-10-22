@@ -32,3 +32,4 @@ server.listen(PORT, "0.0.0.0", () => {
   console.log(`[liara-node-demo] Server listening on port ${PORT}`);
   console.log(`[liara-node-demo] Health check available at http://0.0.0.0:${PORT}/health`);
 });
+

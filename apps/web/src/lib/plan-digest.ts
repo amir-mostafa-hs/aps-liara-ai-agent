@@ -59,3 +59,4 @@ export function verifyPlanIntegrity(plan: DeploymentPlanShape, expectedDigest: s
   const actualDigest = computePlanDigest(plan);
   return crypto.timingSafeEqual(Buffer.from(actualDigest), Buffer.from(expectedDigest));
 }
+

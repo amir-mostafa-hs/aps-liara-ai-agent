@@ -163,3 +163,4 @@ Rejects the deployment plan.
   - Cross-language byte-for-byte SHA-256 parity between Python and TypeScript
   - State machine transition rules (`awaiting_approval` -> `approved` / `cancelled`)
   - Status precondition enforcement
+
