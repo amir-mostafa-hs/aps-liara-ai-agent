@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Header, PipelineStage } from "@/components/layout/Header";
+import { Header } from "@/components/layout/Header";
 import { SidecarConsole, CloudService } from "@/components/console/SidecarConsole";
 import { ChatMessageList, ChatMessage } from "@/components/chat/ChatMessageList";
 import { ChatInput } from "@/components/chat/ChatInput";
@@ -44,8 +44,6 @@ export default function HomePage() {
     teams: [],
   });
 
-  // Pipeline stage tracker for header nav
-  const [currentStage, setCurrentStage] = useState<PipelineStage>("source");
 
   // Chat State
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -218,7 +216,6 @@ export default function HomePage() {
   }, [router, checkSystemHealth, fetchLiveServices, fetchAccountSettings]);
 
   const continueToDiffPreview = (targetApp: string, sourcePath: string, analysis: any) => {
-    setCurrentStage("diff");
     setMessages((prev) => [
       ...prev,
       {
@@ -232,7 +229,6 @@ export default function HomePage() {
   };
 
   const startEnvironmentPreflight = (targetApp: string, sourcePath: string, analysis: any) => {
-    setCurrentStage("diff");
     const inspectedRequirements = analysis?.env_requirements || (analysis?.required_env_names || []).map((name: string) => ({
       name,
       evidence: [],
@@ -273,7 +269,6 @@ export default function HomePage() {
     analysis: any
   ) => {
     if (analysis?.detected_databases && analysis.detected_databases.length > 0) {
-      setCurrentStage("database");
       setMessages((prev) => [
         ...prev,
         {
@@ -621,7 +616,6 @@ export default function HomePage() {
               }
 
               const run = runData.run;
-              setCurrentStage("deploy");
               setMessages((prev) => [
                 ...prev,
                 {
@@ -919,7 +913,6 @@ export default function HomePage() {
       if (text.includes("sample-apps/nodejs-demo") || text.includes("پروژه نمونه")) {
         await handleSourceIngested("sample-apps/nodejs-demo", "path");
       } else if (text.includes("توکن") || text.includes("token")) {
-        setCurrentStage("credentials");
         setTimeout(() => {
           setMessages((prev) => [
             ...prev,
@@ -981,8 +974,6 @@ export default function HomePage() {
         activeTeam={activeTeam}
         onLogout={handleLogout}
         systemConnected={systemConnected}
-        currentStage={currentStage}
-        onSelectStage={setCurrentStage}
       />
 
       {/* Main Dual Workspace Area */}
@@ -995,11 +986,11 @@ export default function HomePage() {
             renderWidget={renderWidget}
             onStartDeploy={() => handleSendMessage("می‌خواهم پروژه sample-apps/nodejs-demo را روی لیارا دیپلوی کنم.")}
             onShowGuide={() => handleSendMessage("راهنمای گام‌به‌گام دپلوی و قابلیت‌های ایجنت هوشمند را توضیح بده.")}
+            onSelectPrompt={handleSendMessage}
           />
           <ChatInput
             onSendMessage={handleSendMessage}
             isLoading={isStreaming}
-            onQuickPreset={handleSendMessage}
           />
         </section>
 

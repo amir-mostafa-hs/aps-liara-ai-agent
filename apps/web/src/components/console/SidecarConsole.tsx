@@ -12,6 +12,8 @@ import {
   RefreshCw,
   Loader2,
   ExternalLink,
+  Copy,
+  Trash2,
 } from "lucide-react";
 
 export interface CloudService {
@@ -304,32 +306,7 @@ export function SidecarConsole({
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-1 text-xs text-zinc-400">
-          {activeTab === "terminal" && (
-            <>
-              <button
-                type="button"
-                onClick={handleCopyLogs}
-                disabled={logs.length === 0}
-                className="rounded-lg border border-white/10 px-2 py-1 hover:text-liara cursor-pointer disabled:opacity-40 transition-colors"
-                title="کپی لاگ‌ها"
-              >
-                {copied ? "Copied" : "Copy"}
-              </button>
-              {onClearLogs && (
-                <button
-                  type="button"
-                  onClick={onClearLogs}
-                  disabled={logs.length === 0}
-                  className="rounded-lg border border-white/10 px-2 py-1 hover:text-rose-300 cursor-pointer disabled:opacity-40 transition-colors"
-                  title="پاک کردن لاگ‌ها"
-                >
-                  Clear
-                </button>
-              )}
-            </>
-          )}
-
+        <div className="flex items-center gap-1.5 text-xs text-zinc-400">
           {activeTab === "services" && onRefreshServices && (
             <button
               type="button"
@@ -358,8 +335,8 @@ export function SidecarConsole({
             type="button"
             onClick={() => setIsCollapsed(true)}
             aria-label="Collapse"
-            className="rounded-lg border border-white/10 px-2 py-1 hover:text-liara cursor-pointer transition-colors"
-            title="بستن پنل"
+            className="rounded-lg border border-white/10 px-2.5 py-1 text-xs text-zinc-400 hover:text-liara hover:border-liara/40 cursor-pointer transition-colors"
+            title="جمع کردن پنل"
           >
             —
           </button>
@@ -370,33 +347,68 @@ export function SidecarConsole({
       <div className="min-h-0 flex-1 overflow-hidden relative">
         {/* Terminal Panel */}
         {activeTab === "terminal" && (
-          <div className="scroll h-full overflow-y-auto bg-[#0c0c0e] p-4 font-mono text-xs leading-6 select-text">
-            {logs.length === 0 ? (
-              <p className="text-zinc-600 select-none">
-                $ liara ready. در انتظار استریم لاگ‌های دپلوی...
-              </p>
-            ) : (
-              logs.map((line, idx) => {
-                const lower = line.toLowerCase();
-                let colorClass = "text-zinc-400";
-                if (lower.includes("error") || lower.includes("fail") || lower.includes("خطا")) {
-                  colorClass = "text-rose-400";
-                } else if (lower.includes("warn") || lower.includes("هشدار")) {
-                  colorClass = "text-amber-300";
-                } else if (lower.includes("ready") || lower.includes("✔") || lower.includes("postgres ready")) {
-                  colorClass = "text-emerald-400";
-                } else if (lower.includes("liara") || lower.includes("step") || lower.includes("build") || lower.includes("inspect")) {
-                  colorClass = "text-liara";
-                }
-                return (
-                  <p key={idx} className={colorClass}>
-                    {line}
-                  </p>
-                );
-              })
-            )}
-            <p className="text-liara font-bold animate-pulse">▌</p>
-            <div ref={terminalEndRef} />
+          <div className="flex flex-col h-full bg-[#0c0c0e]">
+            {/* Dedicated Terminal Sub-header Toolbar */}
+            <div className="flex items-center justify-between px-3.5 py-1.5 border-b border-white/10 bg-black/60 text-xs shrink-0 select-none">
+              <div className="flex items-center gap-2">
+                <span className="flex h-2 w-2 rounded-full bg-emerald-400 pulse" />
+                <span className="font-mono text-[11px] text-zinc-300">liara-session // stream</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleCopyLogs}
+                  disabled={logs.length === 0}
+                  className="flex items-center gap-1 px-2 py-0.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-liara text-[11px] disabled:opacity-40 transition-colors cursor-pointer"
+                  title="کپی لاگ‌ها در کلیپ‌بورد"
+                >
+                  <Copy className="h-3 w-3" />
+                  <span>{copied ? "کپی شد" : "کپی"}</span>
+                </button>
+                {onClearLogs && (
+                  <button
+                    type="button"
+                    onClick={onClearLogs}
+                    disabled={logs.length === 0}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-rose-400 text-[11px] disabled:opacity-40 transition-colors cursor-pointer"
+                    title="پاک کردن لاگ‌های جاری"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    <span>پاک‌سازی</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Scrollable logs */}
+            <div className="scroll flex-1 overflow-y-auto p-4 font-mono text-xs leading-6 select-text">
+              {logs.length === 0 ? (
+                <p className="text-zinc-600 select-none">
+                  $ liara ready. در انتظار استریم لاگ‌های دپلوی...
+                </p>
+              ) : (
+                logs.map((line, idx) => {
+                  const lower = line.toLowerCase();
+                  let colorClass = "text-zinc-400";
+                  if (lower.includes("error") || lower.includes("fail") || lower.includes("خطا")) {
+                    colorClass = "text-rose-400";
+                  } else if (lower.includes("warn") || lower.includes("هشدار")) {
+                    colorClass = "text-amber-300";
+                  } else if (lower.includes("ready") || lower.includes("✔") || lower.includes("postgres ready")) {
+                    colorClass = "text-emerald-400";
+                  } else if (lower.includes("liara") || lower.includes("step") || lower.includes("build") || lower.includes("inspect")) {
+                    colorClass = "text-liara";
+                  }
+                  return (
+                    <p key={idx} className={colorClass}>
+                      {line}
+                    </p>
+                  );
+                })
+              )}
+              <p className="text-liara font-bold animate-pulse">▌</p>
+              <div ref={terminalEndRef} />
+            </div>
           </div>
         )}
 

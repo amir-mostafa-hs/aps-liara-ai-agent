@@ -19,7 +19,29 @@ interface ChatMessageListProps {
   renderWidget?: (widget: { type: string; data?: any }) => React.ReactNode;
   onStartDeploy?: () => void;
   onShowGuide?: () => void;
+  onSelectPrompt?: (promptText: string) => void;
 }
+
+const SUGGESTED_PROMPTS = [
+  {
+    icon: "🚀",
+    title: "دپلوی پروژه نمونه Node.js",
+    desc: "پروژه sample-apps/nodejs-demo را روی لیارا دیپلوی کن.",
+    text: "می‌خواهم پروژه sample-apps/nodejs-demo را روی لیارا دیپلوی کنم.",
+  },
+  {
+    icon: "🔍",
+    title: "بررسی نیازمندی‌های پروژه",
+    desc: "سورس‌کد را بررسی کن و سرویس‌های لازم را مشخص کن.",
+    text: "سورس‌کد پروژه من در sample-apps/nodejs-demo را بررسی کن و سرویس‌های لازم را مشخص کن.",
+  },
+  {
+    icon: "🔑",
+    title: "تنظیم توکن اکانت لیارا",
+    desc: "بررسی وضعیت احراز هویت و توکن API لیارا.",
+    text: "چگونه می‌توانم توکن API لیارا را تنظیم کنم؟",
+  },
+];
 
 function renderFormattedContent(text: string) {
   if (!text) return null;
@@ -130,8 +152,10 @@ export function ChatMessageList({
   renderWidget,
   onStartDeploy,
   onShowGuide,
+  onSelectPrompt,
 }: ChatMessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const hasUserStartedChat = messages.some((m) => m.role === "user");
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -173,6 +197,38 @@ export function ChatMessageList({
             </div>
           </div>
         </div>
+
+        {/* Transparent floating suggested prompt popups (hidden once chat starts) */}
+        {!hasUserStartedChat && (
+          <div className="space-y-2.5 animate-fadeIn">
+            <div className="flex items-center gap-2 text-xs text-zinc-400 font-medium px-1">
+              <span className="flex h-2 w-2 rounded-full bg-liara animate-pulse" />
+              <span>پیشنهادهای گفتگو (کلیک برای اجرا):</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {SUGGESTED_PROMPTS.map((prompt, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => onSelectPrompt?.(prompt.text)}
+                  className="group relative text-right rounded-2xl border border-white/10 bg-white/[.03] backdrop-blur-xl p-4 hover:border-liara/50 hover:bg-white/[.08] hover:shadow-[0_8px_30px_rgba(44,196,244,0.12)] hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between gap-2.5"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-xl shrink-0 p-1 rounded-xl bg-white/5 border border-white/10 group-hover:scale-110 transition-transform">
+                      {prompt.icon}
+                    </span>
+                    <span className="font-semibold text-xs sm:text-sm text-zinc-200 group-hover:text-liara transition-colors">
+                      {prompt.title}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-zinc-400 leading-relaxed group-hover:text-zinc-300 transition-colors">
+                    {prompt.desc}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Message Stream */}
         {messages.map((msg) => {

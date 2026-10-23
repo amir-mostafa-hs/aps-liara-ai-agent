@@ -5,13 +5,11 @@ import React, { useState, KeyboardEvent } from "react";
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
   isLoading?: boolean;
-  onQuickPreset?: (presetText: string) => void;
 }
 
 export function ChatInput({
   onSendMessage,
   isLoading = false,
-  onQuickPreset,
 }: ChatInputProps) {
   const [text, setText] = useState("");
 
@@ -29,36 +27,9 @@ export function ChatInput({
     }
   };
 
-  const presets = [
-    { label: "دپلوی پروژه نمونه Node.js", text: "می‌خواهم پروژه sample-apps/nodejs-demo را روی لیارا دیپلوی کنم." },
-    { label: "بررسی نیازمندی‌های پروژه", text: "سورس‌کد پروژه من در sample-apps/nodejs-demo را بررسی کن و سرویس‌های لازم را مشخص کن." },
-    { label: "تنظیم توکن اکانت لیارا", text: "چگونه می‌توانم توکن API لیارا را تنظیم کنم؟" },
-  ];
-
   return (
     <div className="shrink-0 border-t border-white/10 bg-white/[.03] px-4 py-3 backdrop-blur-xl lg:px-8">
-      <div className="mx-auto max-w-3xl space-y-3">
-        {/* Preset action chips */}
-        <div className="flex flex-wrap gap-2 text-xs">
-          {presets.map((p, idx) => (
-            <button
-              key={idx}
-              type="button"
-              disabled={isLoading}
-              onClick={() => {
-                if (onQuickPreset) {
-                  onQuickPreset(p.text);
-                } else {
-                  onSendMessage(p.text);
-                }
-              }}
-              className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-zinc-300 hover:border-liara/50 hover:text-liara disabled:opacity-40 transition-colors cursor-pointer"
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-
+      <div className="mx-auto max-w-3xl">
         {/* Input area */}
         <form
           onSubmit={handleSubmit}
