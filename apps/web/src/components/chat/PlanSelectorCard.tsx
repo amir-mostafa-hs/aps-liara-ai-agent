@@ -31,7 +31,7 @@ interface PlanSelectorCardProps {
   disabled?: boolean;
 }
 
-const DEFAULT_PLANS: PlanTier[] = [
+export const DEFAULT_PLANS: PlanTier[] = [
   {
     plan_id: "ir-standard-1",
     name_fa: "اقتصادی",

@@ -26,6 +26,13 @@ test("Chat message model maintains valid role, content, and optional widget data
   assert.equal(agentMsg.role, "assistant");
   assert.ok(agentMsg.widget);
   assert.equal(agentMsg.widget.type, "plan_selector");
+
+  const appSelectorMsg = createMessage("assistant", "لطفاً سرویس مقصد در لیارا را تعیین کنید.", {
+    type: "app_target_selector",
+    data: { suggestedAppName: "nodejs-demo", detectedPlatform: "node" },
+  });
+  assert.equal(appSelectorMsg.widget.type, "app_target_selector");
+  assert.equal(appSelectorMsg.widget.data.suggestedAppName, "nodejs-demo");
 });
 
 test("Sidecar console state transitions correctly between terminal, services, health, and settings tabs", () => {

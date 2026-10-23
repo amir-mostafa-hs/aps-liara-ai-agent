@@ -9,6 +9,7 @@ import { ChatInput } from "@/components/chat/ChatInput";
 import { SourceInputWidget } from "@/components/chat/SourceInputWidget";
 import { TokenInputWidget } from "@/components/chat/TokenInputWidget";
 import { PlanSelectorCard } from "@/components/chat/PlanSelectorCard";
+import { AppTargetSelectorWidget } from "@/components/chat/AppTargetSelectorWidget";
 import { DiffPreviewWidget } from "@/components/chat/DiffPreviewWidget";
 import { DeployApprovalWidget } from "@/components/chat/DeployApprovalWidget";
 import { RemediationApprovalWidget } from "@/components/chat/RemediationApprovalWidget";
@@ -77,8 +78,7 @@ export default function HomePage() {
           if (prev && data.services.some((s: CloudService) => s.type === "app" && s.name === prev)) {
             return prev;
           }
-          const firstApp = data.services.find((s: CloudService) => s.type === "app");
-          return firstApp ? firstApp.name : prev;
+          return prev;
         });
       }
     } catch (err) {
@@ -210,6 +210,55 @@ export default function HomePage() {
     };
   }, [router, checkSystemHealth, fetchLiveServices, fetchAccountSettings]);
 
+  // Helper to advance to Database selection or Diff Preview
+  const proceedToDatabaseOrDiff = (
+    targetApp: string,
+    sourcePath: string,
+    analysis: any
+  ) => {
+    if (analysis?.detected_databases && analysis.detected_databases.length > 0) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: createMsgId("ast"),
+          role: "assistant",
+          content: `سرویس مقصد **«${targetApp}»** تعیین شد.\n\nپروژه شما نیاز به پایگاه‌داده (${analysis.detected_databases
+            .map((d: any) => d.db_type)
+            .join("، ")}) دارد. لطفاً پلن دیتابیس را انتخاب فرمایید:`,
+          timestamp: new Date().toISOString(),
+          widget: {
+            type: "plan_selector",
+            data: {
+              databases: analysis.detected_databases,
+              sourcePath,
+              analysis,
+              targetApp,
+            },
+          },
+        },
+      ]);
+    } else {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: createMsgId("ast"),
+          role: "assistant",
+          content: `سرویس مقصد **«${targetApp}»** تایید شد. سیستم آماده ایجاد فایل کانفیگ و انجام دپلوی است. پیش‌نمایش تغییرات را بررسی فرمایید:`,
+          timestamp: new Date().toISOString(),
+          widget: {
+            type: "diff_preview",
+            data: {
+              sourcePath,
+              targetApp,
+              dbInfo: null,
+              analysis,
+            },
+          },
+        },
+      ]);
+    }
+  };
+
   // Handle Source Ingestion from Widget
   const handleSourceIngested = async (sourcePath: string, type: string) => {
     const userMsg: ChatMessage = {
@@ -261,40 +310,65 @@ export default function HomePage() {
               .join("\n")
           : "";
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: createMsgId("ast"),
-          role: "assistant",
-          content: `${
-            analysis.persian_summary ||
-            `سورس‌کد با موفقیت تحلیل شد! 🔍\n\n• پلتفرم: **${analysis.detected_platform}** (ضریب اطمینان ${Math.round(
-              (analysis.confidence || 1) * 100
-            )}٪)\n• پورت ارتباطی: **${analysis.port}**\n• اسکریپت راه‌اندازی: \`${
-              analysis.start_command || "node server.js"
-            }\`\n• فایل‌های کلیدی: \`${analysis.evidence_files?.join("`, `") || ""}\``
-          }${dbInfoText}\n\nسیستم آمادهٔ ساخت سرویس‌ها و انجام دپلوی است.`,
-          timestamp: new Date().toISOString(),
-          widget:
-            analysis.detected_databases && analysis.detected_databases.length > 0
-              ? {
-                  type: "plan_selector",
-                  data: {
-                    databases: analysis.detected_databases,
-                    sourcePath,
-                    analysis,
-                  },
-                }
-              : {
-                  type: "diff_preview",
-                  data: {
-                    sourcePath,
-                    dbInfo: null,
-                    analysis,
-                  },
-                },
-        },
-      ]);
+      // Check if project already has liara.json with a valid existing app in cloud
+      const hasPreconfiguredApp = Boolean(
+        analysis.has_liara_json &&
+        analysis.existing_app_name &&
+        services.some((s) => s.type === "app" && s.name === analysis.existing_app_name)
+      );
+
+      if (hasPreconfiguredApp) {
+        const targetAppName = analysis.existing_app_name;
+        setSelectedApp(targetAppName);
+        setTerminalLogs((prev) => [
+          ...prev,
+          `✔ سرویس ابری منطبق با liara.json در اکانت یافت شد: ${targetAppName}`,
+        ]);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: createMsgId("ast"),
+            role: "assistant",
+            content: `${
+              analysis.persian_summary ||
+              `سورس‌کد با موفقیت تحلیل شد! 🔍\n\n• پلتفرم: **${analysis.detected_platform}**\n• پورت ارتباطی: **${analysis.port}**\n• اسکریپت راه‌اندازی: \`${
+                analysis.start_command || "node server.js"
+              }\``
+            }${dbInfoText}\n\nسرویس ابری **«${targetAppName}»** مطابق با فایل liara.json پروژه در اکانت شما آماده دریافت دپلوی است.`,
+            timestamp: new Date().toISOString(),
+          },
+        ]);
+        proceedToDatabaseOrDiff(targetAppName, sourcePath, analysis);
+      } else {
+        const appExplanation = analysis.has_liara_json && analysis.existing_app_name
+          ? `برنامه «${analysis.existing_app_name}» در فایل liara.json تعریف شده، اما هنوز در اکانت لیارای شما فعال نیست.`
+          : `در فایل‌های پروژه کانفیگ اختصاصی liara.json برای اتصال به یک برنامه مشخص یافت نشد.`;
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: createMsgId("ast"),
+            role: "assistant",
+            content: `${
+              analysis.persian_summary ||
+              `سورس‌کد با موفقیت تحلیل شد! 🔍\n\n• پلتفرم: **${analysis.detected_platform}**\n• پورت ارتباطی: **${analysis.port}**\n• اسکریپت راه‌اندازی: \`${
+                analysis.start_command || "node server.js"
+              }\``
+            }${dbInfoText}\n\n${appExplanation}\nپیش از ایجاد کانفیگ و انجام دپلوی، لطفاً سرویس مقصد در لیارا را مشخص کنید:`,
+            timestamp: new Date().toISOString(),
+            widget: {
+              type: "app_target_selector",
+              data: {
+                suggestedAppName: analysis.existing_app_name || analysis.suggested_app_name || "my-app",
+                detectedPlatform: analysis.detected_platform || "node",
+                existingApps: services.filter((s) => s.type === "app"),
+                sourcePath,
+                analysis,
+              },
+            },
+          },
+        ]);
+      }
     } catch (err: any) {
       setMessages((prev) => [
         ...prev,
@@ -341,6 +415,86 @@ export default function HomePage() {
         />
       );
     }
+    if (widget.type === "app_target_selector") {
+      const data = widget.data || {};
+      const sourcePath = data.sourcePath;
+      const analysis = data.analysis;
+
+      return (
+        <AppTargetSelectorWidget
+          suggestedAppName={data.suggestedAppName}
+          detectedPlatform={data.detectedPlatform}
+          existingApps={data.existingApps || services.filter((s: CloudService) => s.type === "app")}
+          onSelectExistingApp={(chosenAppName) => {
+            setSelectedApp(chosenAppName);
+            setTerminalLogs((prev) => [
+              ...prev,
+              `✔ سرویس موجود «${chosenAppName}» به عنوان مقصد دپلوی انتخاب شد.`,
+            ]);
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: createMsgId("usr"),
+                role: "user",
+                content: `سرویس موجود «${chosenAppName}» را به عنوان مقصد انتخاب کردم.`,
+                timestamp: new Date().toISOString(),
+              },
+            ]);
+            proceedToDatabaseOrDiff(chosenAppName, sourcePath, analysis);
+          }}
+          onCreateNewApp={async (appName, planId) => {
+            try {
+              const res = await fetch("/api/liara/projects", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  projectId: appName,
+                  platform: data.detectedPlatform || "node",
+                  planId,
+                }),
+              });
+              const resData = await res.json();
+              if (!res.ok || !resData.ok) {
+                return { ok: false, error: resData.error || "خطا در ایجاد سرویس در لیارا" };
+              }
+
+              setSelectedApp(appName);
+              setServices((prev) => [
+                ...prev,
+                {
+                  name: appName,
+                  type: "app",
+                  status: "running",
+                  endpoint: resData.endpoint || `https://${appName}.liara.run`,
+                  port: analysis?.port || 3000,
+                },
+              ]);
+              setTerminalLogs((prev) => [
+                ...prev,
+                `✔ سرویس ابری جدید «${appName}» در لیارا با پلن ${planId} ایجاد شد.`,
+              ]);
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: createMsgId("ast"),
+                  role: "assistant",
+                  content: `سرویس جدید **${appName}** با پلتفرم **${data.detectedPlatform}** و پلن **${planId}** با موفقیت در لیارا ساخته شد! 🎉`,
+                  timestamp: new Date().toISOString(),
+                },
+              ]);
+
+              fetchLiveServices();
+              proceedToDatabaseOrDiff(appName, sourcePath, analysis);
+              return { ok: true };
+            } catch (err: unknown) {
+              const msg = err instanceof Error ? err.message : String(err);
+              return { ok: false, error: msg };
+            }
+          }}
+          disabled={isStreaming}
+        />
+      );
+    }
     if (widget.type === "plan_selector") {
       return (
         <PlanSelectorCard
@@ -377,6 +531,7 @@ export default function HomePage() {
                   data: {
                     dbInfo,
                     sourcePath: widget.data?.sourcePath,
+                    targetApp: widget.data?.targetApp || selectedApp,
                     analysis: widget.data?.analysis,
                   },
                 },
@@ -397,7 +552,7 @@ export default function HomePage() {
       const defaultName = sourcePath
         ? sourcePath.split("/").filter(Boolean).pop() || "demo-app"
         : "demo-app";
-      const appName = selectedApp || defaultName;
+      const appName = widget.data?.targetApp || selectedApp || defaultName;
 
       return (
         <DiffPreviewWidget
