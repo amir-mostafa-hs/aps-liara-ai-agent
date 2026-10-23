@@ -15,6 +15,7 @@ engine/.venv/
 out/
 build/
 dist/
+.workspace/
 
 # Python cache & build
 __pycache__/

@@ -5,6 +5,33 @@ from engine.security.redaction import redact_text
 
 logger = logging.getLogger(__name__)
 
+LIARA_PROJECT_PLATFORMS = {
+    "static", "docker", "node", "laravel", "react", "vue", "angular",
+    "django", "php", "flask", "netcore", "dotnet", "next", "python", "go",
+}
+
+
+def normalize_liara_project_platform(platform: str) -> str:
+    normalized = (platform or "").strip().lower()
+    aliases = {
+        "nodejs": "node",
+        "node.js": "node",
+        "javascript": "node",
+        "nextjs": "next",
+        "next.js": "next",
+        "python3": "python",
+        ".net core": "netcore",
+    }
+    canonical = aliases.get(normalized, normalized)
+    if canonical not in LIARA_PROJECT_PLATFORMS:
+        supported = ", ".join(sorted(LIARA_PROJECT_PLATFORMS))
+        raise ValueError(
+            f"پلتفرم پروژه از روی فایل‌های آن قابل تشخیص نیست یا با Liara سازگار نیست "
+            f"(مقدار تشخیص‌داده‌شده: {normalized or 'خالی'}). ساخت سرویس متوقف شد. "
+            f"پلتفرم‌های پشتیبانی‌شده: {supported}."
+        )
+    return canonical
+
 
 class LiaraAdapter:
     def __init__(self, base_url: str = "https://api.liara.ir"):
@@ -565,9 +592,7 @@ class LiaraAdapter:
             raise ValueError("Liara API token cannot be empty.")
 
         clean_project = project_id.strip().lower()
-        clean_platform = platform.strip().lower()
-        if clean_platform in ["nodejs", "javascript"]:
-            clean_platform = "node"
+        clean_platform = normalize_liara_project_platform(platform)
         clean_plan = plan_id.strip()
 
         headers = {

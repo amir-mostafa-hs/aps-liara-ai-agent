@@ -126,3 +126,11 @@ pnpm --filter web prisma:studio
 - [ ] Bind ports `8000` and `5432` only to localhost (`127.0.0.1`) if exposing `web` (port `3000`) publicly behind Nginx or Caddy.
 - [ ] Never hardcode or commit tokens to version control.
 
+## 6. Liara Production Deployment
+
+The production Liara image is built from the repository-root `Dockerfile`. It runs the Next.js web/API server and the FastAPI engine in one container so both processes can access the same temporary project workspace. PostgreSQL remains a separate managed Liara database. At each start, the container applies checked-in Prisma migrations and ensures the configured operator has a database user row before either service begins accepting requests.
+
+Required Liara app variables are `DATABASE_URL`, `INTERNAL_AGENT_SECRET`, `APP_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `OPENAI_API_KEY`, `OPENAI_BASE_URL`, and `OPENAI_MODEL_NAME`. `LIARA_API_TOKEN` and `LIARA_TEAM_ID` are optional app defaults; users can also save their own token from the UI. Use a private Liara network for the app and database, and do not expose the database publicly. The Liara app listens on port `3000`; the engine listens only on container loopback port `8000`.
+
+Never include `.env`, `apps/web/.env`, `.workspace/`, or local build artifacts in the image. `.dockerignore` protects the Docker build context. The web login remains a single operator account configured through `ADMIN_USERNAME` and `ADMIN_PASSWORD`; this project does not provide public self-registration or separate customer accounts.
+

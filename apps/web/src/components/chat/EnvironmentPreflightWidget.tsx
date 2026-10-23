@@ -23,6 +23,7 @@ export function EnvironmentPreflightWidget({ appName, requirements, serviceValue
   const [values, setValues] = useState<Record<string, string>>(serviceValues);
   const [choices, setChoices] = useState<Record<string, "manual" | "generated">>({});
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
+  const [copiedName, setCopiedName] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
@@ -32,6 +33,7 @@ export function EnvironmentPreflightWidget({ appName, requirements, serviceValue
   const chooseSecret = (name: string, choice: "manual" | "generated") => {
     setChoices((previous) => ({ ...previous, [name]: choice }));
     setValues((previous) => ({ ...previous, [name]: choice === "generated" ? generateSecret() : "" }));
+    setCopiedName("");
   };
 
   const writeAndContinue = async () => {
@@ -52,6 +54,7 @@ export function EnvironmentPreflightWidget({ appName, requirements, serviceValue
   const copySecret = async (name: string) => {
     try {
       await navigator.clipboard.writeText(values[name]);
+      setCopiedName(name);
     } catch {
       setError("کپی امن secret ممکن نشد؛ لطفاً آن را با نمایش موقت یادداشت کنید.");
     }
@@ -65,7 +68,7 @@ export function EnvironmentPreflightWidget({ appName, requirements, serviceValue
         alt=""
         className="absolute inset-y-0 left-0 h-full w-1/2 object-cover opacity-80 [mask-image:linear-gradient(to_right,#000_30%,transparent)] pointer-events-none"
       />
-      <div className="relative sm:w-3/5 mr-auto space-y-2">
+      <div className="relative ml-auto w-full text-right sm:w-3/5 space-y-2">
         <h4 className="text-sm font-bold text-emerald-300">تنظیم متغیرهای لازم روی لیارا تأیید شد.</h4>
         {generated.length > 0 && (
           <div className="mt-3 rounded-lg border border-amber-500/40 bg-zinc-950/90 p-3 text-xs text-amber-200 space-y-2">
@@ -187,16 +190,37 @@ export function EnvironmentPreflightWidget({ appName, requirements, serviceValue
                 </label>
               )}
               {choices[name] === "generated" && (
-                <p className="text-amber-300 text-xs pt-1 font-mono">
-                  مقدار امن ساخته شد و تا تأیید شما روی لیارا نوشته نمی‌شود.
+                <div className="space-y-2 pt-1">
+                  <p className="text-amber-300 text-xs">
+                    مقدار امن ساخته شد و تا تأیید شما روی لیارا نوشته نمی‌شود. آن را در جای امن نگه دارید.
+                  </p>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+                    <div className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-900/80 p-3">
+                      <p className="mb-1 text-xs text-zinc-400">مقدار تولیدشده برای {name}:</p>
+                      <code dir="ltr" className="block select-all break-all text-sm leading-6 text-emerald-300">
+                        {values[name]}
+                      </code>
+                    </div>
+                    <button
+                      type="button"
+                      className="b0 shrink-0"
+                      aria-label={`کپی مقدار تولیدشده برای ${name}`}
+                      onClick={() => void copySecret(name)}
+                    >
+                      {copiedName === name ? "کپی شد" : "کپی مقدار"}
+                    </button>
+                  </div>
                   <button
                     type="button"
-                    className="ms-2 underline text-liara cursor-pointer font-sans"
-                    onClick={() => setValues((prev) => ({ ...prev, [name]: generateSecret() }))}
+                    className="text-xs text-liara underline underline-offset-2 cursor-pointer"
+                    onClick={() => {
+                      setValues((prev) => ({ ...prev, [name]: generateSecret() }));
+                      setCopiedName("");
+                    }}
                   >
                     تولید مقدار تازه
                   </button>
-                </p>
+                </div>
               )}
             </div>
           );

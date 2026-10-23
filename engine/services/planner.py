@@ -2,6 +2,7 @@ import logging
 import uuid
 from engine.config import settings
 from engine.domain.models import DeploymentPlan, ProjectAnalysis, ProposedAction
+from engine.services.inspector import normalize_detected_platform
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,12 @@ class DeploymentPlanner:
         target_app: str | None = None,
         port: int | None = None,
     ) -> DeploymentPlan:
+        detected_platform = normalize_detected_platform(analysis.detected_platform)
+        if not detected_platform:
+            raise ValueError(
+                "از روی فایل‌های پروژه، پلتفرم سازگار با Liara تشخیص داده نشد؛ "
+                "برای جلوگیری از ساخت یا دپلوی اشتباه، عملیات متوقف شد."
+            )
         app_name = target_app or "demo-node-app"
         app_port = port or analysis.port or 3000
 
@@ -58,7 +65,7 @@ class DeploymentPlanner:
                     if not plan.plan_id:
                         plan.plan_id = str(uuid.uuid4())
                     plan.target_app = app_name
-                    plan.platform = analysis.detected_platform or "nodejs"
+                    plan.platform = detected_platform
                     plan.port = app_port
                     plan.cost_warning = True
                     plan.requires_approval = True
@@ -95,7 +102,7 @@ class DeploymentPlanner:
         plan = DeploymentPlan(
             plan_id=str(uuid.uuid4()),
             target_app=app_name,
-            platform=analysis.detected_platform or "nodejs",
+            platform=detected_platform,
             port=app_port,
             impact_level="medium",
             cost_warning=True,

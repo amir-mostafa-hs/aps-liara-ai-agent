@@ -13,16 +13,20 @@ The application interface is divided into two primary complementary panels:
 
 2. **Right Conversational Chat Area (`ChatMessageList` & `ChatInput`):**
    - Natural Persian (RTL) assistant guiding the user step-by-step.
-   - Inline interactive action widgets (Source Ingestion, App Target Selector, Hardware Plan Cards, Diff Preview, Deploy Gate, and Remediation Widget).
+   - Inline interactive action widgets (Source Ingestion, Liara Token Input, App Target Selector, Hardware Plan Cards, Diff Preview, Deploy Gate, and Remediation Widget).
    - Quick prompt suggestion chips for rapid command entry.
 
-The header includes a six-step workflow navigator for source, access, database, changes, deployment, and recovery. Its current step follows the latest workflow widget in the conversation. Selecting a step scrolls to the latest matching widget when one is available. On narrow screens the steps remain horizontally scrollable.
+Conversation history can be deleted from the header with **پاک‌کردن گفتگو**. After confirmation, the app deletes all conversations owned by the signed-in user; related messages are removed by the database cascade. The chat returns to its normal start screen with the introduction and suggestions for deployment, project inspection, and Liara token setup. No empty conversation is created until the user sends a new message. This action is unavailable while a response is streaming. Message times are shown in Persian local time; missing or invalid timestamps are omitted.
 
-The current conversation can be deleted from the header with **پاک‌کردن گفتگو**. The app asks for confirmation, deletes only the active conversation owned by the signed-in user, and starts a fresh conversation. This action is unavailable while a response is streaming. Message times are shown in Persian local time; missing or invalid timestamps are omitted.
+The chat and its interactive controls support keyboard focus, visible focus indicators, and reduced-motion preferences. User and assistant messages are visually separated and aligned to opposite sides. Suggested actions use the matching deployment, source, and access icons from `apps/web/public/assets`. All Persian UI text, including text inside elements marked for monospace styling, uses Vazirmatn for consistent typography.
 
-The chat and its interactive controls support keyboard focus, visible focus indicators, and reduced-motion preferences. User and assistant messages are visually separated and aligned to opposite sides. Suggested actions use the matching deployment, source, and access icons from `apps/web/public/assets`.
+When a user asks to configure, save, enter, or obtain a Liara API token, the assistant response includes the token-entry widget below its explanation. The user can paste the token, optionally test it, and save it through the existing protected settings endpoint. Message timestamps use the same Persian UI font as the rest of the conversation.
+
+For generated application secrets, the environment preflight displays the current generated value in a selectable field and provides a copy action. Regenerating the secret updates the displayed value. The value remains in the current page until the user confirms writing the environment settings; users should save a copy in a secure place.
 
 ## 2. Typical Deployment Lifecycle
+
+The deployment assistant determines the Liara platform from project manifests and dependencies (for example, `next` in `package.json`, Django/Flask dependencies, `composer.json`, `go.mod`, or a Dockerfile). Users choose the destination service and plan, but do not choose the platform. If the project files do not identify a supported platform, service creation stops instead of guessing or sending an invalid value to Liara.
 
 ```
 1. Ingest Project Source (Folder, ZIP, Git)

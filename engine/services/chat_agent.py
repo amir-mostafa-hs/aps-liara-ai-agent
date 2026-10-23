@@ -110,7 +110,7 @@ class LiaraChatAgent:
         model = self._get_model()
         if model is None:
             return {
-                "message": "برای گفت‌وگوی هوشمند، اتصال مدل زبانی در تنظیمات موتور Agent پیکربندی نشده است.",
+                "message": "برای گفت‌وگوی هوشمند، مقدار OPENAI_API_KEY در تنظیمات موتور Agent پیدا نشد. این متغیر را در فایل .env ریشهٔ پروژه تنظیم کنید و موتور Agent را دوباره راه‌اندازی کنید.",
                 "tool_results": [],
                 "catalog_version": 1,
             }

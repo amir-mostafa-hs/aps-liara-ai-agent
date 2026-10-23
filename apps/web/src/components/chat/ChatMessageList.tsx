@@ -243,11 +243,11 @@ export function ChatMessageList({
 
           if (isUser) {
             return (
-              <div id={`chat-message-${msg.id}`} key={msg.id} className="flex justify-end">
+              <div key={msg.id} className="flex justify-end">
                 <div dir="auto" className="max-w-[92%] sm:max-w-[85%] rounded-2xl rounded-tl-sm bg-[#10282d] border border-[#24545a] px-4 py-3 text-sm leading-7 text-zinc-100 shadow-sm">
                   <div className="leading-relaxed break-words">{renderFormattedContent(msg.content)}</div>
                   {formatMessageTime(msg.timestamp) && (
-                    <time dateTime={msg.timestamp} dir="ltr" className="text-xs text-zinc-400 font-mono mt-1 block text-left">
+                    <time dateTime={msg.timestamp} dir="ltr" className="text-xs font-normal text-zinc-400 mt-1 block text-left">
                       {formatMessageTime(msg.timestamp)}
                     </time>
                   )}
@@ -258,7 +258,7 @@ export function ChatMessageList({
 
           // Assistant Message
           return (
-            <div id={`chat-message-${msg.id}`} key={msg.id} className="flex items-start justify-start gap-3">
+            <div key={msg.id} className="flex items-start justify-start gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/assets/logo.webp"
@@ -272,7 +272,7 @@ export function ChatMessageList({
                       {renderFormattedContent(msg.content)}
                     </div>
                     {formatMessageTime(msg.timestamp) && (
-                      <time dateTime={msg.timestamp} dir="ltr" className="text-xs text-zinc-400 font-mono mt-2 block">
+                      <time dateTime={msg.timestamp} dir="ltr" className="text-xs font-normal text-zinc-400 mt-2 block">
                         {formatMessageTime(msg.timestamp)}
                       </time>
                     )}

@@ -36,6 +36,18 @@ export interface LiaraAccountSettings {
   teams?: LiaraTeam[];
 }
 
+function getAppUrl(service: CloudService): string | null {
+  if (service.type !== "app") return null;
+
+  const endpoint = service.endpoint?.trim() || `https://${service.name}.liara.run`;
+  try {
+    const url = new URL(endpoint.startsWith("https://") ? endpoint : `https://${endpoint}`);
+    return url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 export interface SidecarProps {
   logs: string[];
   services: CloudService[];
@@ -457,6 +469,7 @@ export function SidecarConsole({
                 const statusLower = svc.status.toLowerCase();
                 const isRunning = statusLower === "running" || statusLower === "active";
                 const isFailed = statusLower === "failed" || statusLower === "error";
+                const appUrl = getAppUrl(svc);
 
                 return (
                   <div
@@ -488,7 +501,22 @@ export function SidecarConsole({
                         </span>
                       </div>
                       <p dir="ltr" className="mt-1 text-left font-mono text-xs text-zinc-400 truncate">
-                        {svc.port ? `port ${svc.port}` : ""} {svc.endpoint ? `· ${svc.endpoint}` : ""}
+                        {svc.port ? `port ${svc.port}` : ""} {appUrl && (
+                          <>
+                            {svc.port ? " · " : ""}
+                            <a
+                              href={appUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              aria-label={`باز کردن اپلیکیشن ${svc.name} در تب جدید`}
+                              onClick={(event) => event.stopPropagation()}
+                              className="inline-flex max-w-full items-center gap-1 align-bottom text-zinc-300 hover:text-liara hover:underline underline-offset-2"
+                            >
+                              <span className="truncate">{appUrl}</span>
+                              <ExternalLink aria-hidden="true" className="h-3 w-3 shrink-0" />
+                            </a>
+                          </>
+                        )}
                       </p>
                     </div>
                   </div>

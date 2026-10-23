@@ -17,7 +17,8 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["Vazirmatn", "ui-sans-serif", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "sans-serif"],
-        mono: ["ui-monospace", "Menlo", "monospace"],
+        // Keep Persian glyphs consistent even in elements that use the mono utility.
+        mono: ["Vazirmatn", "ui-sans-serif", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "sans-serif"],
       },
     },
   },

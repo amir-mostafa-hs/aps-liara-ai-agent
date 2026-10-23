@@ -299,11 +299,14 @@ async def inspect_project(payload: InspectRequest):
 
 @app.post("/agent/plan", dependencies=[Depends(verify_internal_secret)])
 async def generate_plan(payload: PlanRequest):
-    plan = deployment_planner.generate_plan(
-        analysis=payload.analysis,
-        target_app=payload.target_app,
-        port=payload.port,
-    )
+    try:
+        plan = deployment_planner.generate_plan(
+            analysis=payload.analysis,
+            target_app=payload.target_app,
+            port=payload.port,
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
     return {
         "ok": True,
         "plan": plan.model_dump(),

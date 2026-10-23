@@ -70,6 +70,26 @@ EXTERNAL_SERVICE_CREDENTIAL = re.compile(
     r"(?i)^(stripe|openai|github|aws|sentry|sendgrid|resend|twilio|liara|cloudflare|supabase|firebase|google|vercel|anthropic)_.*(key|secret|token|credential)"
 )
 
+LIARA_PLATFORM_ALIASES = {
+    "node": "nodejs",
+    "node.js": "nodejs",
+    "javascript": "nodejs",
+    "nextjs": "next",
+    "next.js": "next",
+    "python3": "python",
+    ".net core": "netcore",
+}
+LIARA_SUPPORTED_PLATFORMS = {
+    "static", "docker", "nodejs", "laravel", "react", "vue", "angular",
+    "django", "php", "flask", "netcore", "dotnet", "next", "python", "go",
+}
+
+
+def normalize_detected_platform(value: str | None) -> str | None:
+    normalized = (value or "").strip().lower()
+    canonical = LIARA_PLATFORM_ALIASES.get(normalized, normalized)
+    return canonical if canonical in LIARA_SUPPORTED_PLATFORMS else None
+
 
 class ProjectInspector:
     def __init__(self, allowed_roots: list[str] | None = None):
@@ -209,7 +229,18 @@ class ProjectInspector:
     ) -> str:
         platform_fa = {
             "nodejs": "Node.js (جاوااسکریپت)",
+            "next": "Next.js",
+            "react": "React",
+            "vue": "Vue",
+            "angular": "Angular",
             "python": "پایتون (Python)",
+            "django": "Django (پایتون)",
+            "flask": "Flask (پایتون)",
+            "laravel": "Laravel (PHP)",
+            "php": "PHP",
+            "go": "Go",
+            "dotnet": ".NET",
+            "netcore": ".NET Core",
             "docker": "داکر (Dockerfile)",
             "static": "وب استاتیک (HTML/CSS)",
         }.get(platform, platform)
@@ -251,6 +282,7 @@ class ProjectInspector:
         requirements_text: str | None = None
         has_liara_json = False
         existing_app_name: str | None = None
+        configured_platform: str | None = None
 
         # Clean folder-based suggested app name (e.g. nodejs-demo)
         clean_slug = re.sub(r"[^a-zA-Z0-9-]", "-", root.name.lower()).strip("-")
@@ -268,12 +300,8 @@ class ProjectInspector:
                         existing_app_name = liara_data["app"].strip()
                     if "port" in liara_data:
                         port = int(liara_data["port"])
-                    if "platform" in liara_data:
-                        detected_platform = liara_data["platform"]
-                        if detected_platform == "node":
-                            detected_platform = "nodejs"
-                            detected_language = "javascript"
-                            confidence = 0.95
+                    if isinstance(liara_data.get("platform"), str):
+                        configured_platform = normalize_detected_platform(liara_data["platform"])
             except Exception:
                 missing_configs.append("Malformed liara.json configuration file.")
 
@@ -292,21 +320,104 @@ class ProjectInspector:
                     if "start" in scripts:
                         start_command = scripts["start"]
                     entrypoint = pkg_data.get("main")
+                    dependencies = {
+                        **(pkg_data.get("dependencies") or {}),
+                        **(pkg_data.get("devDependencies") or {}),
+                    }
+                    if "next" in dependencies:
+                        detected_platform = "next"
+                    elif "@angular/core" in dependencies:
+                        detected_platform = "angular"
+                    elif "vue" in dependencies:
+                        detected_platform = "vue"
+                    elif "react" in dependencies:
+                        detected_platform = "react"
             except Exception:
                 missing_configs.append("Malformed package.json file.")
 
-        # 3. Check Python: requirements.txt or pyproject.toml
+        # 3. Check Python project manifests and framework dependencies.
         req_path = root / "requirements.txt"
+        pyproject_path = root / "pyproject.toml"
+        python_manifest_text = ""
+        for python_manifest in (req_path, pyproject_path):
+            if python_manifest.is_file():
+                evidence_files.append(python_manifest.name)
+                try:
+                    python_manifest_text += "\n" + python_manifest.read_text(encoding="utf-8")
+                except Exception:
+                    pass
         if req_path.is_file():
-            evidence_files.append("requirements.txt")
-            if detected_platform == "unknown":
-                detected_platform = "python"
-                detected_language = "python"
-                confidence = max(confidence, 0.9)
             try:
                 requirements_text = req_path.read_text(encoding="utf-8")
             except Exception:
                 pass
+
+        if detected_platform == "unknown" and python_manifest_text:
+            normalized_python_manifest = python_manifest_text.lower()
+            if (root / "manage.py").is_file():
+                evidence_files.append("manage.py")
+            if (root / "manage.py").is_file() or re.search(r"\bdjango\b", normalized_python_manifest):
+                detected_platform = "django"
+            elif re.search(r"\bflask\b", normalized_python_manifest):
+                detected_platform = "flask"
+            else:
+                detected_platform = "python"
+            detected_language = "python"
+            confidence = max(confidence, 0.9)
+        elif detected_platform == "unknown" and (root / "manage.py").is_file():
+            evidence_files.append("manage.py")
+            detected_platform = "django"
+            detected_language = "python"
+            confidence = max(confidence, 0.9)
+
+        # 4. Detect PHP/Laravel, Go, .NET, Docker, and static projects from manifests.
+        composer_path = root / "composer.json"
+        if detected_platform == "unknown" and composer_path.is_file():
+            evidence_files.append("composer.json")
+            try:
+                composer_data = json.loads(composer_path.read_text(encoding="utf-8"))
+                composer_requirements = {
+                    **composer_data.get("require", {}),
+                    **composer_data.get("require-dev", {}),
+                }
+                detected_platform = "laravel" if "laravel/framework" in composer_requirements or (root / "artisan").is_file() else "php"
+                detected_language = "php"
+                confidence = max(confidence, 0.9)
+            except Exception:
+                missing_configs.append("Malformed composer.json file.")
+
+        if detected_platform == "unknown" and (root / "go.mod").is_file():
+            evidence_files.append("go.mod")
+            detected_platform = "go"
+            detected_language = "go"
+            confidence = max(confidence, 0.9)
+
+        dotnet_manifests = [*root.glob("*.csproj"), *root.glob("*.fsproj"), *root.glob("*.vbproj")]
+        if detected_platform == "unknown" and dotnet_manifests:
+            evidence_files.extend(path.name for path in dotnet_manifests)
+            detected_platform = "dotnet"
+            detected_language = "csharp"
+            confidence = max(confidence, 0.9)
+
+        if detected_platform == "unknown" and (root / "Dockerfile").is_file():
+            evidence_files.append("Dockerfile")
+            detected_platform = "docker"
+            detected_language = "docker"
+            confidence = max(confidence, 0.85)
+
+        if detected_platform == "unknown" and (root / "index.html").is_file():
+            evidence_files.append("index.html")
+            detected_platform = "static"
+            detected_language = "html"
+            confidence = max(confidence, 0.8)
+
+        if detected_platform == "unknown" and configured_platform:
+            detected_platform = configured_platform
+            confidence = max(confidence, 0.8)
+            if detected_platform in {"nodejs", "react", "vue", "angular", "next"}:
+                detected_language = "javascript"
+            elif detected_platform in {"python", "django", "flask"}:
+                detected_language = "python"
 
         # Fallback entrypoint if not set
         if not entrypoint and detected_platform == "nodejs":
@@ -317,6 +428,9 @@ class ProjectInspector:
 
         if not start_command and entrypoint:
             start_command = f"node {entrypoint}"
+
+        if detected_platform == "unknown":
+            missing_configs.append("Could not identify a Liara-supported platform from the project files.")
 
         # 4. Read .env.example or .env if present
         for env_file in [".env.example", ".env"]:

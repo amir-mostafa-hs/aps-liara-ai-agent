@@ -3,17 +3,6 @@
 import React from "react";
 import { Trash2 } from "lucide-react";
 
-export type WorkflowStage = "source" | "access" | "database" | "changes" | "deploy" | "recovery";
-
-const WORKFLOW_STAGES: Array<{ id: WorkflowStage; label: string; icon: string }> = [
-  { id: "source", label: "سورس", icon: "/assets/icon-source.webp" },
-  { id: "access", label: "دسترسی", icon: "/assets/icon-key.webp" },
-  { id: "database", label: "دیتابیس", icon: "/assets/icon-db.webp" },
-  { id: "changes", label: "تغییرات", icon: "/assets/icon-diff.webp" },
-  { id: "deploy", label: "دپلوی", icon: "/assets/icon-deploy.webp" },
-  { id: "recovery", label: "خودترمیمی", icon: "/assets/icon-heal.webp" },
-];
-
 interface HeaderProps {
   username?: string;
   activeTeam?: { id: string; name: string } | null;
@@ -22,8 +11,6 @@ interface HeaderProps {
   isClearingConversation?: boolean;
   isStreaming?: boolean;
   systemConnected?: boolean;
-  activeStage?: WorkflowStage;
-  onSelectStage?: (stage: WorkflowStage) => void;
 }
 
 export function Header({
@@ -34,8 +21,6 @@ export function Header({
   isClearingConversation = false,
   isStreaming = false,
   systemConnected = true,
-  activeStage = "source",
-  onSelectStage,
 }: HeaderProps) {
   return (
     <header className="shrink-0 border-b border-zinc-800 bg-zinc-950/90 backdrop-blur-md z-20">
@@ -116,32 +101,6 @@ export function Header({
           )}
         </div>
       </div>
-      <nav aria-label="مراحل گردش‌کار دپلوی" className="overflow-x-auto border-t border-zinc-800/80 px-3 py-2 sm:px-6">
-        <ol className="mx-auto flex min-w-max max-w-5xl items-center justify-between gap-1 sm:min-w-0">
-          {WORKFLOW_STAGES.map((stage, index) => {
-            const isActive = activeStage === stage.id;
-            return (
-              <li key={stage.id} className="flex-none sm:min-w-0 sm:flex-1">
-                <button
-                  type="button"
-                  onClick={() => onSelectStage?.(stage.id)}
-                  aria-current={isActive ? "step" : undefined}
-                  aria-label={`مرحله ${index + 1}: ${stage.label}${isActive ? "، مرحله فعلی" : ""}`}
-                  className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition-colors focus-visible:outline-none sm:px-2 ${
-                    isActive
-                      ? "border-liara/40 bg-liara/10 text-liara"
-                      : "border-transparent text-zinc-400 hover:border-zinc-700 hover:bg-zinc-900/70 hover:text-zinc-200"
-                  }`}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={stage.icon} alt="" aria-hidden="true" className="h-5 w-5 shrink-0 object-contain" />
-                  <span className="whitespace-nowrap">{stage.label}</span>
-                </button>
-              </li>
-            );
-          })}
-        </ol>
-      </nav>
     </header>
   );
 }

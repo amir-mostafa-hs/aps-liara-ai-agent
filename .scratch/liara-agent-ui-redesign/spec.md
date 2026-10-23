@@ -42,7 +42,7 @@ Redesign the frontend application tier (`apps/web`) to mirror the visual design,
 - **Stage Tracking in Header**: The header's 6-stage navigation bar (سورس، دسترسی، دیتابیس، تغییرات، دپلوی، خودترمیمی) is bound to the dynamic state of the active workflow in the chat session, while remaining interactive.
 - **Preserve All Component Props & Callbacks**: Every widget retains its exact interface and internal handler functions so that all parent-child communication in `apps/web/src/app/page.tsx` remains intact.
 - **High-Seam Testing**: All existing test suites in `apps/web/tests/` continue testing external behavior through the highest seams (HTTP endpoints, workflow modules, component contracts).
-- **Workflow Navigation**: The six header stages track the latest workflow widget. Selecting a stage scrolls to the latest matching widget in the conversation when available.
+- **Workflow Navigation**: Do not render decorative stage tabs in the header. The chat and its actual interactive widgets are the workflow surface; do not expose steps without distinct functionality.
 - **Development Port**: Keep the Web development server on port `3000` to match the current local workspace URL.
 
 ## Testing Decisions

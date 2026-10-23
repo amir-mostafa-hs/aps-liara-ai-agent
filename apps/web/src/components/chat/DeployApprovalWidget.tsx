@@ -135,7 +135,7 @@ export function DeployApprovalWidget({
           alt=""
           className="absolute inset-y-0 left-0 h-full w-1/2 object-cover opacity-80 [mask-image:linear-gradient(to_right,#000_30%,transparent)] pointer-events-none"
         />
-        <div className="relative p-2 sm:w-3/5 mr-auto space-y-1">
+        <div className="relative ml-auto w-full p-2 text-right sm:w-3/5 space-y-1">
           <h3 className="font-bold text-emerald-300 text-base">دپلوی با موفقیت انجام شد</h3>
           <p className="t">
             برنامه شما روی{" "}

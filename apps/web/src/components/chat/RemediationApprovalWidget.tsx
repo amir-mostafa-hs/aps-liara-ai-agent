@@ -112,7 +112,7 @@ export function RemediationApprovalWidget({
           alt=""
           className="absolute inset-y-0 left-0 h-full w-1/2 object-cover opacity-80 [mask-image:linear-gradient(to_right,#000_30%,transparent)] pointer-events-none"
         />
-        <div className="relative sm:w-3/5 mr-auto space-y-1">
+        <div className="relative ml-auto w-full text-right sm:w-3/5 space-y-1">
           <h3 className="font-bold text-emerald-300 text-base">سرویس با موفقیت احیا شد</h3>
           <p className="t">
             راهکار خودترمیمی اعمال گردید و برنامه به وضعیت سالم (HTTP {result.verification?.http_status_code || 200}) رسید.

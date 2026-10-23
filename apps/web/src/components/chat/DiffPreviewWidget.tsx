@@ -155,7 +155,7 @@ export function DiffPreviewWidget({
           alt=""
           className="absolute inset-y-0 left-0 h-full w-1/2 object-cover opacity-80 [mask-image:linear-gradient(to_right,#000_30%,transparent)] pointer-events-none"
         />
-        <div className="relative sm:w-3/5 mr-auto space-y-1">
+        <div className="relative ml-auto w-full text-right sm:w-3/5 space-y-1">
           <h3 className="font-bold text-emerald-300 text-base">تغییرات اعمال شد</h3>
           <p className="t">
             فایل تنظیمات <code className="text-emerald-200 font-mono">liara.json</code> ساخته شد و متغیرها تنظیم گردیدند.

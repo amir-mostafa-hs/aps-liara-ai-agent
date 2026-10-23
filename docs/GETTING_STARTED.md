@@ -51,8 +51,9 @@ LIARA_API_TOKEN=""
 # Optional: Set default Liara Team ID for organizational accounts (e.g. 6ace4ec3ec13fe0c3c19c4db)
 LIARA_TEAM_ID=""
 
-# AI Engine Model (OpenAI-compatible)
+# AI Engine Model (OpenAI-compatible; API key is required for chat and tool calling)
 OPENAI_API_KEY=""
+OPENAI_BASE_URL=""
 OPENAI_MODEL_NAME="gpt-6-luna"
 
 # Operator Credentials

@@ -155,7 +155,7 @@ export function PlanSelectorCard({
           alt=""
           className="absolute inset-y-0 left-0 h-full w-1/2 object-cover opacity-80 [mask-image:linear-gradient(to_right,#000_30%,transparent)] pointer-events-none"
         />
-        <div className="relative sm:w-3/5 mr-auto space-y-1">
+        <div className="relative ml-auto w-full text-right sm:w-3/5 space-y-1">
           <h3 className="font-bold text-emerald-300 text-base">دیتابیس آماده شد</h3>
           <p className="t">
             پایگاه‌داده <b className="text-emerald-200">{dbName}</b> با موفقیت ایجاد شد و اطلاعات اتصال در متغیرها تنظیم گردید.

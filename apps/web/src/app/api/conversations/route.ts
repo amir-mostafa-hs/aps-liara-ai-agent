@@ -26,3 +26,12 @@ export async function POST() {
   const conversation = await prisma.conversation.create({ data: { userId: user.id } });
   return NextResponse.json({ ok: true, conversation }, { status: 201 });
 }
+
+export async function DELETE() {
+  const user = await currentDatabaseUser();
+  if (!user) return NextResponse.json({ ok: false, error: "برای پاک‌کردن گفتگوها وارد حساب شوید." }, { status: 401 });
+
+  // Conversation messages are deleted through the cascade relation in the Prisma schema.
+  const result = await prisma.conversation.deleteMany({ where: { userId: user.id } });
+  return NextResponse.json({ ok: true, deletedConversations: result.count });
+}

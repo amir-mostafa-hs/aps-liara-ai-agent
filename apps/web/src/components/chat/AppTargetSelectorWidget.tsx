@@ -16,6 +16,26 @@ import { AppPlan, AppFeaturePlan, AppNetwork, checkAppNameAvailability, formatPl
 import type { ExistingAppCandidate } from "@/lib/app-creation-workflow";
 import { findExistingApp } from "@/lib/app-creation-workflow";
 
+const LIARA_SUPPORTED_PLATFORMS = new Set([
+  "static", "docker", "node", "laravel", "react", "vue", "angular",
+  "django", "php", "flask", "netcore", "dotnet", "next", "python", "go",
+]);
+
+function normalizeLiaraPlatform(platform?: string): string {
+  const normalized = (platform || "").trim().toLowerCase();
+  const aliases: Record<string, string> = {
+    nodejs: "node",
+    "node.js": "node",
+    javascript: "node",
+    nextjs: "next",
+    "next.js": "next",
+    python3: "python",
+    ".net core": "netcore",
+  };
+  const canonical = aliases[normalized] || normalized;
+  return LIARA_SUPPORTED_PLATFORMS.has(canonical) ? canonical : "";
+}
+
 export interface AppTargetSelectorWidgetProps {
   suggestedAppName?: string;
   detectedPlatform?: string;
@@ -29,7 +49,7 @@ export interface AppTargetSelectorWidgetProps {
 
 export function AppTargetSelectorWidget({
   suggestedAppName = "my-app",
-  detectedPlatform = "node",
+  detectedPlatform = "unknown",
   teamScope = null,
   detectedDatabaseCount = 0,
   existingApps = [],
@@ -66,6 +86,7 @@ export function AppTargetSelectorWidget({
   const availableBundlePlans = featurePlans.filter((plan) => plan.plan_id === selectedPlanId);
   const selectedBundlePlan = availableBundlePlans.find((plan) => plan.bundle_plan_id === selectedBundlePlanId);
   const selectedNetwork = networks.find((network) => network.id === selectedNetworkId);
+  const targetPlatform = normalizeLiaraPlatform(detectedPlatform);
 
   useEffect(() => {
     if (mode !== "new") return;
@@ -128,6 +149,10 @@ export function AppTargetSelectorWidget({
       setErrorMessage("شناسه برنامه باید حداقل ۳ کاراکتر انگلیسی باشد.");
       return;
     }
+    if (!targetPlatform) {
+      setErrorMessage("از روی فایل‌های فعلی پروژه، پلتفرم سازگار با Liara با اطمینان تشخیص داده نشد؛ ساخت سرویس متوقف شد تا پلتفرم اشتباه ایجاد نشود.");
+      return;
+    }
     if (!plans.some((plan) => plan.plan_id === selectedPlanId)) {
       setErrorMessage("ابتدا یک پلن معتبر از فهرست لیارا انتخاب کنید.");
       return;
@@ -145,7 +170,7 @@ export function AppTargetSelectorWidget({
     try {
       const res = await onCreateNewApp({
         appName: slug,
-        platform: detectedPlatform,
+        platform: targetPlatform,
         planId: selectedPlanId,
         bundlePlanId: selectedBundlePlan.bundle_plan_id,
         networkId: selectedNetwork.id,
@@ -473,13 +498,13 @@ export function AppTargetSelectorWidget({
           </div>
 
           <p className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-2.5 text-[10px] leading-relaxed text-amber-200">
-            با انتخاب «تأیید و ساخت سرویس»، نام <span dir="ltr" className="font-mono">{cleanSlug(newAppName) || "—"}</span>، پلتفرم {detectedPlatform}، پلن سخت‌افزاری «{selectedPlan?.name_fa || selectedPlanId || "—"}» ({formatPlanPrice(selectedPlan?.price_monthly)})، امکانات «{selectedBundlePlan?.name_fa || "—"}» ({formatPlanPrice(selectedBundlePlan?.price_monthly)})، شبکهٔ «{selectedNetwork?.name || "—"}» و محدوده {teamScope ? `تیم ${teamScope.name} (${teamScope.id})` : "حساب شخصی"} را تأیید می‌کنید. قیمت‌ها جداگانه مطابق اطلاعات لیارا نمایش داده شده‌اند؛ این عملیات ممکن است هزینه داشته باشد.
+            با انتخاب «تأیید و ساخت سرویس»، نام <span dir="ltr" className="font-mono">{cleanSlug(newAppName) || "—"}</span>، پلتفرم {targetPlatform || "تشخیص‌داده‌نشده"}، پلن سخت‌افزاری «{selectedPlan?.name_fa || selectedPlanId || "—"}» ({formatPlanPrice(selectedPlan?.price_monthly)})، امکانات «{selectedBundlePlan?.name_fa || "—"}» ({formatPlanPrice(selectedBundlePlan?.price_monthly)})، شبکهٔ «{selectedNetwork?.name || "—"}» و محدوده {teamScope ? `تیم ${teamScope.name} (${teamScope.id})` : "حساب شخصی"} را تأیید می‌کنید. قیمت‌ها جداگانه مطابق اطلاعات لیارا نمایش داده شده‌اند؛ این عملیات ممکن است هزینه داشته باشد.
           </p>
 
           <button
             type="button"
             onClick={handleCreateNew}
-            disabled={isSubmitting || disabled || plansLoading || plans.length === 0 || !selectedPlanId || !selectedBundlePlan || !selectedNetwork || availableName !== cleanSlug(newAppName)}
+            disabled={isSubmitting || disabled || !targetPlatform || plansLoading || plans.length === 0 || !selectedPlanId || !selectedBundlePlan || !selectedNetwork || availableName !== cleanSlug(newAppName)}
             className="mt-2 w-full min-h-11 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-l from-liara to-mint text-zinc-950 transition-colors disabled:opacity-50 cursor-pointer"
           >
             {isSubmitting ? (

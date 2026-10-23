@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Header, WorkflowStage } from "@/components/layout/Header";
+import { Header } from "@/components/layout/Header";
 import { SidecarConsole, CloudService } from "@/components/console/SidecarConsole";
 import { ChatMessageList, ChatMessage } from "@/components/chat/ChatMessageList";
 import { ChatInput } from "@/components/chat/ChatInput";
@@ -31,9 +31,13 @@ function createWelcomeMessage(): ChatMessage {
     role: "assistant",
     content:
       "سلام! من ایجنت هوشمند و خودکار دپلوی و مهندسی قابلیت اطمینان (SRE) لیارا هستم.\n\nمن می‌تونم سورس‌کد پروژه شما رو بررسی کنم، پلتفرم و پیش‌نیازهایی مثل دیتابیس (پستگرس، ردیس، مای‌اس‌کیو‌ال و ...) رو تشخیص بدم، در صورت تمایل سرویس‌ها رو در لیارا براتون بسازم، فایل liara.json رو تولید کنم و پروژه رو دپلوی کنم.\n\nبرای شروع، لطفاً سورس پروژه را با یکی از روش‌های زیر مشخص کنید:",
-    timestamp: new Date().toISOString(),
     widget: { type: "source_input" },
   };
+}
+
+function isLiaraTokenRequest(message: string): boolean {
+  const normalized = message.replace(/[يى]/g, "ی").replace(/ك/g, "ک").toLowerCase();
+  return normalized.includes("توکن") && /(تنظیم|ثبت|ذخیره|دسترسی|دریافت|وارد)/.test(normalized);
 }
 
 export default function HomePage() {
@@ -63,6 +67,7 @@ export default function HomePage() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [isClearingConversation, setIsClearingConversation] = useState(false);
+  const conversationLoadEpochRef = useRef(0);
 
   // Sidecar & Infrastructure State
   const [terminalLogs, setTerminalLogs] = useState<string[]>([
@@ -72,45 +77,6 @@ export default function HomePage() {
   const [selectedApp, setSelectedApp] = useState<string>("");
   const pendingEnvValuesRef = useRef<Map<string, Record<string, string>>>(new Map());
 
-  const activeWorkflowStage: WorkflowStage = (() => {
-    const stageByWidget: Record<string, WorkflowStage> = {
-      source_input: "source",
-      app_target_selector: "source",
-      token_input: "access",
-      plan_selector: "database",
-      diff_preview: "changes",
-      env_preflight: "changes",
-      deploy_approval: "deploy",
-      remediation_approval: "recovery",
-    };
-    for (let index = messages.length - 1; index >= 0; index -= 1) {
-      const widgetType = messages[index].widget?.type;
-      const stage = widgetType ? stageByWidget[widgetType] : undefined;
-      if (stage) return stage;
-    }
-    return "source";
-  })();
-
-  const handleSelectWorkflowStage = (stage: WorkflowStage) => {
-    const widgetTypesByStage: Record<WorkflowStage, string[]> = {
-      source: ["source_input", "app_target_selector"],
-      access: ["token_input"],
-      database: ["plan_selector"],
-      changes: ["diff_preview", "env_preflight"],
-      deploy: ["deploy_approval"],
-      recovery: ["remediation_approval"],
-    };
-    const targetMessage = [...messages].reverse().find((message) =>
-      message.widget && widgetTypesByStage[stage].includes(message.widget.type),
-    );
-    if (targetMessage) {
-      document.getElementById(`chat-message-${targetMessage.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-      return;
-    }
-    if (stage === "source") {
-      document.getElementById("chat-message-welcome-1")?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-  };
   const [isRefreshingServices, setIsRefreshingServices] = useState(false);
   const [systemConnected, setSystemConnected] = useState(true);
   const [systemHealth, setSystemHealth] = useState({ database: true, engine: true });
@@ -238,9 +204,11 @@ export default function HomePage() {
           router.push("/login");
         } else {
           setUser(data);
+          const loadEpoch = conversationLoadEpochRef.current;
           fetch("/api/conversations")
             .then((response) => response.json())
             .then(async (chatData) => {
+              if (loadEpoch !== conversationLoadEpochRef.current) return;
               if (chatData.ok && chatData.activeConversation) {
                 const active = chatData.activeConversation;
                 setConversationId(active.id);
@@ -263,8 +231,6 @@ export default function HomePage() {
                 }
                 return;
               }
-              const created = await fetch("/api/conversations", { method: "POST" }).then((response) => response.json());
-              if (created.ok && created.conversation?.id) setConversationId(created.conversation.id);
             })
             .catch(() => {});
         }
@@ -468,7 +434,7 @@ export default function HomePage() {
               type: "app_target_selector",
               data: {
                 suggestedAppName: analysis.existing_app_name || analysis.suggested_app_name || "my-app",
-                detectedPlatform: analysis.detected_platform || "node",
+                detectedPlatform: analysis.detected_platform,
                 existingApps: services.filter((s) => s.type === "app"),
                 sourcePath,
                 analysis,
@@ -504,6 +470,7 @@ export default function HomePage() {
     if (widget.type === "token_input") {
       return (
         <TokenInputWidget
+          initialTokenMasked={widget.data?.initialTokenMasked || accountSettings.maskedToken}
           onTokenSaved={(maskedToken) => {
             setTerminalLogs((prev) => [
               ...prev,
@@ -555,7 +522,7 @@ export default function HomePage() {
           onCreateNewApp={async (creation) => {
             const { appName, planId, bundlePlanId, networkId, priceMonthly, bundlePriceMonthly } = creation;
             return createLiaraApp(
-              { ...creation, platform: data.detectedPlatform || "node" },
+              creation,
               {
                 onConfirmed: (service) => {
                   setSelectedApp(appName);
@@ -994,15 +961,19 @@ export default function HomePage() {
           role: "assistant",
           content: data.message.content,
           timestamp: data.message.createdAt || new Date().toISOString(),
-          widget: analysis ? {
-            type: "app_target_selector",
-            data: {
-              sourcePath: inspection.result.source_path,
-              analysis,
-              suggestedAppName: analysis.suggested_app_name,
-              detectedPlatform: analysis.detected_platform,
-            },
-          } : undefined,
+          widget: analysis
+            ? {
+                type: "app_target_selector",
+                data: {
+                  sourcePath: inspection.result.source_path,
+                  analysis,
+                  suggestedAppName: analysis.suggested_app_name,
+                  detectedPlatform: analysis.detected_platform,
+                },
+              }
+            : isLiaraTokenRequest(text)
+              ? { type: "token_input", data: { initialTokenMasked: accountSettings.maskedToken } }
+              : undefined,
         },
       ]);
     } catch (err: unknown) {
@@ -1029,29 +1000,21 @@ export default function HomePage() {
 
   const handleClearConversation = async () => {
     if (isStreaming || isClearingConversation) return;
-    const confirmed = window.confirm("تاریخچهٔ گفت‌وگوی فعلی برای همیشه حذف می‌شود. گفت‌وگوهای دیگر شما حذف نمی‌شوند. ادامه می‌دهید؟");
+    const confirmed = window.confirm("تمام تاریخچهٔ گفتگوهای شما برای همیشه حذف می‌شود. ادامه می‌دهید؟");
     if (!confirmed) return;
 
+    conversationLoadEpochRef.current += 1;
     setIsClearingConversation(true);
     try {
-      if (conversationId) {
-        const deleted = await fetch(`/api/conversations/${encodeURIComponent(conversationId)}`, { method: "DELETE" });
-        if (!deleted.ok) throw new Error("حذف تاریخچهٔ گفتگو ناموفق بود.");
-      }
+      const deleted = await fetch("/api/conversations", { method: "DELETE" });
+      const deletionResult = await deleted.json().catch(() => ({}));
+      if (!deleted.ok || !deletionResult.ok) throw new Error(deletionResult.error || "حذف تاریخچهٔ گفتگو ناموفق بود.");
 
       setConversationId(null);
       setMessages([createWelcomeMessage()]);
       setTerminalLogs(["[AGENT] گفت‌وگوی تازه آماده است."]);
       setSelectedApp("");
       pendingEnvValuesRef.current.clear();
-
-      const created = await fetch("/api/conversations", { method: "POST" });
-      const data = await created.json();
-      if (!created.ok || !data.ok || !data.conversation?.id) {
-        throw new Error("گفت‌وگوی تازه ساخته نشد. پیام بعدی شما گفت‌وگوی جدیدی ایجاد می‌کند.");
-      }
-
-      setConversationId(data.conversation.id);
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "پاک‌کردن تاریخچهٔ گفتگو ناموفق بود.");
     } finally {
@@ -1075,8 +1038,6 @@ export default function HomePage() {
         isClearingConversation={isClearingConversation}
         isStreaming={isStreaming}
         systemConnected={systemConnected}
-        activeStage={activeWorkflowStage}
-        onSelectStage={handleSelectWorkflowStage}
       />
 
       {/* Main Dual Workspace Area */}
