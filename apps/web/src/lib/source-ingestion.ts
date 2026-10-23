@@ -24,12 +24,14 @@ export function validateSourcePath(
     const defaultRoots = [
       path.resolve(baseDir),
       path.resolve(baseDir, ".."),
+      path.resolve(baseDir, "..", ".."),
       process.cwd(),
       path.resolve(process.cwd(), ".."),
+      path.resolve(process.cwd(), "..", ".."),
     ];
-    const permittedRoots = (allowedRoots || defaultRoots).map((r) =>
-      path.resolve(r)
-    );
+    const permittedRoots = allowedRoots
+      ? allowedRoots.map((r) => path.resolve(r))
+      : null;
 
     // If the path contains relative traversal tokens that try to escape
     if (
@@ -50,23 +52,45 @@ export function validateSourcePath(
       : path.resolve(baseDir, inputPath);
 
     if (!fs.existsSync(resolvedPath) && !path.isAbsolute(inputPath)) {
-      const parentResolved = path.resolve(baseDir, "..", inputPath);
-      if (fs.existsSync(parentResolved)) {
-        resolvedPath = parentResolved;
+      const candidateRoots = [
+        path.resolve(baseDir, ".."),
+        path.resolve(baseDir, "..", ".."),
+        process.cwd(),
+        path.resolve(process.cwd(), ".."),
+        path.resolve(process.cwd(), "..", ".."),
+      ];
+      for (const root of candidateRoots) {
+        const candidate = path.resolve(root, inputPath);
+        if (fs.existsSync(candidate)) {
+          resolvedPath = candidate;
+          break;
+        }
       }
     }
 
-    // Verify confinement: resolvedPath MUST start with at least one permitted root
-    const isConfined = permittedRoots.some(
-      (root) =>
-        resolvedPath === root || resolvedPath.startsWith(root + path.sep)
-    );
-    if (!isConfined) {
-      return {
-        valid: false,
-        error:
-          "Path traversal detected: directory is outside the allowed workspace.",
-      };
+    // Verify confinement if allowedRoots is explicitly provided
+    if (permittedRoots) {
+      const isConfined = permittedRoots.some(
+        (root) =>
+          resolvedPath === root || resolvedPath.startsWith(root + path.sep)
+      );
+      if (!isConfined) {
+        return {
+          valid: false,
+          error:
+            "Path traversal detected: directory is outside the allowed workspace.",
+        };
+      }
+    } else {
+      // Guard against sensitive system directories when no custom root is given
+      const blockedPrefixes = ["/etc", "/sys", "/proc", "/dev", "/var/run"];
+      if (blockedPrefixes.some((p) => resolvedPath === p || resolvedPath.startsWith(p + path.sep))) {
+        return {
+          valid: false,
+          error:
+            "Path traversal detected: directory is outside the allowed workspace.",
+        };
+      }
     }
 
     if (!fs.existsSync(resolvedPath)) {

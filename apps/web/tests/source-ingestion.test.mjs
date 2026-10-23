@@ -13,13 +13,26 @@ import {
 test("validateSourcePath allows existing project directories and rejects path traversal", () => {
   const repoRoot = fs.existsSync(path.resolve(process.cwd(), "sample-apps"))
     ? process.cwd()
-    : path.resolve(process.cwd(), "..");
+    : fs.existsSync(path.resolve(process.cwd(), "..", "sample-apps"))
+    ? path.resolve(process.cwd(), "..")
+    : path.resolve(process.cwd(), "..", "..");
   const samplePath = "sample-apps/nodejs-demo";
 
-  // Valid project path
+  // Valid project path with explicit root
   const validRes = validateSourcePath(samplePath, repoRoot);
   assert.equal(validRes.valid, true);
   assert.ok(validRes.resolvedPath.endsWith("sample-apps/nodejs-demo"));
+
+  // Default baseDir should locate sample-apps/nodejs-demo from apps/web without error
+  const defaultBaseRes = validateSourcePath(samplePath);
+  assert.equal(defaultBaseRes.valid, true, `Expected default validateSourcePath("${samplePath}") to be valid: ${defaultBaseRes.error}`);
+  assert.ok(defaultBaseRes.resolvedPath.endsWith("sample-apps/nodejs-demo"));
+
+  // Valid absolute directory path
+  const absoluteValidDir = path.resolve(repoRoot, "sample-apps", "nodejs-demo");
+  const absoluteRes = validateSourcePath(absoluteValidDir);
+  assert.equal(absoluteRes.valid, true, `Expected absolute path "${absoluteValidDir}" to be valid: ${absoluteRes.error}`);
+  assert.equal(absoluteRes.resolvedPath, absoluteValidDir);
 
   // Path traversal outside project root
   const traversalRes = validateSourcePath("../../../etc/passwd", repoRoot);
