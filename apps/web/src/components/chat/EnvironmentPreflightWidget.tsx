@@ -58,7 +58,7 @@ export function EnvironmentPreflightWidget({ appName, requirements, serviceValue
   };
 
   if (saved) return (
-    <article className="relative overflow-hidden rounded-2xl border border-emerald-400/30 bg-emerald-400/[.04] p-5 shadow-lg">
+    <article className="relative overflow-hidden rounded-none border border-emerald-500/30 bg-emerald-500/[.04] p-5 shadow-none">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/assets/state-success.webp"
@@ -68,7 +68,7 @@ export function EnvironmentPreflightWidget({ appName, requirements, serviceValue
       <div className="relative sm:w-3/5 mr-auto space-y-2">
         <h4 className="text-sm font-bold text-emerald-300">تنظیم متغیرهای لازم روی لیارا تأیید شد.</h4>
         {generated.length > 0 && (
-          <div className="mt-3 rounded-xl border border-amber-500/40 bg-black/40 p-3 text-xs text-amber-200 space-y-2">
+          <div className="mt-3 rounded-none border border-amber-500/40 bg-zinc-950/90 p-3 text-xs text-amber-200 space-y-2">
             <p>Secret تولیدشده فقط در همین صفحه نگهداری می‌شود. آن را در محل امن ذخیره کنید:</p>
             {generated.map(({ name }) => (
               <div key={name} className="flex flex-wrap items-center gap-2 font-mono">
@@ -98,7 +98,7 @@ export function EnvironmentPreflightWidget({ appName, requirements, serviceValue
 
   return (
     <article className="card w-full !items-stretch flex-col space-y-4">
-      <div className="flex items-center justify-between border-b border-white/10 pb-3">
+      <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
         <div>
           <h4 className="text-sm font-bold text-zinc-100">بررسی متغیرهای اجرای برنامه</h4>
           <p className="mt-1 text-xs text-zinc-400">
@@ -117,19 +117,19 @@ export function EnvironmentPreflightWidget({ appName, requirements, serviceValue
           const provided = Boolean(serviceValues[name]);
           if (!requirement.required || requirement.value_source === "platform_provided") {
             return (
-              <div key={name} className="rounded-xl border border-white/10 bg-black/30 p-3 text-xs text-zinc-300 space-y-1">
+              <div key={name} className="rounded-none border border-zinc-800 bg-zinc-950/70 p-3 text-xs text-zinc-300 space-y-1">
                 <code className="text-liara font-mono">{name}</code> — مقدار را پلتفرم به‌طور خودکار تأمین می‌کند.
                 {requirement.evidence.length > 0 && (
-                  <p className="text-zinc-500 text-[11px]">شاهد: {requirement.evidence.join("، ")}</p>
+                  <p className="text-zinc-500 text-[11px] font-mono">شاهد: {requirement.evidence.join("، ")}</p>
                 )}
               </div>
             );
           }
           return (
-            <div key={name} className="rounded-xl border border-white/10 bg-black/30 p-3 text-xs space-y-2">
+            <div key={name} className="rounded-none border border-zinc-800 bg-zinc-950/70 p-3 text-xs space-y-2">
               <div className="flex items-start justify-between gap-2">
                 <code className="text-liara font-mono font-bold">{name}</code>
-                <span className="text-zinc-400 text-[11px]">
+                <span className="text-zinc-400 text-[11px] font-mono">
                   {provided
                     ? "از سرویس تأییدشدهٔ لیارا"
                     : question?.resolution === "user_input"
@@ -140,7 +140,7 @@ export function EnvironmentPreflightWidget({ appName, requirements, serviceValue
                 </span>
               </div>
               {requirement.evidence.length > 0 && (
-                <p className="text-zinc-500 text-[11px]">شاهد: {requirement.evidence.join("، ")}</p>
+                <p className="text-zinc-500 text-[11px] font-mono">شاهد: {requirement.evidence.join("، ")}</p>
               )}
               {requirement.example_is_placeholder && (
                 <p className="text-amber-300 text-[11px]">مقدار فایل نمونه placeholder است و استفاده نخواهد شد.</p>
@@ -186,11 +186,11 @@ export function EnvironmentPreflightWidget({ appName, requirements, serviceValue
                 </label>
               )}
               {choices[name] === "generated" && (
-                <p className="text-amber-300 text-xs pt-1">
+                <p className="text-amber-300 text-xs pt-1 font-mono">
                   مقدار امن ساخته شد و تا تأیید شما روی لیارا نوشته نمی‌شود.
                   <button
                     type="button"
-                    className="ms-2 underline text-liara cursor-pointer"
+                    className="ms-2 underline text-liara cursor-pointer font-sans"
                     onClick={() => setValues((prev) => ({ ...prev, [name]: generateSecret() }))}
                   >
                     تولید مقدار تازه
@@ -203,12 +203,12 @@ export function EnvironmentPreflightWidget({ appName, requirements, serviceValue
       </div>
 
       {error && (
-        <p role="alert" className="text-xs text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-lg p-2">
+        <p role="alert" className="text-xs font-mono text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-none p-2">
           {error}
         </p>
       )}
 
-      <div className="border-t border-white/10 pt-3 space-y-2">
+      <div className="border-t border-zinc-800 pt-3 space-y-2">
         <p className="text-xs text-zinc-400">
           با تأیید شما، این متغیرها برای برنامهٔ <strong className="text-zinc-200">{appName}</strong> روی لیارا ثبت می‌شوند.
         </p>

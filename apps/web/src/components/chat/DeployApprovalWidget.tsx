@@ -128,7 +128,7 @@ export function DeployApprovalWidget({
 
   if (status === "success") {
     return (
-      <article className="relative overflow-hidden rounded-2xl border border-emerald-400/30 bg-emerald-400/[.04] p-5 shadow-lg">
+      <article className="relative overflow-hidden rounded-none border border-emerald-500/30 bg-emerald-500/[.04] p-5 shadow-none">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/assets/state-success.webp"
@@ -156,11 +156,11 @@ export function DeployApprovalWidget({
   }
 
   return (
-    <article className="card !border-amber-400/40 !bg-amber-400/[.05] relative w-full overflow-hidden">
+    <article className="card !border-amber-500/40 !bg-amber-500/[.03] relative w-full overflow-hidden rounded-none">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/assets/bg-mint.webp" alt="" className="bgimg pointer-events-none" />
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/assets/icon-deploy.webp" alt="" className="ico fl relative" />
+      <img src="/assets/icon-deploy.webp" alt="" className="ico fl relative !w-10 !h-10" />
       <div className="body">
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-amber-300 text-base">تأیید دپلوی</h3>
@@ -187,7 +187,7 @@ export function DeployApprovalWidget({
         </dl>
 
         {error && (
-          <p className="text-xs text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-lg p-2">
+          <p className="text-xs font-mono text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-none p-2">
             {error}
           </p>
         )}
@@ -198,7 +198,7 @@ export function DeployApprovalWidget({
               type="button"
               onClick={handleApproveAndDeploy}
               disabled={disabled || status === "approving"}
-              className="btn bg-emerald-400 text-zinc-950 font-bold hover:brightness-110 cursor-pointer flex items-center gap-1.5"
+              className="btn bg-emerald-400 text-zinc-950 font-bold hover:brightness-110 cursor-pointer flex items-center gap-1.5 rounded-none font-mono text-xs"
             >
               {status === "approving" && <Loader2 className="h-4 w-4 animate-spin" />}
               <span>تأیید و آغاز دپلوی</span>
@@ -207,7 +207,7 @@ export function DeployApprovalWidget({
               type="button"
               onClick={handleReject}
               disabled={disabled || status === "approving"}
-              className="rounded-xl border border-rose-400/40 px-5 py-2 text-sm text-rose-300 hover:bg-rose-400/10 cursor-pointer transition-colors"
+              className="rounded-none border border-rose-500/40 px-4 py-2 text-xs font-mono text-rose-300 hover:bg-rose-500/10 cursor-pointer transition-colors"
             >
               رد عملیات
             </button>

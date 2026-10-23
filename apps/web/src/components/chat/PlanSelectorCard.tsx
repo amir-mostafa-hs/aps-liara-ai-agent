@@ -139,7 +139,7 @@ export function PlanSelectorCard({
 
   if (cancelled) {
     return (
-      <div className="rounded-xl border border-white/10 bg-black/40 p-3 text-xs text-zinc-400">
+      <div className="rounded-none border border-zinc-800 bg-zinc-950/80 p-3 text-xs font-mono text-zinc-400">
         ساخت دیتابیس توسط کاربر لغو گردید.
       </div>
     );
@@ -147,7 +147,7 @@ export function PlanSelectorCard({
 
   if (created) {
     return (
-      <article className="relative overflow-hidden rounded-2xl border border-emerald-400/30 bg-emerald-400/[.04] p-5 shadow-lg">
+      <article className="relative overflow-hidden rounded-none border border-emerald-500/30 bg-emerald-500/[.04] p-5 shadow-none">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/assets/state-success.webp"
@@ -167,10 +167,10 @@ export function PlanSelectorCard({
   return (
     <article className="card w-full !items-stretch flex-col space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/10 pb-3">
+      <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
         <div className="flex items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/assets/icon-db.webp" alt="" className="ico fl !w-12 !h-12" />
+          <img src="/assets/icon-db.webp" alt="" className="ico fl !w-10 !h-10" />
           <div>
             <h3 className="font-bold text-zinc-100 text-base">
               پلن دیتابیس {primaryDb.db_type.toUpperCase()}
@@ -211,8 +211,8 @@ export function PlanSelectorCard({
                 onClick={() => !loading && !disabled && setSelectedPlan(p.plan_id)}
                 className={`plan relative cursor-pointer ${
                   isSelected
-                    ? "border-liara bg-liara/10 shadow-[0_0_30px_-8px_#2cc4f4]"
-                    : "border-white/10 bg-white/[.04] hover:border-white/20"
+                    ? "border-liara bg-liara/10 shadow-[0_0_20px_-8px_#2cc4f4]"
+                    : "border-zinc-800 bg-zinc-950/60 hover:border-zinc-700"
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -256,7 +256,7 @@ export function PlanSelectorCard({
       </div>
 
       {error && (
-        <p className="text-xs text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-lg p-2">
+        <p className="text-xs font-mono text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-none p-2">
           {error}
         </p>
       )}

@@ -967,7 +967,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="flex flex-col h-full w-full bg-bg text-zinc-200 overflow-hidden">
+    <div className="flex flex-col h-full w-full bg-[#0c0c0e] bg-grid text-zinc-200 overflow-hidden">
       {/* Top Header */}
       <Header
         username={user.username}

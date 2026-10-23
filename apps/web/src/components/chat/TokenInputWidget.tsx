@@ -155,21 +155,21 @@ export function TokenInputWidget({
           </div>
 
           {testStatus && (
-            <p className="flex items-center gap-2 text-xs text-emerald-300">
-              <i className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            <p className="flex items-center gap-2 text-xs font-mono text-emerald-400">
+              <i className="h-1.5 w-1.5 rounded-none bg-emerald-400" />
               {testStatus}
             </p>
           )}
 
           {success && (
-            <p className="flex items-center gap-2 text-xs text-emerald-300">
+            <p className="flex items-center gap-2 text-xs font-mono text-emerald-400">
               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
               {success}
             </p>
           )}
 
           {error && (
-            <p className="text-xs text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-lg p-2">
+            <p className="text-xs font-mono text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-none p-2">
               {error}
             </p>
           )}

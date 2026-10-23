@@ -148,7 +148,7 @@ export function DiffPreviewWidget({
 
   if (applied) {
     return (
-      <article className="relative overflow-hidden rounded-2xl border border-emerald-400/30 bg-emerald-400/[.04] p-5 shadow-lg">
+      <article className="relative overflow-hidden rounded-none border border-emerald-500/30 bg-emerald-500/[.04] p-5 shadow-none">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/assets/state-success.webp"
@@ -187,18 +187,18 @@ export function DiffPreviewWidget({
             <span>در حال ایجاد پیش‌نمایش تغییرات...</span>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-white/10 bg-black/40">
+          <div className="overflow-hidden rounded-none border border-zinc-800 bg-zinc-950/90">
             {/* Diff header */}
-            <div className="flex items-center justify-between border-b border-white/10 bg-white/[.04] px-4 py-2 text-xs">
+            <div className="flex items-center justify-between border-b border-zinc-800 bg-zinc-950 px-4 py-2 text-xs">
               <div className="flex gap-2">
                 {diffData?.liara_json && (
                   <button
                     type="button"
                     onClick={() => setActiveTab("liara.json")}
-                    className={`font-mono text-xs px-2.5 py-1 rounded-lg transition-all ${
+                    className={`font-mono text-xs px-2.5 py-1 rounded-none transition-all border ${
                       activeTab === "liara.json"
-                        ? "bg-liara/20 text-liara border border-liara/30 font-bold"
-                        : "text-zinc-400 hover:text-zinc-200"
+                        ? "bg-zinc-900 text-liara border-zinc-700 font-bold"
+                        : "text-zinc-400 hover:text-zinc-200 border-transparent"
                     }`}
                   >
                     liara.json
@@ -208,10 +208,10 @@ export function DiffPreviewWidget({
                   <button
                     type="button"
                     onClick={() => setActiveTab(".env")}
-                    className={`font-mono text-xs px-2.5 py-1 rounded-lg transition-all ${
+                    className={`font-mono text-xs px-2.5 py-1 rounded-none transition-all border ${
                       activeTab === ".env"
-                        ? "bg-liara/20 text-liara border border-liara/30 font-bold"
-                        : "text-zinc-400 hover:text-zinc-200"
+                        ? "bg-zinc-900 text-liara border-zinc-700 font-bold"
+                        : "text-zinc-400 hover:text-zinc-200 border-transparent"
                     }`}
                   >
                     .env

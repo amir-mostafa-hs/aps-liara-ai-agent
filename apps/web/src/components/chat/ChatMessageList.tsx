@@ -59,9 +59,9 @@ function renderFormattedContent(text: string) {
         <pre
           key={index}
           dir="ltr"
-          className="my-2 rounded-xl bg-black/60 p-3.5 font-mono text-xs text-emerald-300 border border-white/10 overflow-x-auto whitespace-pre leading-relaxed shadow-inner"
+          className="my-2 rounded-none bg-zinc-950/90 p-3.5 font-mono text-xs text-emerald-300 border border-zinc-800 overflow-x-auto whitespace-pre leading-relaxed shadow-none"
         >
-          {lang && <div className="text-[10px] text-zinc-500 mb-1 select-none font-sans uppercase">{lang}</div>}
+          {lang && <div className="text-[10px] text-zinc-500 mb-1 select-none font-mono uppercase">{lang}</div>}
           <code>{code}</code>
         </pre>
       );
@@ -118,7 +118,7 @@ function renderFormattedContent(text: string) {
                 <code
                   key={inlineKey++}
                   dir="ltr"
-                  className="rounded-md bg-black/40 px-1.5 py-0.5 font-mono text-xs text-liara border border-white/10 mx-0.5 select-all"
+                  className="rounded-none bg-zinc-900 px-1.5 py-0.5 font-mono text-xs text-liara border border-zinc-800 mx-0.5 select-all"
                 >
                   {codeText}
                 </code>
@@ -165,18 +165,21 @@ export function ChatMessageList({
     <div className="scroll flex-1 overflow-y-auto px-4 lg:px-8 py-6">
       <div className="mx-auto max-w-3xl space-y-6">
         {/* Welcome hero banner */}
-        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#16222a] to-[#121214] shadow-xl">
+        <div className="relative overflow-hidden rounded-none border border-zinc-800 bg-zinc-950/80 bg-grid shadow-none">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/assets/hero-agent.webp"
             alt=""
-            className="absolute inset-y-0 left-0 h-full w-3/5 object-cover [mask-image:linear-gradient(to_right,#000_40%,transparent)] opacity-90 pointer-events-none"
+            className="absolute inset-y-0 left-0 h-full w-3/5 object-cover [mask-image:linear-gradient(to_right,#000_35%,transparent)] opacity-80 pointer-events-none"
           />
-          <div className="relative p-6 sm:p-8 sm:w-3/5 mr-auto">
-            <h2 className="text-xl sm:text-2xl font-bold leading-10 text-zinc-100">
+          <div className="relative p-6 sm:p-7 sm:w-3/5 mr-auto">
+            <div className="inline-block px-2 py-0.5 mb-2 rounded-none border border-zinc-800 bg-zinc-900/80 text-[10px] font-mono text-zinc-400 uppercase tracking-widest">
+              SRE PLATFORM AUTOMATION
+            </div>
+            <h2 className="text-lg sm:text-xl font-bold leading-9 text-zinc-100">
               سلام! من ایجنت SRE لیارا هستم
             </h2>
-            <p className="t mt-1 text-zinc-300">
+            <p className="t mt-1 text-zinc-400 text-xs sm:text-sm">
               پروژه را دپلوی می‌کنم، خطاها را ریشه‌یابی می‌کنم و هیچ عملیاتی بدون تأیید شما انجام نمی‌دهم.
             </p>
             <div className="mt-4 flex gap-2">
@@ -201,27 +204,27 @@ export function ChatMessageList({
         {/* Transparent floating suggested prompt popups (hidden once chat starts) */}
         {!hasUserStartedChat && (
           <div className="space-y-2.5 animate-fadeIn">
-            <div className="flex items-center gap-2 text-xs text-zinc-400 font-medium px-1">
-              <span className="flex h-2 w-2 rounded-full bg-liara animate-pulse" />
-              <span>پیشنهادهای گفتگو (کلیک برای اجرا):</span>
+            <div className="flex items-center gap-2 text-[11px] text-zinc-500 font-mono uppercase px-1 tracking-wider">
+              <span className="flex h-1.5 w-1.5 rounded-none bg-liara" />
+              <span>پیشنهادهای گفتگو:</span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               {SUGGESTED_PROMPTS.map((prompt, idx) => (
                 <button
                   key={idx}
                   type="button"
                   onClick={() => onSelectPrompt?.(prompt.text)}
-                  className="group relative text-right rounded-2xl border border-white/10 bg-white/[.03] backdrop-blur-xl p-4 hover:border-liara/50 hover:bg-white/[.08] hover:shadow-[0_8px_30px_rgba(44,196,244,0.12)] hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between gap-2.5"
+                  className="group relative text-right rounded-none border border-zinc-800 bg-zinc-950/70 p-3.5 hover:border-zinc-600 hover:bg-zinc-900/60 transition-all cursor-pointer flex flex-col justify-between gap-2.5"
                 >
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-xl shrink-0 p-1 rounded-xl bg-white/5 border border-white/10 group-hover:scale-110 transition-transform">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base shrink-0 p-1 rounded-none bg-zinc-900 border border-zinc-800">
                       {prompt.icon}
                     </span>
                     <span className="font-semibold text-xs sm:text-sm text-zinc-200 group-hover:text-liara transition-colors">
                       {prompt.title}
                     </span>
                   </div>
-                  <p className="text-[11px] text-zinc-400 leading-relaxed group-hover:text-zinc-300 transition-colors">
+                  <p className="text-[11px] text-zinc-400 leading-relaxed">
                     {prompt.desc}
                   </p>
                 </button>
@@ -237,10 +240,10 @@ export function ChatMessageList({
           if (isUser) {
             return (
               <div key={msg.id} className="flex justify-start">
-                <div className="max-w-[85%] sm:max-w-[80%] rounded-2xl rounded-br-sm bg-liara/15 border border-liara/25 px-4 py-3 text-sm leading-7 text-zinc-200 shadow-sm">
+                <div className="max-w-[85%] sm:max-w-[80%] rounded-none bg-zinc-900/90 border border-zinc-700/80 px-4 py-3 text-sm leading-7 text-zinc-100 shadow-none">
                   <div className="leading-relaxed break-words">{renderFormattedContent(msg.content)}</div>
                   {msg.timestamp && (
-                    <span className="text-[10px] text-zinc-400 mt-1 block text-left">
+                    <span className="text-[10px] text-zinc-500 font-mono mt-1 block text-left">
                       {new Date(msg.timestamp).toLocaleTimeString("fa-IR", {
                         hour: "2-digit",
                         minute: "2-digit",
@@ -259,16 +262,16 @@ export function ChatMessageList({
               <img
                 src="/assets/logo.webp"
                 alt=""
-                className="ico !w-10 !h-10 sm:!w-12 sm:!h-12 shrink-0 mt-1"
+                className="ico !w-9 !h-9 sm:!w-10 sm:!h-10 shrink-0 mt-1"
               />
               <div className="flex-1 min-w-0 space-y-3">
                 {msg.content && (
-                  <div className="rounded-2xl bg-white/[.04] border border-white/10 backdrop-blur px-5 py-4 text-sm leading-7 text-zinc-200 shadow-sm">
+                  <div className="rounded-none bg-zinc-950/70 border border-zinc-800 px-4 sm:px-5 py-4 text-sm leading-7 text-zinc-200 shadow-none">
                     <div className="leading-relaxed break-words space-y-2">
                       {renderFormattedContent(msg.content)}
                     </div>
                     {msg.timestamp && (
-                      <span className="text-[10px] text-zinc-500 mt-2 block">
+                      <span className="text-[10px] text-zinc-500 font-mono mt-2 block">
                         {new Date(msg.timestamp).toLocaleTimeString("fa-IR", {
                           hour: "2-digit",
                           minute: "2-digit",
@@ -292,10 +295,10 @@ export function ChatMessageList({
             <img
               src="/assets/logo.webp"
               alt=""
-              className="ico !w-10 !h-10 animate-pulse shrink-0"
+              className="ico !w-8 !h-8 animate-pulse shrink-0"
             />
-            <div className="rounded-2xl bg-white/[.04] border border-white/10 px-4 py-3 text-xs text-liara flex items-center gap-2">
-              <span className="flex h-2 w-2 rounded-full bg-liara animate-ping" />
+            <div className="rounded-none bg-zinc-950/80 border border-zinc-800 px-3.5 py-2 text-xs font-mono text-liara flex items-center gap-2">
+              <span className="flex h-1.5 w-1.5 rounded-none bg-liara animate-ping" />
               <span>ایجنت در حال تحلیل و پردازش است...</span>
             </div>
           </div>

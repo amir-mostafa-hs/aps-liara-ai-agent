@@ -28,12 +28,12 @@ export function ChatInput({
   };
 
   return (
-    <div className="shrink-0 border-t border-white/10 bg-white/[.03] px-4 py-3 backdrop-blur-xl lg:px-8">
+    <div className="shrink-0 border-t border-zinc-800 bg-zinc-950/90 px-4 py-3 backdrop-blur-md lg:px-8">
       <div className="mx-auto max-w-3xl">
         {/* Input area */}
         <form
           onSubmit={handleSubmit}
-          className="flex items-end gap-2 rounded-2xl border border-white/10 bg-black/40 p-2 focus-within:border-liara/60 focus-within:shadow-[0_0_30px_-10px_#2cc4f4] transition-all"
+          className="flex items-end gap-2 rounded-none border border-zinc-800 bg-zinc-900/70 p-2 focus-within:border-zinc-500 focus-within:ring-1 focus-within:ring-zinc-500 transition-all"
         >
           <textarea
             value={text}
@@ -49,9 +49,9 @@ export function ChatInput({
             type="submit"
             disabled={!text.trim() || isLoading}
             aria-label="ارسال"
-            className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-liara to-mint text-zinc-950 hover:brightness-110 disabled:opacity-30 disabled:hover:brightness-100 transition-all cursor-pointer shadow-md shadow-liara/20 shrink-0"
+            className="grid h-9 w-9 place-items-center rounded-none bg-gradient-to-br from-liara to-mint text-zinc-950 hover:brightness-110 disabled:opacity-30 disabled:hover:brightness-100 transition-all cursor-pointer shrink-0"
           >
-            <svg className="h-5 w-5 -scale-x-100" viewBox="0 0 24 24" fill="currentColor">
+            <svg className="h-4 w-4 -scale-x-100" viewBox="0 0 24 24" fill="currentColor">
               <path d="M3 20.5v-6.8l9-1.7-9-1.7V3.5L22 12 3 20.5Z" />
             </svg>
           </button>

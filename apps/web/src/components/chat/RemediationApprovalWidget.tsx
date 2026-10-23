@@ -118,7 +118,7 @@ export function RemediationApprovalWidget({
             راهکار خودترمیمی اعمال گردید و برنامه به وضعیت سالم (HTTP {result.verification?.http_status_code || 200}) رسید.
           </p>
           {result.generatedSecret && (
-            <div className="mt-3 rounded-lg border border-amber-500/40 bg-black/40 p-3 text-xs text-amber-200 space-y-1">
+            <div className="mt-3 rounded-none border border-amber-500/40 bg-zinc-950/80 p-3 text-xs text-amber-200 space-y-1">
               <p>این Secret اختصاصی فقط همین‌جا نمایش داده می‌شود:</p>
               <div className="flex flex-wrap items-center gap-2 font-mono">
                 <code>{showGeneratedSecret ? result.generatedSecret : "•".repeat(24)}</code>
@@ -146,7 +146,7 @@ export function RemediationApprovalWidget({
 
   if (result && !result.isRecovered) {
     return (
-      <div className="rounded-2xl border border-amber-400/30 bg-amber-400/[.05] p-4 text-xs text-amber-200 space-y-1">
+      <div className="rounded-none border border-amber-400/30 bg-amber-400/[.05] p-4 text-xs text-amber-200 space-y-1">
         <p className="font-bold text-sm">متغیر در لیارا ثبت شد، اما سلامت برنامه هنوز احراز نشده است.</p>
         <p className="text-zinc-400">برای جلوگیری از تکرار تغییرات، این راهکار دوباره اعمال نمی‌شود. لاگ‌های کنسول جانبی را بررسی نمایید.</p>
       </div>
@@ -155,14 +155,14 @@ export function RemediationApprovalWidget({
 
   if (rejected) {
     return (
-      <div className="rounded-xl border border-white/10 bg-black/40 p-3 text-xs text-zinc-400">
+      <div className="rounded-none border border-zinc-800 bg-zinc-950/80 p-3 text-xs font-mono text-zinc-400">
         عملیات خودترمیمی توسط اپراتور رد شد.
       </div>
     );
   }
 
   return (
-    <article className="card !border-rose-400/40 !bg-rose-500/[.05] relative w-full overflow-hidden">
+    <article className="card !border-rose-500/40 !bg-rose-500/[.03] relative w-full overflow-hidden rounded-none">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/assets/state-error.webp"
@@ -170,7 +170,7 @@ export function RemediationApprovalWidget({
         className="bgimg !opacity-30 [mask-image:linear-gradient(to_left,#000,transparent_70%)] pointer-events-none"
       />
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/assets/icon-heal.webp" alt="" className="ico fl relative" />
+      <img src="/assets/icon-heal.webp" alt="" className="ico fl relative !w-10 !h-10" />
       <div className="body">
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-rose-300 text-base">خودترمیمی SRE</h3>
@@ -184,7 +184,7 @@ export function RemediationApprovalWidget({
         </p>
 
         {errorEvidence && (
-          <div className="rounded-xl border border-white/10 bg-black/50 p-2.5 font-mono text-xs text-rose-300/90 overflow-x-auto max-h-24">
+          <div className="rounded-none border border-zinc-800 bg-zinc-950/80 p-2.5 font-mono text-xs text-rose-300/90 overflow-x-auto max-h-24">
             {errorEvidence}
           </div>
         )}
@@ -204,10 +204,10 @@ export function RemediationApprovalWidget({
                     setValueSource("generated");
                     setEnvValue(createSecret());
                   }}
-                  className={`rounded-lg px-3 py-1 border transition-all cursor-pointer ${
+                  className={`rounded-none px-3 py-1 border transition-all cursor-pointer font-mono ${
                     valueSource === "generated"
                       ? "border-mint bg-mint/15 text-mint font-bold"
-                      : "border-white/10 text-zinc-400 hover:text-zinc-200"
+                      : "border-zinc-800 text-zinc-400 hover:text-zinc-200"
                   }`}
                 >
                   تولید خودکار کلید تصادفی امن
@@ -218,10 +218,10 @@ export function RemediationApprovalWidget({
                     setValueSource("manual");
                     setEnvValue("");
                   }}
-                  className={`rounded-lg px-3 py-1 border transition-all cursor-pointer ${
+                  className={`rounded-none px-3 py-1 border transition-all cursor-pointer font-mono ${
                     valueSource === "manual"
                       ? "border-mint bg-mint/15 text-mint font-bold"
-                      : "border-white/10 text-zinc-400 hover:text-zinc-200"
+                      : "border-zinc-800 text-zinc-400 hover:text-zinc-200"
                   }`}
                 >
                   ورود دستی مقدار
@@ -244,7 +244,7 @@ export function RemediationApprovalWidget({
         )}
 
         {error && (
-          <p className="text-xs text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-lg p-2">
+          <p className="text-xs font-mono text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-none p-2">
             {error}
           </p>
         )}
@@ -263,7 +263,7 @@ export function RemediationApprovalWidget({
             type="button"
             onClick={handleReject}
             disabled={loading || disabled}
-            className="rounded-xl border border-white/20 px-4 py-2 text-xs text-zinc-300 hover:text-rose-300 hover:border-rose-400/40 cursor-pointer transition-colors"
+            className="rounded-none border border-zinc-800 px-4 py-2 text-xs font-mono text-zinc-400 hover:text-rose-300 hover:border-rose-500/40 cursor-pointer transition-colors"
           >
             رد عملیات
           </button>

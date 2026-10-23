@@ -166,10 +166,10 @@ export function SidecarConsole({
 
   if (isCollapsed) {
     return (
-      <aside className="w-full lg:w-14 h-12 lg:h-full bg-black/40 border-t lg:border-t-0 lg:border-r border-white/10 flex lg:flex-col items-center justify-between px-3 py-2 lg:py-4 lg:gap-4 shrink-0 transition-all select-none">
+      <aside className="w-full lg:w-14 h-12 lg:h-full bg-zinc-950/90 border-t lg:border-t-0 lg:border-r border-zinc-800 flex lg:flex-col items-center justify-between px-3 py-2 lg:py-4 lg:gap-4 shrink-0 transition-all select-none">
         <button
           onClick={() => setIsCollapsed(false)}
-          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 transition-colors cursor-pointer"
+          className="p-2 rounded-none bg-zinc-900/60 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 transition-colors cursor-pointer"
           title="باز کردن کنسول جانبی"
         >
           <ChevronRight className="h-4 w-4" />
@@ -180,52 +180,52 @@ export function SidecarConsole({
               setIsCollapsed(false);
               setActiveTab("terminal");
             }}
-            className={`p-2 rounded-xl transition-colors cursor-pointer ${
-              activeTab === "terminal" ? "bg-liara/20 text-liara border border-liara/30" : "text-zinc-400 hover:bg-white/5"
+            className={`p-2 rounded-none transition-colors cursor-pointer border ${
+              activeTab === "terminal" ? "bg-zinc-900 text-liara border-zinc-700" : "text-zinc-400 hover:bg-zinc-900/40 border-transparent"
             }`}
             title="کنسول و لاگ‌ها"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/assets/icon-terminal.webp" alt="" className="ico !w-6 !h-6" />
+            <img src="/assets/icon-terminal.webp" alt="" className="ico !w-5 !h-5" />
           </button>
           <button
             onClick={() => {
               setIsCollapsed(false);
               setActiveTab("services");
             }}
-            className={`p-2 rounded-xl transition-colors cursor-pointer ${
-              activeTab === "services" ? "bg-liara/20 text-liara border border-liara/30" : "text-zinc-400 hover:bg-white/5"
+            className={`p-2 rounded-none transition-colors cursor-pointer border ${
+              activeTab === "services" ? "bg-zinc-900 text-liara border-zinc-700" : "text-zinc-400 hover:bg-zinc-900/40 border-transparent"
             }`}
             title="سرویس‌های ابری"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/assets/icon-services.webp" alt="" className="ico !w-6 !h-6" />
+            <img src="/assets/icon-services.webp" alt="" className="ico !w-5 !h-5" />
           </button>
           <button
             onClick={() => {
               setIsCollapsed(false);
               setActiveTab("health");
             }}
-            className={`p-2 rounded-xl transition-colors cursor-pointer ${
-              activeTab === "health" ? "bg-liara/20 text-liara border border-liara/30" : "text-zinc-400 hover:bg-white/5"
+            className={`p-2 rounded-none transition-colors cursor-pointer border ${
+              activeTab === "health" ? "bg-zinc-900 text-liara border-zinc-700" : "text-zinc-400 hover:bg-zinc-900/40 border-transparent"
             }`}
             title="سلامت سیستم"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/assets/icon-health.webp" alt="" className="ico !w-6 !h-6" />
+            <img src="/assets/icon-health.webp" alt="" className="ico !w-5 !h-5" />
           </button>
           <button
             onClick={() => {
               setIsCollapsed(false);
               setActiveTab("settings");
             }}
-            className={`p-2 rounded-xl transition-colors cursor-pointer ${
-              activeTab === "settings" ? "bg-liara/20 text-liara border border-liara/30" : "text-zinc-400 hover:bg-white/5"
+            className={`p-2 rounded-none transition-colors cursor-pointer border ${
+              activeTab === "settings" ? "bg-zinc-900 text-liara border-zinc-700" : "text-zinc-400 hover:bg-zinc-900/40 border-transparent"
             }`}
             title="تنظیمات اکانت"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/assets/icon-key.webp" alt="" className="ico !w-6 !h-6" />
+            <img src="/assets/icon-key.webp" alt="" className="ico !w-5 !h-5" />
           </button>
         </div>
       </aside>
@@ -235,42 +235,42 @@ export function SidecarConsole({
   return (
     <aside
       dir="ltr"
-      className="h-[38vh] shrink-0 border-t border-white/10 bg-black/40 lg:h-auto lg:w-[40%] lg:max-w-[500px] lg:border-r lg:border-t-0 flex flex-col overflow-hidden"
+      className="h-[38vh] shrink-0 border-t border-zinc-800 bg-zinc-950/80 lg:h-auto lg:w-[40%] lg:max-w-[500px] lg:border-r lg:border-t-0 flex flex-col overflow-hidden"
     >
       {/* Tab Navigation Header */}
-      <div className="flex items-center justify-between gap-2 border-b border-white/10 px-3 py-2 bg-white/[.02] shrink-0">
+      <div className="flex items-center justify-between gap-2 border-b border-zinc-800 px-3 py-2 bg-zinc-950 shrink-0">
         <div className="flex items-center gap-1 text-xs" dir="rtl">
           <button
             type="button"
             onClick={() => setActiveTab("terminal")}
-            className={`flex cursor-pointer items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs transition-all ${
+            className={`flex cursor-pointer items-center gap-1.5 rounded-none px-2.5 py-1 text-xs font-mono transition-all border ${
               activeTab === "terminal"
-                ? "bg-liara/15 text-liara shadow-inner border border-liara/30 font-medium"
-                : "text-zinc-400 hover:text-zinc-200 hover:bg-white/5 border border-transparent"
+                ? "bg-zinc-900 text-liara border-zinc-700 font-medium"
+                : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/40 border-transparent"
             }`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/assets/icon-terminal.webp" alt="" className="ico !h-7 !w-7" />
+            <img src="/assets/icon-terminal.webp" alt="" className="ico !h-6 !w-6" />
             <span>لاگ‌ها</span>
             {isStreaming && (
-              <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
+              <span className="flex h-1.5 w-1.5 rounded-none bg-emerald-400 animate-ping" />
             )}
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab("services")}
-            className={`flex cursor-pointer items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs transition-all ${
+            className={`flex cursor-pointer items-center gap-1.5 rounded-none px-2.5 py-1 text-xs font-mono transition-all border ${
               activeTab === "services"
-                ? "bg-liara/15 text-liara shadow-inner border border-liara/30 font-medium"
-                : "text-zinc-400 hover:text-zinc-200 hover:bg-white/5 border border-transparent"
+                ? "bg-zinc-900 text-liara border-zinc-700 font-medium"
+                : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/40 border-transparent"
             }`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/assets/icon-services.webp" alt="" className="ico !h-7 !w-7" />
+            <img src="/assets/icon-services.webp" alt="" className="ico !h-6 !w-6" />
             <span>سرویس‌ها</span>
             {services.length > 0 && (
-              <span className="rounded-full bg-white/10 text-zinc-300 text-[10px] px-1.5 py-0.2 font-mono">
+              <span className="rounded-none bg-zinc-900 border border-zinc-800 text-zinc-300 text-[10px] px-1.5 py-0.2 font-mono">
                 {services.length}
               </span>
             )}
@@ -279,28 +279,28 @@ export function SidecarConsole({
           <button
             type="button"
             onClick={() => setActiveTab("health")}
-            className={`flex cursor-pointer items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs transition-all ${
+            className={`flex cursor-pointer items-center gap-1.5 rounded-none px-2.5 py-1 text-xs font-mono transition-all border ${
               activeTab === "health"
-                ? "bg-liara/15 text-liara shadow-inner border border-liara/30 font-medium"
-                : "text-zinc-400 hover:text-zinc-200 hover:bg-white/5 border border-transparent"
+                ? "bg-zinc-900 text-liara border-zinc-700 font-medium"
+                : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/40 border-transparent"
             }`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/assets/icon-health.webp" alt="" className="ico !h-7 !w-7" />
+            <img src="/assets/icon-health.webp" alt="" className="ico !h-6 !w-6" />
             <span>سلامت</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab("settings")}
-            className={`flex cursor-pointer items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs transition-all ${
+            className={`flex cursor-pointer items-center gap-1.5 rounded-none px-2.5 py-1 text-xs font-mono transition-all border ${
               activeTab === "settings"
-                ? "bg-liara/15 text-liara shadow-inner border border-liara/30 font-medium"
-                : "text-zinc-400 hover:text-zinc-200 hover:bg-white/5 border border-transparent"
+                ? "bg-zinc-900 text-liara border-zinc-700 font-medium"
+                : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/40 border-transparent"
             }`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/assets/icon-key.webp" alt="" className="ico !h-7 !w-7" />
+            <img src="/assets/icon-key.webp" alt="" className="ico !h-6 !w-6" />
             <span>تنظیمات</span>
           </button>
         </div>
@@ -312,7 +312,7 @@ export function SidecarConsole({
               type="button"
               onClick={onRefreshServices}
               disabled={isRefreshingServices}
-              className="rounded-lg border border-white/10 px-2 py-1 hover:text-liara cursor-pointer disabled:opacity-40 transition-colors flex items-center gap-1"
+              className="rounded-none border border-zinc-800 bg-zinc-900/50 px-2 py-1 hover:text-liara hover:border-zinc-700 cursor-pointer disabled:opacity-40 transition-colors flex items-center gap-1"
               title="به‌روزرسانی سرویس‌ها"
             >
               <RefreshCw className={`h-3 w-3 ${isRefreshingServices ? "animate-spin" : ""}`} />
@@ -324,7 +324,7 @@ export function SidecarConsole({
               type="button"
               onClick={onRefreshHealth}
               disabled={isRefreshingHealth}
-              className="rounded-lg border border-white/10 px-2 py-1 hover:text-liara cursor-pointer disabled:opacity-40 transition-colors flex items-center gap-1"
+              className="rounded-none border border-zinc-800 bg-zinc-900/50 px-2 py-1 hover:text-liara hover:border-zinc-700 cursor-pointer disabled:opacity-40 transition-colors flex items-center gap-1"
               title="بررسی دوباره سلامت"
             >
               <RefreshCw className={`h-3 w-3 ${isRefreshingHealth ? "animate-spin" : ""}`} />
@@ -335,7 +335,7 @@ export function SidecarConsole({
             type="button"
             onClick={() => setIsCollapsed(true)}
             aria-label="Collapse"
-            className="rounded-lg border border-white/10 px-2.5 py-1 text-xs text-zinc-400 hover:text-liara hover:border-liara/40 cursor-pointer transition-colors"
+            className="rounded-none border border-zinc-800 bg-zinc-900/50 px-2.5 py-1 text-xs text-zinc-400 hover:text-liara hover:border-zinc-700 cursor-pointer transition-colors"
             title="جمع کردن پنل"
           >
             —
@@ -349,17 +349,17 @@ export function SidecarConsole({
         {activeTab === "terminal" && (
           <div className="flex flex-col h-full bg-[#0c0c0e]">
             {/* Dedicated Terminal Sub-header Toolbar */}
-            <div className="flex items-center justify-between px-3.5 py-1.5 border-b border-white/10 bg-black/60 text-xs shrink-0 select-none">
+            <div className="flex items-center justify-between px-3.5 py-1.5 border-b border-zinc-800 bg-zinc-950 text-xs shrink-0 select-none">
               <div className="flex items-center gap-2">
-                <span className="flex h-2 w-2 rounded-full bg-emerald-400 pulse" />
-                <span className="font-mono text-[11px] text-zinc-300">liara-session // stream</span>
+                <span className="flex h-1.5 w-1.5 rounded-none bg-emerald-400 pulse" />
+                <span className="font-mono text-[11px] text-zinc-400">liara-session // stream</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={handleCopyLogs}
                   disabled={logs.length === 0}
-                  className="flex items-center gap-1 px-2 py-0.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-liara text-[11px] disabled:opacity-40 transition-colors cursor-pointer"
+                  className="flex items-center gap-1 px-2 py-0.5 rounded-none border border-zinc-800 bg-zinc-900/60 hover:border-zinc-600 hover:bg-zinc-800 text-zinc-300 hover:text-liara text-[11px] font-mono disabled:opacity-40 transition-colors cursor-pointer"
                   title="کپی لاگ‌ها در کلیپ‌بورد"
                 >
                   <Copy className="h-3 w-3" />
@@ -370,7 +370,7 @@ export function SidecarConsole({
                     type="button"
                     onClick={onClearLogs}
                     disabled={logs.length === 0}
-                    className="flex items-center gap-1 px-2 py-0.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-rose-400 text-[11px] disabled:opacity-40 transition-colors cursor-pointer"
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-none border border-zinc-800 bg-zinc-900/60 hover:border-zinc-600 hover:bg-zinc-800 text-zinc-300 hover:text-rose-400 text-[11px] font-mono disabled:opacity-40 transition-colors cursor-pointer"
                     title="پاک کردن لاگ‌های جاری"
                   >
                     <Trash2 className="h-3 w-3" />
@@ -474,12 +474,12 @@ export function SidecarConsole({
             <div className="svc justify-between text-sm">
               <span className="font-medium text-zinc-200">پایگاه‌داده داخلی (PostgreSQL)</span>
               <span
-                className={`flex items-center gap-2 font-medium ${
-                  systemHealth.database ? "text-emerald-300" : "text-rose-400"
+                className={`flex items-center gap-2 font-medium font-mono text-xs ${
+                  systemHealth.database ? "text-emerald-400" : "text-rose-400"
                 }`}
               >
                 <i
-                  className={`h-2 w-2 rounded-full ${
+                  className={`h-1.5 w-1.5 rounded-none ${
                     systemHealth.database ? "bg-emerald-400 pulse" : "bg-rose-500"
                   }`}
                 />
@@ -490,12 +490,12 @@ export function SidecarConsole({
             <div className="svc justify-between text-sm">
               <span className="font-medium text-zinc-200">موتور تحلیلی پایتون (Agent Engine)</span>
               <span
-                className={`flex items-center gap-2 font-medium ${
-                  systemHealth.engine ? "text-emerald-300" : "text-rose-400"
+                className={`flex items-center gap-2 font-medium font-mono text-xs ${
+                  systemHealth.engine ? "text-emerald-400" : "text-rose-400"
                 }`}
               >
                 <i
-                  className={`h-2 w-2 rounded-full ${
+                  className={`h-1.5 w-1.5 rounded-none ${
                     systemHealth.engine ? "bg-emerald-400 pulse" : "bg-rose-500"
                   }`}
                 />
@@ -505,8 +505,8 @@ export function SidecarConsole({
 
             <div className="svc justify-between text-sm">
               <span className="font-medium text-zinc-200">دسترسی به API لیارا</span>
-              <span className="flex items-center gap-2 text-emerald-300 font-medium">
-                <i className="h-2 w-2 rounded-full bg-emerald-400 pulse" />
+              <span className="flex items-center gap-2 text-emerald-400 font-medium font-mono text-xs">
+                <i className="h-1.5 w-1.5 rounded-none bg-emerald-400 pulse" />
                 عملیاتی
               </span>
             </div>
@@ -540,7 +540,7 @@ export function SidecarConsole({
             {/* Current token display */}
             {accountSettings?.maskedToken && (
               <div className="space-y-1">
-                <label className="text-zinc-400">توکن فعلی (ماسک‌شده):</label>
+                <label className="text-zinc-400 font-mono text-[11px]">توکن فعلی (ماسک‌شده):</label>
                 <input
                   type="text"
                   readOnly
@@ -566,7 +566,7 @@ export function SidecarConsole({
                 <button
                   type="button"
                   onClick={() => setShowTokenText(!showTokenText)}
-                  className="absolute right-3 top-3 text-zinc-400 hover:text-zinc-200 cursor-pointer"
+                  className="absolute right-3 top-2.5 text-zinc-400 hover:text-zinc-200 cursor-pointer"
                 >
                   {showTokenText ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -603,7 +603,7 @@ export function SidecarConsole({
 
             {testResult && (
               <p
-                className={`p-2.5 rounded-xl border text-xs ${
+                className={`p-2.5 rounded-none border text-xs font-mono ${
                   testResult.ok
                     ? "bg-emerald-400/10 border-emerald-400/30 text-emerald-300"
                     : "bg-rose-500/10 border-rose-500/30 text-rose-300"
@@ -615,7 +615,7 @@ export function SidecarConsole({
 
             {saveResult && (
               <p
-                className={`p-2.5 rounded-xl border text-xs ${
+                className={`p-2.5 rounded-none border text-xs font-mono ${
                   saveResult.ok
                     ? "bg-emerald-400/10 border-emerald-400/30 text-emerald-300"
                     : "bg-rose-500/10 border-rose-500/30 text-rose-300"

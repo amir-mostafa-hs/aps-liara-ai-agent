@@ -105,16 +105,16 @@ export function SourceInputWidget({
       <div className="body">
         <h3 className="font-bold text-zinc-100 text-base">سورس پروژه را مشخص کنید</h3>
 
-        <div className="relative rounded-xl border border-white/10 bg-black/30 p-3 space-y-3">
+        <div className="relative rounded-none border border-zinc-800 bg-zinc-950/70 p-3 space-y-3">
           {/* Tab Selection */}
-          <div className="flex gap-1 rounded-xl bg-black/30 p-1 text-sm">
+          <div className="flex gap-1 rounded-none bg-zinc-900/80 border border-zinc-800 p-1 text-sm">
             <button
               type="button"
               onClick={() => setTab("path")}
-              className={`flex-1 cursor-pointer rounded-lg py-1.5 text-center text-xs font-medium transition-all ${
+              className={`flex-1 cursor-pointer rounded-none py-1.5 text-center text-xs font-mono transition-all border ${
                 tab === "path"
-                  ? "bg-liara/15 text-liara shadow-inner border border-liara/30"
-                  : "text-zinc-400 hover:text-zinc-200"
+                  ? "bg-zinc-900 text-liara border-zinc-700 font-medium"
+                  : "text-zinc-400 hover:text-zinc-200 border-transparent"
               }`}
             >
               مسیر محلی
@@ -122,10 +122,10 @@ export function SourceInputWidget({
             <button
               type="button"
               onClick={() => setTab("zip")}
-              className={`flex-1 cursor-pointer rounded-lg py-1.5 text-center text-xs font-medium transition-all ${
+              className={`flex-1 cursor-pointer rounded-none py-1.5 text-center text-xs font-mono transition-all border ${
                 tab === "zip"
-                  ? "bg-liara/15 text-liara shadow-inner border border-liara/30"
-                  : "text-zinc-400 hover:text-zinc-200"
+                  ? "bg-zinc-900 text-liara border-zinc-700 font-medium"
+                  : "text-zinc-400 hover:text-zinc-200 border-transparent"
               }`}
             >
               فایل ZIP
@@ -133,10 +133,10 @@ export function SourceInputWidget({
             <button
               type="button"
               onClick={() => setTab("git")}
-              className={`flex-1 cursor-pointer rounded-lg py-1.5 text-center text-xs font-medium transition-all ${
+              className={`flex-1 cursor-pointer rounded-none py-1.5 text-center text-xs font-mono transition-all border ${
                 tab === "git"
-                  ? "bg-liara/15 text-liara shadow-inner border border-liara/30"
-                  : "text-zinc-400 hover:text-zinc-200"
+                  ? "bg-zinc-900 text-liara border-zinc-700 font-medium"
+                  : "text-zinc-400 hover:text-zinc-200 border-transparent"
               }`}
             >
               مخزن Git
@@ -156,14 +156,14 @@ export function SourceInputWidget({
                 className="inp"
               />
               <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-zinc-400">
-                <span>نمونه‌های آماده:</span>
+                <span className="font-mono text-zinc-500">PRESET:</span>
                 <button
                   type="button"
                   onClick={() => {
                     setPathInput("sample-apps/nodejs-demo");
                     handleSubmitPath("sample-apps/nodejs-demo");
                   }}
-                  className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-liara hover:bg-white/10 cursor-pointer font-mono"
+                  className="rounded-none border border-zinc-800 bg-zinc-900/80 px-2 py-0.5 text-liara hover:border-zinc-700 cursor-pointer font-mono"
                 >
                   sample-apps/nodejs-demo
                 </button>
@@ -173,7 +173,7 @@ export function SourceInputWidget({
 
           {tab === "zip" && (
             <div className="space-y-2">
-              <label className="grid place-items-center rounded-xl border border-dashed border-white/20 py-7 text-sm text-zinc-400 hover:border-liara/50 hover:bg-white/[.02] cursor-pointer transition-colors">
+              <label className="grid place-items-center rounded-none border border-dashed border-zinc-800 py-7 text-xs font-mono text-zinc-400 hover:border-zinc-600 hover:bg-zinc-900/40 cursor-pointer transition-colors">
                 <input
                   type="file"
                   accept=".zip"
@@ -210,7 +210,7 @@ export function SourceInputWidget({
         </div>
 
         {error && (
-          <p className="text-xs text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-lg p-2">
+          <p className="text-xs font-mono text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-none p-2">
             {error}
           </p>
         )}
