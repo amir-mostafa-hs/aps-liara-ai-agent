@@ -1,7 +1,7 @@
 import json
 import os
 from fastapi import Depends, FastAPI, HTTPException, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 from engine.domain.models import (
     CreateProjectRequest,
@@ -13,6 +13,7 @@ from engine.domain.models import (
     VerifyRequest,
 )
 from engine.providers.liara_adapter import liara_adapter
+from engine.providers.liara_app_plan_provider import liara_app_plan_provider
 from engine.security import verify_internal_secret
 from engine.services.approval import verify_action_approval
 from engine.services.deployer import deployment_executor
@@ -32,6 +33,17 @@ app = FastAPI(
 
 
 class TestConnectionRequest(BaseModel):
+    api_token: str
+    team_id: str | None = None
+
+
+class PlanLookupRequest(BaseModel):
+    api_token: str
+    team_id: str | None = None
+
+
+class ProjectNameAvailabilityRequest(BaseModel):
+    name: str
     api_token: str
     team_id: str | None = None
 
@@ -84,10 +96,30 @@ async def health_check():
 @app.get("/liara/plans", dependencies=[Depends(verify_internal_secret)])
 async def list_liara_plans(api_token: str | None = None):
     plans = await db_provisioner.get_available_plans(api_token=api_token)
-    return {
-        "ok": True,
-        "plans": plans,
-    }
+    return {"ok": True, "plans": plans}
+
+
+@app.post("/liara/app-plans", dependencies=[Depends(verify_internal_secret)])
+async def list_liara_app_plans(payload: PlanLookupRequest):
+    try:
+        plans = await liara_app_plan_provider.list_plans(
+            api_token=payload.api_token, team_id=payload.team_id
+        )
+        return {"ok": True, "plans": plans}
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+
+@app.post("/liara/projects/availability", dependencies=[Depends(verify_internal_secret)])
+async def check_liara_project_name(payload: ProjectNameAvailabilityRequest):
+    result = await liara_adapter.check_project_name(
+        payload.name, payload.api_token, payload.team_id
+    )
+    if result.get("reason") == "invalid_name":
+        return result
+    if not result.get("ok"):
+        return {**result, "error": "Liara app inventory could not be verified."}
+    return result
 
 
 @app.get("/liara/services", dependencies=[Depends(verify_internal_secret)])
@@ -198,6 +230,12 @@ async def test_liara_connection(payload: TestConnectionRequest):
 
 @app.post("/liara/projects", dependencies=[Depends(verify_internal_secret)])
 async def create_liara_project(payload: CreateProjectRequest):
+    if not payload.approved:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Explicit user approval is required before creating a Liara app.",
+        )
+
     token = payload.api_token or os.getenv("LIARA_API_TOKEN", "")
     team = payload.team_id or os.getenv("LIARA_TEAM_ID", "")
     try:
@@ -209,10 +247,14 @@ async def create_liara_project(payload: CreateProjectRequest):
             team_id=team,
         )
         if not result.get("ok"):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=result.get("error", "Failed to create project in Liara"),
+            response_status = (
+                    status.HTTP_409_CONFLICT
+                    if result.get("reason") == "already_exists"
+                    else status.HTTP_502_BAD_GATEWAY
+                    if result.get("reason") == "unverified"
+                    else status.HTTP_400_BAD_REQUEST
             )
+            return JSONResponse(status_code=response_status, content=result)
         return result
     except ValueError as err:
         raise HTTPException(

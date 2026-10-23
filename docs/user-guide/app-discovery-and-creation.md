@@ -19,11 +19,12 @@ If `liara.json` is missing or the configured app is not present in your Liara ac
 
 ### Path B: Create a Brand-New App («ساخت سرویس جدید»)
 - **App ID:** Pre-filled with an intelligent slug derived from your folder or project name (e.g. `nodejs-demo`).
-- **Hardware Plan Selection:** Choose between official Liara pricing plans:
-  - **اقتصادی (ir-standard-1):** 512 MB RAM, 0.25 CPU Core (60,000 Toman/mo)
-  - **استاندارد (ir-standard-2):** 1024 MB (1 GB) RAM, 0.5 CPU Core (120,000 Toman/mo - *Recommended*)
-  - **حرفه‌ای (ir-standard-4):** 2048 MB (2 GB) RAM, 1 CPU Core (240,000 Toman/mo)
-- **Instant Creation:** Clicking **«تأیید و ساخت سرویس در لیارا»** makes an authenticated API call (`POST /v1/projects`) to provision the app instantly. The live service immediately appears in your Sidecar Services tab.
+- **Name preflight:** Check the name in the selected account/team before creation. Availability can change before Liara processes the create request.
+- **Hardware plan selection:** The app loads current hardware plans from Liara and preselects a recommendation. Resource values and prices depend on what Liara returns; a missing price is shown as unavailable rather than estimated.
+- **Approval:** Review the app name, platform, hardware plan, known price, and account/team scope. Creating the service can incur charges.
+- **Creation status:** The agent reports success only after it confirms the app exists in Liara, then continues to deployment. A provider error stops the flow and is shown to the user.
+
+**Known limitation:** A browser smoke test on 2026-10-23 reached Liara but received `400 g2_plan_unavailable` after selecting `medium-g2`. The current API request sends `name`, `platform`, and `planID`; the official Liara CLI also sends `bundlePlanID`. The missing feature-bundle plan is under investigation, and successful live app creation has not yet been verified. See [Liara app creation diagnostics](../operations/liara-app-creation-diagnostics.md) before retrying against a real account.
 
 ## 3. Database Matching & Provisioning
 

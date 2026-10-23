@@ -70,7 +70,9 @@ class LiaraAdapter:
                             raw_status = str(p.get("status", "")).lower()
                             status = (
                                 "running"
-                                if raw_status in ["running", "ready", "active", "created"]
+                                if raw_status in ["running", "ready", "active"]
+                                else raw_status
+                                if raw_status in ["created", "creating", "pending"]
                                 else "stopped"
                             )
                             services.append({
@@ -113,6 +115,60 @@ class LiaraAdapter:
             logger.warning("get_services encountered error: %s", redact_text(str(e), api_token))
 
         return services
+
+    async def check_project_name(
+        self, project_name: str, api_token: str, team_id: str | None = None
+    ) -> dict:
+        """Check app-name availability against the selected account/team inventory."""
+        clean_name = (project_name or "").strip().lower()
+        if not re.fullmatch(r"[a-z0-9-]{3,64}", clean_name):
+            return {"ok": False, "available": False, "reason": "invalid_name"}
+        if not api_token or not api_token.strip():
+            return {"ok": False, "available": False, "reason": "missing_credentials"}
+
+        headers = {
+            "Authorization": f"Bearer {api_token.strip()}",
+            "User-Agent": "LiaraAgent/0.1.0",
+        }
+        clean_team_id = team_id.strip() if team_id and team_id.strip() else None
+        params = {"teamID": clean_team_id} if clean_team_id else None
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                res = await client.get(
+                    f"{self.base_url}/v1/projects", headers=headers, params=params
+                )
+            if res.status_code == 401:
+                return {"ok": False, "available": False, "reason": "unauthorized"}
+            if res.status_code == 403:
+                return {"ok": False, "available": False, "reason": "forbidden"}
+            if res.status_code != 200:
+                logger.warning(
+                    "Liara app inventory check failed (HTTP %s): %s",
+                    res.status_code,
+                    redact_text(res.text, api_token),
+                )
+                return {"ok": False, "available": False, "reason": "provider_error"}
+
+            data = res.json()
+            projects = data.get("projects") if isinstance(data, dict) else None
+            if not isinstance(projects, list):
+                logger.warning("Liara app inventory response had an unexpected shape")
+                return {"ok": False, "available": False, "reason": "provider_error"}
+
+            exists = any(
+                isinstance(project, dict)
+                and str(project.get("project_id", project.get("name", ""))).strip().lower() == clean_name
+                for project in projects
+            )
+            return {
+                "ok": True,
+                "available": not exists,
+                "reason": "already_exists" if exists else None,
+            }
+        except Exception as e:
+            logger.warning("Liara app inventory check failed: %s", redact_text(str(e), api_token))
+            return {"ok": False, "available": False, "reason": "provider_error"}
 
     async def test_connection(
         self, api_token: str, team_id: str | None = None
@@ -207,10 +263,14 @@ class LiaraAdapter:
         clean_team_id = team_id.strip() if team_id and team_id.strip() else None
         params = {"teamID": clean_team_id} if clean_team_id else None
 
+        if not clean_platform or not clean_plan:
+            raise ValueError("A Liara platform and plan are required to create an app.")
+
+        # Liara's documented POST /v1/projects contract uses these exact field names.
         body = {
-            "project_id": clean_project,
-            "type": clean_platform,
-            "plan": clean_plan,
+            "name": clean_project,
+            "platform": clean_platform,
+            "planID": clean_plan,
         }
 
         logger.info("Creating Liara project: %s (type: %s, plan: %s)", clean_project, clean_platform, clean_plan)
@@ -224,18 +284,54 @@ class LiaraAdapter:
                     json=body,
                 )
 
-                if res.status_code in [200, 201]:
+                if res.status_code in [200, 201, 202]:
+                    # Liara's create endpoint acknowledges a request. Confirm the app
+                    # through the provider before allowing the workflow to continue.
+                    verify_res = await client.get(
+                        f"{self.base_url}/v1/projects/{clean_project}",
+                        headers=headers,
+                        params=params,
+                    )
+                    if verify_res.status_code == 200:
+                        verify_data = verify_res.json()
+                        project = (
+                            verify_data.get("project", verify_data)
+                            if isinstance(verify_data, dict)
+                            else {}
+                        )
+                        return {
+                            "ok": True,
+                            "project_id": clean_project,
+                            "platform": clean_platform,
+                            "plan_id": clean_plan,
+                            "endpoint": f"https://{clean_project}.liara.run",
+                            "status": str(project.get("status") or "created").lower(),
+                        }
+
+                    if verify_res.status_code == 404:
+                        return {
+                            "ok": False,
+                            "reason": "unverified",
+                            "status": "unverified",
+                            "error": "درخواست ساخت ارسال شد، اما هنوز وجود سرویس در لیارا تأیید نشده است. کمی بعد وضعیت را دوباره بررسی کنید.",
+                        }
+
+                    safe_verify_error = redact_text(verify_res.text, api_token)
+                    logger.warning(
+                        "Liara app creation could not be verified (HTTP %s): %s",
+                        verify_res.status_code,
+                        safe_verify_error,
+                    )
                     return {
-                        "ok": True,
-                        "project_id": clean_project,
-                        "platform": clean_platform,
-                        "plan_id": clean_plan,
-                        "endpoint": f"https://{clean_project}.liara.run",
-                        "status": "created",
+                        "ok": False,
+                        "reason": "unverified",
+                        "status": "unverified",
+                        "error": "درخواست ساخت ارسال شد، اما نتوانستم وجود سرویس را از لیارا تأیید کنم. برای جلوگیری از ساخت تکراری، ابتدا فهرست سرویس‌ها را دوباره بررسی کنید.",
                     }
                 elif res.status_code == 409:
                     return {
                         "ok": False,
+                        "reason": "already_exists",
                         "error": f"برنامه‌ای با نام '{clean_project}' قبلاً در لیارا ثبت شده است. لطفاً نام دیگری انتخاب کنید.",
                     }
                 elif res.status_code == 401:

@@ -1,19 +1,48 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getActiveLiaraCredentials } from "@/lib/auth";
+import { getActiveLiaraCredentials, getCurrentUser } from "@/lib/auth";
+import { matchesApprovedAppCreation } from "@/lib/app-creation-approval";
 
 export async function POST(req: NextRequest) {
   try {
+    const user = await getCurrentUser();
+    if (!user.authenticated) {
+      return NextResponse.json({ ok: false, error: "برای ساخت سرویس ابتدا وارد حساب کاربری شوید." }, { status: 401 });
+    }
+
     const { token, teamId } = await getActiveLiaraCredentials();
 
     const body = await req.json().catch(() => ({}));
     const projectId = body.projectId || body.project_id;
-    const platform = body.platform || "node";
-    const planId = body.planId || body.plan_id || "ir-standard-1";
+    const platform = body.platform;
+    const planId = body.planId || body.plan_id;
 
     if (!projectId || typeof projectId !== "string" || !projectId.trim()) {
       return NextResponse.json(
         { ok: false, error: "نام یا شناسه اپلیکیشن الزامی است." },
         { status: 400 }
+      );
+    }
+
+    if (typeof platform !== "string" || !platform.trim() || typeof planId !== "string" || !planId.trim()) {
+      return NextResponse.json(
+        { ok: false, error: "پلتفرم و پلن تأییدشده برای ساخت سرویس الزامی است." },
+        { status: 400 }
+      );
+    }
+
+    const approvedTeamId = typeof body.teamId === "string" ? body.teamId.trim() : null;
+    const activeTeamId = teamId?.trim() || null;
+    const action = {
+      appName: projectId.trim(),
+      platform: platform.trim(),
+      planId: planId.trim(),
+      teamId: approvedTeamId,
+      priceMonthly: typeof body.priceMonthly === "number" ? body.priceMonthly : null,
+    };
+    if (approvedTeamId !== activeTeamId || !matchesApprovedAppCreation(body.approval, action)) {
+      return NextResponse.json(
+        { ok: false, error: "مقادیر تأییدشده با نام، پلتفرم، پلن، هزینه یا تیم فعال یکسان نیستند. لطفاً اطلاعات را دوباره بررسی و تأیید کنید." },
+        { status: approvedTeamId !== activeTeamId ? 409 : 403 }
       );
     }
 
@@ -40,6 +69,7 @@ export async function POST(req: NextRequest) {
         project_id: projectId.trim(),
         platform: platform.trim(),
         plan_id: planId.trim(),
+        approved: true,
         api_token: token.trim(),
         team_id: teamId.trim() || undefined,
       }),
@@ -49,7 +79,7 @@ export async function POST(req: NextRequest) {
     const data = await res.json();
     if (!res.ok) {
       return NextResponse.json(
-        { ok: false, error: data.detail || data.error || `Project creation failed (HTTP ${res.status})` },
+        { ok: false, reason: data.reason || data.detail?.reason, error: typeof data.detail === "string" ? data.detail : data.detail?.message || data.error || `Project creation failed (HTTP ${res.status})` },
         { status: res.status }
       );
     }

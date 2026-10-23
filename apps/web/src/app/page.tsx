@@ -13,6 +13,7 @@ import { AppTargetSelectorWidget } from "@/components/chat/AppTargetSelectorWidg
 import { DiffPreviewWidget } from "@/components/chat/DiffPreviewWidget";
 import { DeployApprovalWidget } from "@/components/chat/DeployApprovalWidget";
 import { RemediationApprovalWidget } from "@/components/chat/RemediationApprovalWidget";
+import { createLiaraApp } from "@/lib/app-creation-workflow";
 
 let messageSequence = 0;
 function createMsgId(prefix: string): string {
@@ -424,6 +425,8 @@ export default function HomePage() {
         <AppTargetSelectorWidget
           suggestedAppName={data.suggestedAppName}
           detectedPlatform={data.detectedPlatform}
+          detectedDatabaseCount={analysis?.detected_databases?.length || 0}
+          teamScope={activeTeam}
           existingApps={data.existingApps || services.filter((s: CloudService) => s.type === "app")}
           onSelectExistingApp={(chosenAppName) => {
             setSelectedApp(chosenAppName);
@@ -442,54 +445,41 @@ export default function HomePage() {
             ]);
             proceedToDatabaseOrDiff(chosenAppName, sourcePath, analysis);
           }}
-          onCreateNewApp={async (appName, planId) => {
-            try {
-              const res = await fetch("/api/liara/projects", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  projectId: appName,
-                  platform: data.detectedPlatform || "node",
-                  planId,
-                }),
-              });
-              const resData = await res.json();
-              if (!res.ok || !resData.ok) {
-                return { ok: false, error: resData.error || "خطا در ایجاد سرویس در لیارا" };
-              }
+          onCreateNewApp={async (appName, planId, teamId, priceMonthly) => {
+            return createLiaraApp(
+              { appName, platform: data.detectedPlatform || "node", planId, teamId, priceMonthly },
+              {
+                onConfirmed: (service) => {
+                  setSelectedApp(appName);
+                  setServices((prev) => [
+                    ...prev,
+                    {
+                      name: appName,
+                      type: "app",
+                      status: String(service.status),
+                      endpoint: String(service.endpoint || `https://${appName}.liara.run`),
+                      port: analysis?.port || 3000,
+                    },
+                  ]);
+                  setTerminalLogs((prev) => [
+                    ...prev,
+                    `✔ سرویس ابری «${appName}» با پلن ${planId} در لیارا ایجاد و تأیید شد.`,
+                  ]);
+                  setMessages((prev) => [
+                    ...prev,
+                    {
+                      id: createMsgId("ast"),
+                      role: "assistant",
+                      content: `سرویس **${appName}** با پلتفرم **${data.detectedPlatform}** و پلن **${planId}** در لیارا ساخته و تأیید شد. حالا آماده‌ی ادامه‌ی دپلوی هستیم.`,
+                      timestamp: new Date().toISOString(),
+                    },
+                  ]);
 
-              setSelectedApp(appName);
-              setServices((prev) => [
-                ...prev,
-                {
-                  name: appName,
-                  type: "app",
-                  status: "running",
-                  endpoint: resData.endpoint || `https://${appName}.liara.run`,
-                  port: analysis?.port || 3000,
+                  fetchLiveServices();
+                  proceedToDatabaseOrDiff(appName, sourcePath, analysis);
                 },
-              ]);
-              setTerminalLogs((prev) => [
-                ...prev,
-                `✔ سرویس ابری جدید «${appName}» در لیارا با پلن ${planId} ایجاد شد.`,
-              ]);
-              setMessages((prev) => [
-                ...prev,
-                {
-                  id: createMsgId("ast"),
-                  role: "assistant",
-                  content: `سرویس جدید **${appName}** با پلتفرم **${data.detectedPlatform}** و پلن **${planId}** با موفقیت در لیارا ساخته شد! 🎉`,
-                  timestamp: new Date().toISOString(),
-                },
-              ]);
-
-              fetchLiveServices();
-              proceedToDatabaseOrDiff(appName, sourcePath, analysis);
-              return { ok: true };
-            } catch (err: unknown) {
-              const msg = err instanceof Error ? err.message : String(err);
-              return { ok: false, error: msg };
-            }
+              },
+            );
           }}
           disabled={isStreaming}
         />

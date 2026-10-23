@@ -44,6 +44,7 @@ class CreateProjectRequest(BaseModel):
     project_id: str
     platform: str
     plan_id: str
+    approved: bool = False
     api_token: str | None = None
     team_id: str | None = None
 

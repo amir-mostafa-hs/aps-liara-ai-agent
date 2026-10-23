@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Globe,
   PlusCircle,
@@ -12,20 +12,26 @@ import {
   Layers,
   ChevronLeft,
 } from "lucide-react";
-import { DEFAULT_PLANS, PlanTier } from "./PlanSelectorCard";
+import { AppPlan, checkAppNameAvailability, formatPlanPrice, loadAppPlans, recommendAppPlan } from "@/lib/app-preflight";
+import type { ExistingAppCandidate } from "@/lib/app-creation-workflow";
+import { findExistingApp } from "@/lib/app-creation-workflow";
 
 export interface AppTargetSelectorWidgetProps {
   suggestedAppName?: string;
   detectedPlatform?: string;
+  teamScope?: { id: string; name: string } | null;
+  detectedDatabaseCount?: number;
   existingApps?: Array<{ name: string; status: string; endpoint?: string }>;
   onSelectExistingApp: (appName: string) => void;
-  onCreateNewApp: (appName: string, planId: string) => Promise<{ ok: boolean; error?: string }>;
+  onCreateNewApp: (appName: string, planId: string, teamId: string | null, priceMonthly: number | null) => Promise<{ ok: boolean; error?: string; recovery?: { service: ExistingAppCandidate } }>;
   disabled?: boolean;
 }
 
 export function AppTargetSelectorWidget({
   suggestedAppName = "my-app",
   detectedPlatform = "node",
+  teamScope = null,
+  detectedDatabaseCount = 0,
   existingApps = [],
   onSelectExistingApp,
   onCreateNewApp,
@@ -41,9 +47,45 @@ export function AppTargetSelectorWidget({
 
   // New App Mode State
   const [newAppName, setNewAppName] = useState<string>(suggestedAppName);
-  const [selectedPlanId, setSelectedPlanId] = useState<string>("ir-standard-2");
+  const [selectedPlanId, setSelectedPlanId] = useState<string>("");
+  const [plans, setPlans] = useState<AppPlan[]>([]);
+  const [plansLoading, setPlansLoading] = useState<boolean>(false);
+  const [nameCheckLoading, setNameCheckLoading] = useState<boolean>(false);
+  const [availableName, setAvailableName] = useState<string | null>(null);
+  const [preflightMessage, setPreflightMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [recommendedPlanReason, setRecommendedPlanReason] = useState<string | null>(null);
+  const [recoveryService, setRecoveryService] = useState<ExistingAppCandidate | null>(null);
+  const selectedPlan = plans.find((plan) => plan.plan_id === selectedPlanId);
+
+  useEffect(() => {
+    if (mode !== "new") return;
+    let active = true;
+    setPlansLoading(true);
+    setPlans([]);
+    setSelectedPlanId("");
+    setAvailableName(null);
+    setPreflightMessage(null);
+    loadAppPlans()
+      .then((result) => {
+        if (!active) return;
+        if (!result.ok) {
+          setPreflightMessage(result.error);
+          return;
+        }
+        const recommendation = recommendAppPlan(result.plans, { platform: detectedPlatform, databaseCount: detectedDatabaseCount });
+        setPlans(result.plans.map((plan) => ({ ...plan, is_recommended: plan.plan_id === recommendation.plan.plan_id })));
+        setRecommendedPlanReason(recommendation.reason);
+        setSelectedPlanId(recommendation.plan.plan_id);
+      })
+      .finally(() => {
+        if (active) setPlansLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [mode, detectedPlatform, detectedDatabaseCount]);
 
   const cleanSlug = (str: string) =>
     str
@@ -69,10 +111,19 @@ export function AppTargetSelectorWidget({
       setErrorMessage("شناسه برنامه باید حداقل ۳ کاراکتر انگلیسی باشد.");
       return;
     }
+    if (!plans.some((plan) => plan.plan_id === selectedPlanId)) {
+      setErrorMessage("ابتدا یک پلن معتبر از فهرست لیارا انتخاب کنید.");
+      return;
+    }
+    if (availableName !== slug) {
+      setErrorMessage("پیش از ساخت، آزاد بودن نام را در لیارا بررسی کنید.");
+      return;
+    }
     setErrorMessage(null);
     setIsSubmitting(true);
     try {
-      const res = await onCreateNewApp(slug, selectedPlanId);
+      const res = await onCreateNewApp(slug, selectedPlanId, teamScope?.id || null, selectedPlan?.price_monthly ?? null);
+      setRecoveryService(res.recovery?.service || null);
       if (!res.ok) {
         setErrorMessage(res.error || "خطا در ساخت سرویس در لیارا");
       }
@@ -81,6 +132,22 @@ export function AppTargetSelectorWidget({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleCheckName = async () => {
+    const slug = cleanSlug(newAppName);
+    setAvailableName(null);
+    setNameCheckLoading(true);
+    setPreflightMessage(null);
+    const result = await checkAppNameAvailability(slug);
+    setAvailableName(result.available ? slug : null);
+    setPreflightMessage(result.message);
+    if (!result.available && result.reason === "already_exists") {
+      setRecoveryService(await findExistingApp(slug));
+    } else {
+      setRecoveryService(null);
+    }
+    setNameCheckLoading(false);
   };
 
   return (
@@ -242,7 +309,12 @@ export function AppTargetSelectorWidget({
             <input
               type="text"
               value={newAppName}
-              onChange={(e) => setNewAppName(e.target.value)}
+              onChange={(e) => {
+                setNewAppName(e.target.value);
+                setRecoveryService(null);
+                setAvailableName(null);
+                setPreflightMessage(null);
+              }}
               placeholder="مثال: my-nodejs-service"
               dir="ltr"
               disabled={isSubmitting || disabled}
@@ -254,6 +326,19 @@ export function AppTargetSelectorWidget({
                 https://{cleanSlug(newAppName) || "your-app"}.liara.run
               </span>
             </p>
+            <button
+              type="button"
+              onClick={handleCheckName}
+              disabled={nameCheckLoading || plansLoading || disabled}
+              className="self-start rounded-lg border border-blue-500/30 px-3 py-1.5 text-[11px] text-blue-300 hover:bg-blue-950/40 disabled:opacity-50"
+            >
+              {nameCheckLoading ? "در حال بررسی نام در لیارا..." : "بررسی آزاد بودن نام در لیارا"}
+            </button>
+            {preflightMessage && (
+              <p className={`rounded-lg p-2 text-[11px] ${availableName === cleanSlug(newAppName) ? "bg-emerald-500/10 text-emerald-300" : "bg-amber-500/10 text-amber-300"}`}>
+                {preflightMessage}
+              </p>
+            )}
           </div>
 
           {/* Plan Selector Cards */}
@@ -263,8 +348,15 @@ export function AppTargetSelectorWidget({
               <span className="text-[10px] text-zinc-500">قابل ارتقا در هر زمان</span>
             </label>
 
+            {plansLoading ? (
+              <p className="rounded-lg bg-zinc-950/60 p-3 text-[11px] text-zinc-400">در حال دریافت پلن‌های این حساب از لیارا...</p>
+            ) : plans.length === 0 ? (
+              <p className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-[11px] text-amber-300">
+                {preflightMessage || "پلن معتبر از لیارا دریافت نشد؛ تا زمان دریافت پلن، ساخت سرویس غیرفعال است."}
+              </p>
+            ) : (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {DEFAULT_PLANS.slice(0, 3).map((plan) => {
+              {plans.map((plan) => {
                 const isSelected = plan.plan_id === selectedPlanId;
                 return (
                   <div
@@ -294,18 +386,24 @@ export function AppTargetSelectorWidget({
                     </div>
 
                     <div className="text-xs font-semibold text-emerald-400 pt-1 border-t border-zinc-800/80">
-                      {plan.price_monthly.toLocaleString("fa-IR")} تومان/ماه
+                      {formatPlanPrice(plan.price_monthly)}
                     </div>
+                    {plan.is_recommended && <p className="text-[10px] text-zinc-400">{recommendedPlanReason || "برای شروع پیشنهاد می‌شود؛ هزینه و منابع را بررسی کنید."}</p>}
                   </div>
                 );
               })}
             </div>
+            )}
           </div>
+
+          <p className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-2.5 text-[10px] leading-relaxed text-amber-200">
+            با انتخاب «تأیید و ساخت سرویس»، ایجاد سرویس با نام <span dir="ltr" className="font-mono">{cleanSlug(newAppName) || "—"}</span>، پلتفرم {detectedPlatform}، پلن «{selectedPlan?.name_fa || selectedPlanId || "—"}» ({formatPlanPrice(selectedPlan?.price_monthly)}) و محدوده {teamScope ? `تیم ${teamScope.name} (${teamScope.id})` : "حساب شخصی"} را تأیید می‌کنید. این عملیات ممکن است هزینه داشته باشد.
+          </p>
 
           <button
             type="button"
             onClick={handleCreateNew}
-            disabled={isSubmitting || disabled}
+            disabled={isSubmitting || disabled || plansLoading || plans.length === 0 || !selectedPlanId || availableName !== cleanSlug(newAppName)}
             className="mt-2 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors disabled:opacity-50 shadow-md shadow-emerald-900/30"
           >
             {isSubmitting ? (
@@ -328,6 +426,19 @@ export function AppTargetSelectorWidget({
         <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           <span>{errorMessage}</span>
+        </div>
+      )}
+      {recoveryService && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 flex flex-col gap-2 text-xs text-amber-200">
+          <span>سرویس «{recoveryService.name}» در حساب فعال پیدا شد. ساخت دوباره انجام نمی‌شود.</span>
+          <button
+            type="button"
+            onClick={() => onSelectExistingApp(recoveryService.name)}
+            disabled={disabled || isSubmitting}
+            className="self-start rounded-lg bg-amber-500/20 px-3 py-1.5 font-semibold hover:bg-amber-500/30 disabled:opacity-50"
+          >
+            استفاده از سرویس پیدا‌شده و ادامه دپلوی
+          </button>
         </div>
       )}
     </div>
