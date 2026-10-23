@@ -11,7 +11,7 @@ SAMPLE_CRASH_LOGS = """
 """
 
 
-def test_diagnoser_identifies_missing_env_and_produces_remediation():
+def test_diagnoser_identifies_missing_env_without_inventing_a_secret():
     diagnoser = SREDiagnoser()
 
     result = diagnoser.diagnose_logs(
@@ -24,16 +24,9 @@ def test_diagnoser_identifies_missing_env_and_produces_remediation():
     assert "SERVICE_SECRET" in result.root_cause
     assert "SERVICE_SECRET" in result.error_evidence
     assert result.missing_variable == "SERVICE_SECRET"
-    assert result.remediation is not None
-    assert result.remediation.operation == "set_env"
-    assert result.remediation.env_variable == "SERVICE_SECRET"
-    assert result.remediation.target == "my-demo-app"
+    assert result.remediation is None
+    assert "متغیر محیطی" in result.root_cause
     assert result.verify_digest() is True
-
-    # Tampering check
-    tampered = result.model_copy()
-    tampered.remediation.env_variable = "WRONG_SECRET"
-    assert tampered.verify_digest() is False
 
 
 def test_diagnoser_handles_empty_logs_without_fabrication():
@@ -45,7 +38,19 @@ def test_diagnoser_handles_empty_logs_without_fabrication():
     )
     assert result.confidence == 0.0
     assert result.remediation is None
-    assert "No runtime logs" in result.root_cause
+    assert "اطلاعات کافی" in result.root_cause
+
+
+def test_missing_runtime_logs_include_bounded_project_evidence_without_claiming_a_cause():
+    result = SREDiagnoser().diagnose_logs(
+        logs="",
+        app_id="simple-app",
+        project_evidence=["متغیر SERVICE_SECRET، منبع: generated_secret", "x" * 500],
+    )
+    assert result.diagnosis_status == "inconclusive"
+    assert "SERVICE_SECRET" in result.error_evidence
+    assert "علت خرابی" in result.root_cause
+    assert "x" * 300 not in result.error_evidence
 
 
 @pytest.mark.anyio
@@ -305,8 +310,8 @@ def test_diagnose_and_remediate_api_endpoints():
     assert diag_data["ok"] is True
     diagnosis = diag_data["diagnosis"]
     assert "SERVICE_SECRET" in diagnosis["root_cause"]
-    assert diagnosis["remediation"] is not None
-    assert diagnosis["remediation"]["env_variable"] == "SERVICE_SECRET"
+    assert diagnosis["remediation"] is None
+    assert diagnosis["missing_variable"] == "SERVICE_SECRET"
     assert diagnosis["log_source"] == "deployment"
     assert "digest" in diagnosis and len(diagnosis["digest"]) == 64
 
@@ -316,10 +321,18 @@ def test_diagnose_and_remediate_api_endpoints():
         headers={"X-Internal-Secret": settings.internal_agent_secret},
         json={
             "app_id": "test-app",
-            "remediation": diagnosis["remediation"],
+            "remediation": {
+                "action_id": "rem-test",
+                "operation": "set_env",
+                "target": "test-app",
+                "env_variable": "SERVICE_SECRET",
+                "env_value": "",
+                "description": "تنظیم مقدار تأییدشده",
+                "requires_approval": True,
+            },
             "approval": {
                 "run_id": "run-1",
-                "action_id": diagnosis["remediation"]["action_id"],
+                "action_id": "rem-test",
                 "operation": "set_env",
                 "target": "test-app",
                 "approved": False,
@@ -340,9 +353,10 @@ def test_diagnose_prefers_runtime_logs_for_post_deploy_health_failure(monkeypatc
         captured["runtime_request"] = kwargs
         return {"ok": True, "logs": "Server listening on port 3000", "error": None}
 
-    def diagnose_logs(logs, app_id, provider_status):
+    def diagnose_logs(logs, app_id, provider_status, project_evidence=None):
         captured["diagnosed_logs"] = logs
-        return SREDiagnoser().diagnose_logs(logs, app_id, provider_status)
+        captured["project_evidence"] = project_evidence
+        return SREDiagnoser().diagnose_logs(logs, app_id, provider_status, project_evidence)
 
     monkeypatch.setattr(sre_diagnoser, "fetch_runtime_logs_result", runtime_logs)
     monkeypatch.setattr(sre_diagnoser, "diagnose_logs", diagnose_logs)
@@ -354,6 +368,27 @@ def test_diagnose_prefers_runtime_logs_for_post_deploy_health_failure(monkeypatc
     assert response.status_code == 200
     assert captured["diagnosed_logs"] == "Server listening on port 3000"
     assert response.json()["diagnosis"]["log_source"] == "runtime"
+    assert captured["project_evidence"] == []
+
+
+def test_diagnose_endpoint_passes_project_evidence_when_runtime_logs_are_unavailable(monkeypatch):
+    from fastapi.testclient import TestClient
+    from engine.main import app, sre_diagnoser
+    from engine.config import settings
+
+    async def unavailable_runtime_logs(**kwargs):
+        return {"ok": False, "logs": "", "error": "غیرفعال"}
+
+    monkeypatch.setattr(sre_diagnoser, "fetch_runtime_logs_result", unavailable_runtime_logs)
+    response = TestClient(app).post(
+        "/agent/diagnose",
+        headers={"X-Internal-Secret": settings.internal_agent_secret},
+        json={"app_id": "simple-app", "fetch_runtime_logs": True, "project_evidence": ["SERVICE_SECRET از نمونه و کد شناسایی شد"]},
+    )
+    diagnosis = response.json()["diagnosis"]
+    assert diagnosis["diagnosis_status"] == "inconclusive"
+    assert "SERVICE_SECRET" in diagnosis["error_evidence"]
+    assert "علت خرابی" in diagnosis["root_cause"]
 
 
 def test_runtime_logs_endpoint_returns_source_and_failure_details(monkeypatch):
@@ -372,3 +407,226 @@ def test_runtime_logs_endpoint_returns_source_and_failure_details(monkeypatch):
     )
     assert response.status_code == 200
     assert response.json() == {"ok": False, "log_source": "runtime", "logs": "", "error": "لاگ‌ها در دسترس نیستند"}
+
+
+def test_failed_runtime_log_fetch_does_not_diagnose_successful_deployment_logs(monkeypatch):
+    from fastapi.testclient import TestClient
+    from engine.main import app, sre_diagnoser
+    from engine.config import settings
+
+    async def unavailable_runtime_logs(**kwargs):
+        return {"ok": False, "logs": "", "error": "دریافت لاگ اجرای برنامه ناموفق بود."}
+
+    monkeypatch.setattr(sre_diagnoser, "fetch_runtime_logs_result", unavailable_runtime_logs)
+    response = TestClient(app).post(
+        "/agent/diagnose",
+        headers={"X-Internal-Secret": settings.internal_agent_secret},
+        json={
+            "app_id": "simple-app",
+            "logs": "Release created successfully; deployment complete",
+            "provider_status": "success",
+            "fetch_runtime_logs": True,
+        },
+    )
+
+    assert response.status_code == 200
+    diagnosis = response.json()["diagnosis"]
+    assert diagnosis["log_source"] == "none"
+    assert diagnosis["diagnosis_status"] == "inconclusive"
+    assert diagnosis["remediation"] is None
+    assert "اطلاعات کافی" in diagnosis["root_cause"]
+    assert diagnosis["logs_warning"] == "دریافت لاگ‌های اجرای برنامه از Liara ناموفق بود."
+
+
+def test_missing_env_runtime_diagnosis_is_persian_and_never_invents_secret_value():
+    result = SREDiagnoser().diagnose_logs(
+        logs="FATAL ERROR: Missing required environment variable: SERVICE_SECRET",
+        app_id="simple-app",
+    )
+
+    assert "SERVICE_SECRET" in result.root_cause
+    assert "متغیر محیطی" in result.root_cause
+    assert result.diagnosis_status == "conclusive"
+    assert result.remediation is None
+
+
+def test_runtime_log_secret_assignments_are_redacted_before_diagnosis():
+    from engine.security.redaction import redact_text
+
+    assert "visible-secret-value" not in redact_text("SERVICE_SECRET=visible-secret-value")
+    result = SREDiagnoser().diagnose_logs(
+        logs="SERVICE_SECRET=visible-secret-value\nApplication started",
+        app_id="simple-app",
+    )
+    assert "visible-secret-value" not in result.error_evidence
+
+
+def test_remediation_provider_failure_does_not_trigger_health_check(monkeypatch):
+    from fastapi.testclient import TestClient
+    from engine.main import app, sre_diagnoser, endpoint_verifier
+    from engine.config import settings
+
+    async def failed_write(**kwargs):
+        return {"ok": False, "exit_code": 1, "output": "Liara rejected the write"}
+
+    async def should_not_verify(**kwargs):
+        raise AssertionError("health must not be checked before provider write confirmation")
+
+    monkeypatch.setattr(sre_diagnoser, "apply_remediation", failed_write)
+    monkeypatch.setattr(endpoint_verifier, "verify_endpoint", should_not_verify)
+    action = RemediationAction(
+        action_id="rem-fail",
+        operation="set_env",
+        target="simple-app",
+        env_variable="SERVICE_SECRET",
+        env_value="test-secret",
+        description="ثبت secret تأییدشده",
+    )
+    approval = ActionApprovalModel(
+        run_id="run-fail",
+        action_id="rem-fail",
+        operation="set_env",
+        target="simple-app",
+        approved=True,
+        plan_digest="digest",
+    )
+    response = TestClient(app).post(
+        "/agent/remediate",
+        headers={"X-Internal-Secret": settings.internal_agent_secret},
+        json={"app_id": "simple-app", "remediation": action.model_dump(), "approval": approval.model_dump()},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["ok"] is False
+    assert response.json()["verification"] is None
+
+
+def test_remediation_rejects_mismatched_health_target(monkeypatch):
+    from fastapi.testclient import TestClient
+    from engine.main import app, sre_diagnoser
+    from engine.config import settings
+
+    async def should_not_write(**kwargs):
+        raise AssertionError("mismatched target must be rejected before Liara mutation")
+
+    monkeypatch.setattr(sre_diagnoser, "apply_remediation", should_not_write)
+    action = RemediationAction(
+        action_id="rem-target",
+        operation="set_env",
+        target="other-app",
+        env_variable="SERVICE_SECRET",
+        env_value="test-secret",
+        description="ثبت secret تأییدشده",
+    )
+    approval = ActionApprovalModel(
+        run_id="run-target",
+        action_id="rem-target",
+        operation="set_env",
+        target="other-app",
+        approved=True,
+        plan_digest="digest",
+    )
+    response = TestClient(app).post(
+        "/agent/remediate",
+        headers={"X-Internal-Secret": settings.internal_agent_secret},
+        json={"app_id": "simple-app", "remediation": action.model_dump(), "approval": approval.model_dump()},
+    )
+    assert response.status_code == 400
+    assert "مطابقت ندارد" in response.json()["detail"]
+
+
+def test_simulated_liara_env_runtime_diagnosis_and_recovery_journey(monkeypatch):
+    from pathlib import Path
+    from fastapi.testclient import TestClient
+    from engine.main import app, env_manager, endpoint_verifier, sre_diagnoser
+    from engine.config import settings
+    from engine.domain.models import VerificationResult
+
+    client = TestClient(app)
+    headers = {"X-Internal-Secret": settings.internal_agent_secret}
+    inspection = client.post(
+        "/agent/inspect",
+        headers=headers,
+        json={"path": str(Path("sample-apps/nodejs-demo").resolve())},
+    )
+    assert inspection.status_code == 200
+    requirements = {item["name"]: item for item in inspection.json()["analysis"]["env_requirements"]}
+    assert requirements["SERVICE_SECRET"]["value_source"] == "generated_secret"
+
+    recorded_env = {}
+    async def simulated_env_write(**kwargs):
+        recorded_env.update(kwargs["env_vars"])
+        return {"ok": True, "variables_set": list(kwargs["env_vars"])}
+
+    async def runtime_failure(**kwargs):
+        return {"ok": True, "logs": "FATAL ERROR: Missing required environment variable: SERVICE_SECRET", "error": None}
+
+    monkeypatch.setattr(env_manager, "set_cloud_env", simulated_env_write)
+    monkeypatch.setattr(sre_diagnoser, "fetch_runtime_logs_result", runtime_failure)
+    env_write = client.post(
+        "/agent/cloud/env/set",
+        headers=headers,
+        json={"app_name": "simple-app", "api_token": "mock-token", "env_vars": {"SERVICE_SECRET": "simulated-generated-value"}},
+    )
+    assert env_write.status_code == 200 and env_write.json()["ok"] is True
+    assert recorded_env == {"SERVICE_SECRET": "simulated-generated-value"}
+
+    diagnosis_response = client.post(
+        "/agent/diagnose",
+        headers=headers,
+        json={"app_id": "simple-app", "logs": "Release created", "fetch_runtime_logs": True},
+    )
+    diagnosis = diagnosis_response.json()["diagnosis"]
+    assert diagnosis_response.status_code == 200
+    assert diagnosis["log_source"] == "runtime"
+    assert diagnosis["diagnosis_status"] == "conclusive"
+    assert diagnosis["missing_variable"] == "SERVICE_SECRET"
+    assert diagnosis["remediation"] is None
+    assert "متغیر محیطی" in diagnosis["root_cause"]
+
+    observed_action = {}
+    async def simulated_approved_write(**kwargs):
+        observed_action.update(kwargs)
+        return {"ok": True, "exit_code": 0, "output": "متغیر ثبت شد"}
+
+    async def simulated_healthy_check(**kwargs):
+        return VerificationResult(
+            endpoint_url="https://simple-app.liara.run",
+            application_health="healthy",
+            http_status_code=200,
+            ready_for_sre=False,
+        )
+
+    monkeypatch.setattr(sre_diagnoser, "apply_remediation", simulated_approved_write)
+    monkeypatch.setattr(endpoint_verifier, "verify_endpoint", simulated_healthy_check)
+    action = RemediationAction(
+        action_id="rem-e2e",
+        operation="set_env",
+        target="simple-app",
+        env_variable="SERVICE_SECRET",
+        env_value="user-approved-generated-secret",
+        description="ثبت secret تأییدشده برای SERVICE_SECRET",
+    )
+    approval = ActionApprovalModel(
+        run_id="run-e2e",
+        action_id=action.action_id,
+        operation="set_env",
+        target="simple-app",
+        approved=True,
+        plan_digest="exact-approved-digest",
+    )
+    recovery = client.post(
+        "/agent/remediate",
+        headers=headers,
+        json={
+            "app_id": "simple-app",
+            "remediation": action.model_dump(),
+            "approval": approval.model_dump(),
+            "expected_digest": approval.plan_digest,
+        },
+    )
+    assert recovery.status_code == 200
+    assert recovery.json()["ok"] is True
+    assert recovery.json()["verification"]["application_health"] == "healthy"
+    assert observed_action["remediation"].target == "simple-app"
+    assert observed_action["approval"].approved is True

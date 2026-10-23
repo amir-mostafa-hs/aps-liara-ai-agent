@@ -43,6 +43,10 @@ export async function POST(
     // Prefer client streamed logs if provided; fallback to persisted run logs
     const logs = reqLogs || run.redactedLogs?.trim() || "";
     const providerStatus = reqStatus || run.providerStatus || "failed";
+    const storedPlan = run.planDetails as Record<string, unknown> | null;
+    const projectEvidence = Array.isArray(storedPlan?.project_evidence)
+      ? storedPlan.project_evidence.filter((item): item is string => typeof item === "string").slice(0, 24)
+      : [];
 
     const res = await fetch(`${engineUrl}/agent/diagnose`, {
       method: "POST",
@@ -55,6 +59,7 @@ export async function POST(
         logs,
         provider_status: providerStatus,
         fetch_runtime_logs: fetchRuntimeLogs,
+        project_evidence: projectEvidence,
         api_token: apiToken,
         team_id: teamId || undefined,
       }),

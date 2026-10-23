@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { SidecarConsole, CloudService } from "@/components/console/SidecarConsole";
@@ -13,6 +13,7 @@ import { AppTargetSelectorWidget } from "@/components/chat/AppTargetSelectorWidg
 import { DiffPreviewWidget } from "@/components/chat/DiffPreviewWidget";
 import { DeployApprovalWidget } from "@/components/chat/DeployApprovalWidget";
 import { RemediationApprovalWidget } from "@/components/chat/RemediationApprovalWidget";
+import { EnvironmentPreflightWidget } from "@/components/chat/EnvironmentPreflightWidget";
 import { createLiaraApp } from "@/lib/app-creation-workflow";
 import { formatPlanPrice } from "@/lib/app-preflight";
 
@@ -64,6 +65,7 @@ export default function HomePage() {
   ]);
   const [services, setServices] = useState<CloudService[]>([]);
   const [selectedApp, setSelectedApp] = useState<string>("");
+  const pendingEnvValuesRef = useRef<Map<string, Record<string, string>>>(new Map());
   const [isRefreshingServices, setIsRefreshingServices] = useState(false);
   const [systemConnected, setSystemConnected] = useState(true);
   const [systemHealth, setSystemHealth] = useState({ database: true, engine: true });
@@ -212,7 +214,54 @@ export default function HomePage() {
     };
   }, [router, checkSystemHealth, fetchLiveServices, fetchAccountSettings]);
 
-  // Helper to advance to Database selection or Diff Preview
+  const continueToDiffPreview = (targetApp: string, sourcePath: string, analysis: any) => {
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: createMsgId("ast"),
+        role: "assistant",
+        content: `تنظیم متغیرهای اجرای برنامه برای **${targetApp}** تأیید شد. پیش‌نمایش تغییرات فایل پیکربندی را بررسی کنید:`,
+        timestamp: new Date().toISOString(),
+        widget: { type: "diff_preview", data: { sourcePath, targetApp, analysis } },
+      },
+    ]);
+  };
+
+  const startEnvironmentPreflight = (targetApp: string, sourcePath: string, analysis: any) => {
+    const inspectedRequirements = analysis?.env_requirements || (analysis?.required_env_names || []).map((name: string) => ({
+      name,
+      evidence: [],
+      required: name !== "PORT",
+      sensitive: /secret|password|token|key|credential/i.test(name),
+      value_source: name === "PORT" ? "platform_provided" : "unresolved",
+      example_is_placeholder: false,
+    }));
+    const serviceValues = pendingEnvValuesRef.current.get(targetApp) || {};
+    const knownNames = new Set(inspectedRequirements.map((item: any) => item.name));
+    const requirements = [
+      ...inspectedRequirements,
+      ...Object.keys(serviceValues).filter((name) => !knownNames.has(name)).map((name) => ({
+        name,
+        evidence: ["سرویس تأییدشدهٔ لیارا"],
+        required: true,
+        sensitive: true,
+        value_source: "liara_service",
+        example_is_placeholder: false,
+      })),
+    ];
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: createMsgId("ast"),
+        role: "assistant",
+        content: `پیش از دپلوی، متغیرهای لازم برنامهٔ **${targetApp}** را بررسی می‌کنیم. مقدارها فقط پس از تأیید شما روی لیارا ثبت می‌شوند.`,
+        timestamp: new Date().toISOString(),
+        widget: { type: "env_preflight", data: { appName: targetApp, sourcePath, analysis, requirements } },
+      },
+    ]);
+  };
+
+  // Helper to advance to Database selection or environment preflight
   const proceedToDatabaseOrDiff = (
     targetApp: string,
     sourcePath: string,
@@ -240,24 +289,7 @@ export default function HomePage() {
         },
       ]);
     } else {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: createMsgId("ast"),
-          role: "assistant",
-          content: `سرویس مقصد **«${targetApp}»** تایید شد. سیستم آماده ایجاد فایل کانفیگ و انجام دپلوی است. پیش‌نمایش تغییرات را بررسی فرمایید:`,
-          timestamp: new Date().toISOString(),
-          widget: {
-            type: "diff_preview",
-            data: {
-              sourcePath,
-              targetApp,
-              dbInfo: null,
-              analysis,
-            },
-          },
-        },
-      ]);
+      startEnvironmentPreflight(targetApp, sourcePath, analysis);
     }
   };
 
@@ -492,6 +524,8 @@ export default function HomePage() {
         <PlanSelectorCard
           databases={widget.data?.databases || []}
           onDatabaseCreated={(dbInfo) => {
+            const targetApp = widget.data?.targetApp || selectedApp;
+            pendingEnvValuesRef.current.set(targetApp, dbInfo.suggested_env_vars || {});
             setServices((prev) => [
               ...prev,
               {
@@ -505,37 +539,41 @@ export default function HomePage() {
               ...prev,
               `✔ سرویس دیتابیس ${dbInfo.db_name} (${dbInfo.db_type}) با موفقیت در لیارا ایجاد شد.`,
               `✔ پورت داخلی: ${dbInfo.port}`,
-              `✔ متغیرهای اتصال: ${JSON.stringify(dbInfo.suggested_env_vars)}`,
+              `✔ ${Object.keys(dbInfo.suggested_env_vars || {}).length} متغیر اتصال از سرویس تأییدشده دریافت شد.`,
             ]);
             setMessages((prev) => [
               ...prev,
               {
                 id: createMsgId("ast"),
                 role: "assistant",
-                content: `پایگاه‌داده **${dbInfo.db_name}** (${dbInfo.db_type}) با موفقیت روی لیارا ایجاد شد! 🎉\n\nمتغیرهای محیطی اتصال:\n\`\`\`bash\n${Object.entries(
-                  dbInfo.suggested_env_vars
-                )
-                  .map(([k, v]) => `${k}=${v}`)
-                  .join("\n")}\n\`\`\`\nآیا مایلید این متغیرها به صورت خودکار به محیط ابری لیارا تزریق شوند و فایل \`liara.json\` تولید گردد؟`,
+                content: `پایگاه‌داده **${dbInfo.db_name}** (${dbInfo.db_type}) با موفقیت روی لیارا ایجاد شد! 🎉\n\nمتغیرهای اتصال از سرویس دریافت شده‌اند. پیش از دپلوی، آن‌ها و سایر مقدارهای لازم با تأیید شما روی سرویس برنامه ثبت می‌شوند.`,
                 timestamp: new Date().toISOString(),
-                widget: {
-                  type: "diff_preview",
-                  data: {
-                    dbInfo,
-                    sourcePath: widget.data?.sourcePath,
-                    targetApp: widget.data?.targetApp || selectedApp,
-                    analysis: widget.data?.analysis,
-                  },
-                },
+                widget: undefined,
               },
             ]);
+            startEnvironmentPreflight(targetApp, widget.data?.sourcePath, widget.data?.analysis);
+          }}
+          disabled={isStreaming}
+        />
+      );
+    }
+    if (widget.type === "env_preflight") {
+      const appName = widget.data?.appName || selectedApp;
+      const values = pendingEnvValuesRef.current.get(appName) || {};
+      return (
+        <EnvironmentPreflightWidget
+          appName={appName}
+          requirements={widget.data?.requirements || []}
+          serviceValues={values}
+          onResolved={() => {
+            pendingEnvValuesRef.current.delete(appName);
+            continueToDiffPreview(appName, widget.data?.sourcePath, widget.data?.analysis);
           }}
           disabled={isStreaming}
         />
       );
     }
     if (widget.type === "diff_preview") {
-      const dbInfo = widget.data?.dbInfo;
       const sourcePath = widget.data?.sourcePath;
       const analysis = widget.data?.analysis;
       const platform = analysis?.detected_platform || "nodejs";
@@ -553,7 +591,7 @@ export default function HomePage() {
           platform={platform}
           port={port}
           startCommand={startCommand}
-          envVars={dbInfo?.suggested_env_vars || {}}
+          envVars={{}}
           onApplied={async (result) => {
             setTerminalLogs((prev) => [
               ...prev,
@@ -596,7 +634,6 @@ export default function HomePage() {
                       port: run.port,
                       planDigest: run.planDigest,
                       sourcePath,
-                      envVars: result.envVars,
                     },
                   },
                 },
@@ -635,17 +672,6 @@ export default function HomePage() {
               ...prev,
               `[DEPLOY] آغاز عملیات دپلوی برای ${targetApp} (Run ID: ${runId})...`,
             ]);
-            // Inject cloud environment variables upon verified operator deploy approval
-            if (widget.data?.envVars && Object.keys(widget.data.envVars).length > 0) {
-              fetch("/api/liara/env/set", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  appName: targetApp,
-                  envVars: widget.data.envVars,
-                }),
-              }).catch(console.error);
-            }
           }}
           onStreamChunk={(chunk) => {
             setTerminalLogs((prev) => [...prev, chunk]);
@@ -711,31 +737,34 @@ export default function HomePage() {
                     throw new Error(diagData.error || "تحلیل لاگ‌های اجرای برنامه کامل نشد.");
                   }
                   const diagnosis = diagData.diagnosis;
+                  const conclusive = diagnosis?.diagnosis_status !== "inconclusive";
+                  const canRemediate = conclusive && Boolean(diagnosis?.missing_variable);
+                  const logSourceLabel = diagnosis?.log_source === "runtime" ? "لاگ اجرای برنامه" : diagnosis?.log_source === "deployment" ? "لاگ دپلوی" : "لاگ اجرایی در دسترس نبود";
 
                   setMessages((prev) => [
                     ...prev,
                     {
                       id: createMsgId("ast"),
                       role: "assistant",
-                      content: `⚠️ برنامه دپلوی شد، اما هنگام آزمایش سلامت پاسخ خطای ران‌تایم (کد ${
+                      content: `⚠️ دپلوی در Liara انجام شد، اما آزمون سلامت برنامه پاسخ HTTP ${
                         verification?.http_status_code || "503"
-                      }) برگرداند.\n\nایجنت SRE لاگ‌ها را بررسی کرد و علت را تشخیص داد:\n\n**${
-                        diagnosis?.root_cause || "خطای ران‌تایم در هنگام راه‌اندازی"
-                      }**\n\nمنبع لاگ: **${diagnosis?.log_source === "runtime" ? "اجرای برنامه" : "فرآیند دپلوی"}**${diagnosis?.logs_warning ? `\n\n⚠️ دریافت لاگ runtime ناموفق بود: ${diagnosis.logs_warning}` : ""}\n\nراهکار خودکار خودترمیمی آماده است:`,
+                      }** داد.\n\n${conclusive ? "علت بر اساس شواهد زیر تشخیص داده شد:" : "تشخیص قطعی ممکن نشد:"}\n\n**${
+                        diagnosis?.root_cause || "اطلاعات کافی برای تشخیص علت در دسترس نیست."
+                      }**\n\nمنبع بررسی‌شده: **${logSourceLabel}**${diagnosis?.logs_warning ? `\n\n⚠️ دریافت لاگ اجرایی ناموفق بود: ${diagnosis.logs_warning}` : ""}${canRemediate ? "\n\nراهکار پیشنهادی در ادامه برای تأیید شما نمایش داده شده است:" : !conclusive ? "\n\nبرای تشخیص دقیق‌تر، دسترسی لاگ‌های اجرای سرویس را بررسی کنید. هیچ تغییری در سرویس اعمال نشده است." : "\n\nبرای این علت، اقدامی به‌صورت خودکار انجام نمی‌شود. راهنمایی بالا را دنبال کنید."}`,
                       timestamp: new Date().toISOString(),
-                      widget: {
+                      widget: canRemediate ? {
                         type: "remediation_approval",
                         data: {
                           runId,
                           targetApp,
                           diagnosis,
                         },
-                      },
+                      } : undefined,
                     },
                   ]);
                 }
               } catch (err: unknown) {
-                const detail = err instanceof Error ? err.message : "خطای ناشناخته";
+                const detail = "دریافت نتیجهٔ بررسی سلامت یا لاگ‌های اجرای برنامه ناموفق بود.";
                 setTerminalLogs((prev) => [...prev, `⚠️ بررسی سلامت یا لاگ‌های برنامه کامل نشد: ${detail}`]);
                 setMessages((prev) => [
                   ...prev,
@@ -767,28 +796,30 @@ export default function HomePage() {
                   throw new Error(diagData.error || "تحلیل لاگ‌های دپلوی کامل نشد.");
                 }
                 const diagnosis = diagData.diagnosis;
+                const conclusive = diagnosis?.diagnosis_status !== "inconclusive";
+                const canRemediate = conclusive && Boolean(diagnosis?.missing_variable);
 
                 setMessages((prev) => [
                   ...prev,
                   {
                     id: createMsgId("ast"),
                     role: "assistant",
-                    content: `⚠️ فرآیند استقرار با خطا متوقف شد.\n\nتحلیل هوشمند ریشه خطا:\n\n**${
-                      diagnosis?.root_cause || "خطای بیلد یا کامپایل در حین دپلوی"
-                    }**\n\nراهکار پیشنهادی برای رفع مشکل:`,
+                    content: `⚠️ فرآیند دپلوی با خطا متوقف شد.\n\n${conclusive ? "علت بر اساس لاگ‌های دپلوی تشخیص داده شد:" : "تشخیص قطعی ممکن نشد:"}\n\n**${
+                      diagnosis?.root_cause || "اطلاعات کافی برای تشخیص علت در دسترس نیست."
+                    }**${canRemediate ? "\n\nراهکار پیشنهادی در ادامه برای تأیید شما نمایش داده شده است:" : !conclusive ? "\n\nهیچ تغییری اعمال نشده است. لطفاً لاگ‌ها یا تنظیمات پروژه را بررسی کنید." : "\n\nبرای این علت، اقدامی به‌صورت خودکار انجام نمی‌شود. راهنمایی بالا را دنبال کنید."}`,
                     timestamp: new Date().toISOString(),
-                    widget: {
+                    widget: canRemediate ? {
                       type: "remediation_approval",
                       data: {
                         runId,
                         targetApp,
                         diagnosis,
                       },
-                    },
+                    } : undefined,
                   },
                 ]);
               } catch (err: unknown) {
-                const detail = err instanceof Error ? err.message : "خطای ناشناخته";
+                const detail = "ارتباط با سرویس تحلیل خطا برقرار نشد.";
                 setTerminalLogs((prev) => [...prev, `⚠️ دریافت تشخیص SRE کامل نشد: ${detail}`]);
                 setMessages((prev) => [
                   ...prev,
@@ -830,7 +861,7 @@ export default function HomePage() {
           targetApp={targetApp}
           rootCause={diagnosis?.root_cause || ""}
           errorEvidence={diagnosis?.error_evidence || ""}
-          missingVariable={diagnosis?.remediation?.operation === "set_env" ? diagnosis?.missing_variable || undefined : undefined}
+          missingVariable={diagnosis?.missing_variable || (diagnosis?.remediation?.operation === "set_env" ? diagnosis?.remediation?.env_variable : undefined)}
           suggestedValue={diagnosis?.remediation?.operation === "set_env" ? diagnosis?.remediation?.env_value || "" : ""}
           onRemediated={(res) => {
             if (res.isRecovered) {

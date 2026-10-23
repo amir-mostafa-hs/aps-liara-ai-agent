@@ -103,6 +103,18 @@ export async function POST(req: NextRequest) {
       where: { username: user.username },
     });
 
+    const projectEvidence = [
+      ...(Array.isArray(analysis?.env_requirements)
+        ? analysis.env_requirements.map((item: any) => {
+            const sources = Array.isArray(item.evidence) ? item.evidence.join(", ") : "";
+            return `متغیر ${String(item.name || "نامشخص")}، منبع: ${String(item.value_source || "نامشخص")}، شواهد: ${sources}`.slice(0, 240);
+          })
+        : []),
+      ...(Array.isArray(analysis?.detected_databases)
+        ? analysis.detected_databases.map((item: any) => `سرویس دادهٔ شناسایی‌شده: ${String(item.db_type || "نامشخص")}، شواهد: ${String(item.evidence || "").slice(0, 160)}`)
+        : []),
+    ].slice(0, 24);
+
     const resolvedTeamId =
       (typeof teamId === "string" && teamId.trim()) ||
       dbUser?.liaraTeamId ||
@@ -119,7 +131,7 @@ export async function POST(req: NextRequest) {
         targetApp: plan.target_app,
         platform: plan.platform,
         status: "awaiting_approval",
-        planDetails: plan,
+        planDetails: { ...plan, project_evidence: projectEvidence },
         auditLogs: {
           create: {
             action: "plan_generated",

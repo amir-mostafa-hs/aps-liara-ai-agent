@@ -2,7 +2,7 @@ import os
 import json
 import pytest
 from httpx import ASGITransport, AsyncClient
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock
 
 TEST_SECRET = "test-internal-secret-xyz"
 
@@ -76,23 +76,89 @@ async def test_config_manager_rejects_path_traversal(tmp_path):
 
 
 @pytest.mark.anyio
-async def test_cloud_env_injection_subprocess():
-    from engine.services.env_manager import env_manager
+async def test_cloud_env_injection_uses_liara_api_and_redacts_secret_output():
+    from engine.services.env_manager import CloudEnvManager
 
-    with patch("asyncio.create_subprocess_exec") as mock_exec:
-        mock_proc = AsyncMock()
-        mock_proc.communicate.return_value = (b"Environment variables updated.", b"")
-        mock_proc.returncode = 0
-        mock_exec.return_value = mock_proc
+    adapter = AsyncMock()
+    adapter.set_environment_variables.return_value = {
+        "ok": True,
+        "app_name": "my-demo-app",
+        "variables_set": ["SERVICE_SECRET"],
+        "output": "SERVICE_SECRET=super-secret-value updated.",
+    }
+    manager = CloudEnvManager(adapter)
+    result = await manager.set_cloud_env(
+        app_name="my-demo-app",
+        env_vars={"SERVICE_SECRET": "super-secret-value"},
+        api_token="mock-token-xyz",
+        team_id="6ace4ec3ec13fe0c3c19c4db",
+    )
+    assert result["ok"] is True
+    assert result["app_name"] == "my-demo-app"
+    assert "mock-token-xyz" not in result.get("output", "")
+    assert "super-secret-value" not in result.get("output", "")
+    adapter.set_environment_variables.assert_awaited_once()
+    assert adapter.set_environment_variables.await_args.kwargs["env_vars"] == {"SERVICE_SECRET": "super-secret-value"}
 
-        result = await env_manager.set_cloud_env(
-            app_name="my-demo-app",
-            env_vars={"DATABASE_URL": "postgres://secret:5432/db"},
-            api_token="mock-token-xyz",
-            team_id="6ace4ec3ec13fe0c3c19c4db",
-        )
 
-        assert result["ok"] is True
-        assert result["app_name"] == "my-demo-app"
-        assert "mock-token-xyz" not in result.get("output", "")
+@pytest.mark.anyio
+async def test_cloud_env_injection_redacts_secret_from_provider_errors():
+    from engine.services.env_manager import CloudEnvManager
+
+    secret = "private-secret-value"
+    adapter = AsyncMock()
+    adapter.set_environment_variables.return_value = {"ok": False, "error": f"Failed setting {secret}"}
+    manager = CloudEnvManager(adapter)
+    result = await manager.set_cloud_env(
+        app_name="my-demo-app",
+        env_vars={"SERVICE_SECRET": secret},
+        api_token="mock-token-xyz",
+    )
+
+    assert result["ok"] is False
+    assert secret not in result["error"]
+
+
+@pytest.mark.anyio
+async def test_liara_environment_api_preserves_existing_values_and_redacts_new_secret(monkeypatch):
+    from engine.providers.liara_adapter import LiaraAdapter
+
+    calls = []
+
+    class Response:
+        def __init__(self, status_code, data, text=""):
+            self.status_code = status_code
+            self._data = data
+            self.text = text
+
+        def json(self):
+            return self._data
+
+    class Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return None
+
+        async def get(self, url, **kwargs):
+            calls.append(("get", url, kwargs))
+            return Response(200, {"project": {"envs": [{"key": "KEEP", "value": "existing"}]}})
+
+        async def post(self, url, **kwargs):
+            calls.append(("post", url, kwargs))
+            return Response(200, {}, '"private-secret-value"')
+
+    monkeypatch.setattr("engine.providers.liara_adapter.httpx.AsyncClient", lambda **kwargs: Client())
+    result = await LiaraAdapter().set_environment_variables(
+        "simple-app", {"SERVICE_SECRET": "private-secret-value"}, "mock-token", "team-1"
+    )
+    assert result["ok"] is True
+    assert "private-secret-value" not in result["output"]
+    post = calls[1][2]
+    assert post["params"] == {"teamID": "team-1"}
+    assert post["json"]["variables"] == [
+        {"key": "KEEP", "value": "existing"},
+        {"key": "SERVICE_SECRET", "value": "private-secret-value"},
+    ]
 

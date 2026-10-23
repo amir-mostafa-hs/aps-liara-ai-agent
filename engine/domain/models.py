@@ -19,6 +19,15 @@ class DetectedDatabase(BaseModel):
     evidence: str = ""
 
 
+class EnvironmentVariableRequirement(BaseModel):
+    name: str
+    evidence: list[str] = Field(default_factory=list)
+    required: bool = True
+    sensitive: bool = False
+    value_source: str = "unresolved"
+    example_is_placeholder: bool = False
+
+
 class ProjectAnalysis(BaseModel):
     detected_language: str
     detected_platform: str
@@ -28,6 +37,7 @@ class ProjectAnalysis(BaseModel):
     port: int = 3000
     evidence_files: list[str] = Field(default_factory=list)
     required_env_names: list[str] = Field(default_factory=list)
+    env_requirements: list[EnvironmentVariableRequirement] = Field(default_factory=list)
     missing_configurations: list[str] = Field(default_factory=list)
     detected_databases: list[DetectedDatabase] = Field(default_factory=list)
     persian_summary: str | None = None
@@ -187,6 +197,7 @@ class DiagnosisResult(BaseModel):
     remediation: RemediationAction | None = None
     confidence: float = 1.0
     requires_approval: bool = True
+    diagnosis_status: str = "conclusive"  # "conclusive" or "inconclusive"
     digest: str = ""
 
     def canonical_dict(self) -> dict:
@@ -206,6 +217,7 @@ class DiagnosisResult(BaseModel):
             if self.remediation
             else None,
             "requires_approval": self.requires_approval,
+            "diagnosis_status": self.diagnosis_status,
             "root_cause": self.root_cause,
         }
 
@@ -234,6 +246,7 @@ class DiagnoseRequest(BaseModel):
     api_token: str | None = None
     team_id: str | None = None
     fetch_runtime_logs: bool = False
+    project_evidence: list[str] = Field(default_factory=list)
 
 
 class RuntimeLogsRequest(BaseModel):

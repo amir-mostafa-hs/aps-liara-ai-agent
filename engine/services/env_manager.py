@@ -1,11 +1,15 @@
-import asyncio
 import logging
+
+from engine.providers.liara_adapter import LiaraAdapter
 from engine.security.redaction import redact_text
 
 logger = logging.getLogger(__name__)
 
 
 class CloudEnvManager:
+    def __init__(self, adapter: LiaraAdapter | None = None):
+        self.adapter = adapter or LiaraAdapter()
+
     async def set_cloud_env(
         self,
         app_name: str,
@@ -15,71 +19,40 @@ class CloudEnvManager:
     ) -> dict:
         if not app_name or not app_name.strip():
             raise ValueError("Application name cannot be empty.")
-
         if not api_token or not api_token.strip():
             raise ValueError("Liara API token cannot be empty.")
-
         if not env_vars:
-            return {"ok": True, "app_name": app_name, "message": "No variables to set."}
-
-        # Build liara CLI command arguments (no shell=True)
-        env_args = [f"{k}={v}" for k, v in env_vars.items()]
-        cmd = [
-            "liara",
-            "env",
-            "set",
-            *env_args,
-            "--app",
-            app_name.strip(),
-            "--force",
-            "--api-token",
-            api_token.strip(),
-        ]
-
-        if team_id and team_id.strip():
-            cmd.extend(["--team-id", team_id.strip()])
+            return {"ok": True, "app_name": app_name, "variables_set": [], "output": ""}
 
         logger.info(
             "Setting cloud environment variables for app '%s': %s",
-            app_name,
+            app_name.strip(),
             list(env_vars.keys()),
         )
+        result = await self.adapter.set_environment_variables(
+            app_name=app_name.strip(),
+            env_vars=env_vars,
+            api_token=api_token.strip(),
+            team_id=team_id,
+        )
+        if not result.get("ok"):
+            safe_error = redact_text(str(result.get("error", "ثبت متغیرها در لیارا ناموفق بود.")), api_token)
+            for value in env_vars.values():
+                if value:
+                    safe_error = redact_text(safe_error, value)
+            logger.error("Cloud env set failed for '%s': %s", app_name.strip(), safe_error)
+            return {"ok": False, "error": safe_error, "status_code": result.get("status_code")}
 
-        try:
-            proc = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            stdout, stderr = await proc.communicate()
-            raw_stdout = stdout.decode("utf-8", errors="replace")
-            raw_stderr = stderr.decode("utf-8", errors="replace")
-
-            clean_out = redact_text(raw_stdout, api_token)
-            clean_err = redact_text(raw_stderr, api_token)
-
-            if proc.returncode != 0:
-                logger.error("Cloud env set failed: %s", clean_err)
-                return {
-                    "ok": False,
-                    "error": clean_err or clean_out or f"Process exited with code {proc.returncode}",
-                    "output": clean_out,
-                }
-
-            return {
-                "ok": True,
-                "app_name": app_name.strip(),
-                "variables_set": list(env_vars.keys()),
-                "output": clean_out,
-            }
-        except Exception as e:
-            safe_error = redact_text(str(e), api_token)
-            logger.exception("Failed to set cloud env: %s", safe_error)
-            return {
-                "ok": False,
-                "error": f"Failed to execute env set: {safe_error}",
-            }
+        safe_output = redact_text(str(result.get("output", "")), api_token)
+        for value in env_vars.values():
+            if value:
+                safe_output = redact_text(safe_output, value)
+        return {
+            "ok": True,
+            "app_name": app_name.strip(),
+            "variables_set": list(env_vars.keys()),
+            "output": safe_output,
+        }
 
 
 env_manager = CloudEnvManager()
-

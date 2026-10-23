@@ -350,16 +350,28 @@ async def diagnose_failure(payload: DiagnoseRequest):
             logs = runtime_result["logs"]
             log_source = "runtime"
         else:
-            logs_warning = runtime_result["error"]
+            logs_warning = "دریافت لاگ‌های اجرای برنامه از Liara ناموفق بود."
+            # A caller requesting runtime evidence after a failed health check must
+            # never silently fall back to successful deployment output.
+            if payload.fetch_runtime_logs or not payload.logs.strip():
+                logs = ""
+                log_source = "none"
 
     diagnosis = sre_diagnoser.diagnose_logs(
         logs=logs,
         app_id=payload.app_id,
         provider_status=payload.provider_status,
+        project_evidence=payload.project_evidence,
     )
     diagnosis_data = diagnosis.model_dump()
     diagnosis_data["log_source"] = log_source
     diagnosis_data["logs_warning"] = logs_warning
+    if diagnosis.diagnosis_status == "inconclusive":
+        diagnosis_data["next_step"] = "دسترسی لاگ‌های اجرایی یا شواهد پروژه را بررسی و دوباره تلاش کنید."
+    elif diagnosis.missing_variable:
+        diagnosis_data["next_step"] = "مقدار متغیر را از کاربر دریافت کنید یا برای secret مجاز، تولید امن را پیشنهاد دهید."
+    else:
+        diagnosis_data["next_step"] = "این مورد اقدام خودکار ندارد؛ راهنمایی را با توجه به شواهد ارائه‌شده دنبال کنید."
     return {
         "ok": True,
         "diagnosis": diagnosis_data,
@@ -379,6 +391,11 @@ async def get_runtime_logs(payload: RuntimeLogsRequest):
 
 @app.post("/agent/remediate", dependencies=[Depends(verify_internal_secret)])
 async def apply_sre_remediation(payload: RemediateRequest):
+    if payload.app_id != payload.remediation.target:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="سرویس مقصد با هدف راهکار مطابقت ندارد؛ هیچ تغییری اعمال نشد.",
+        )
     try:
         rem_result = await sre_diagnoser.apply_remediation(
             remediation=payload.remediation,
@@ -393,7 +410,14 @@ async def apply_sre_remediation(payload: RemediateRequest):
             detail=str(err),
         )
 
-    # Automatically re-verify public endpoint health to confirm recovery
+    if not rem_result.get("ok", False):
+        return {
+            "ok": False,
+            "remediation_result": rem_result,
+            "verification": None,
+        }
+
+    # Verify only after Liara confirms the environment write.
     verification = await endpoint_verifier.verify_endpoint(
         app_id=payload.app_id,
         provider_status="success",

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { canGenerateSecretForEnvName, isSensitiveEnvName } from "@/lib/remediation-approval";
 
 interface RemediationApprovalWidgetProps {
   runId: string;
@@ -29,22 +30,46 @@ export function RemediationApprovalWidget({
   disabled = false,
 }: RemediationApprovalWidgetProps) {
   const [envValue, setEnvValue] = useState<string>(suggestedValue);
+  const [valueSource, setValueSource] = useState<"manual" | "generated" | null>(suggestedValue ? "manual" : null);
+  const [showGeneratedSecret, setShowGeneratedSecret] = useState(false);
   const [loading, setLoading] = useState(false);
   const [rejected, setRejected] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ isRecovered: boolean; verification: any } | null>(null);
+  const [result, setResult] = useState<{ isRecovered: boolean; verification: any; generatedSecret?: string } | null>(null);
+  const canGenerate = Boolean(missingVariable && canGenerateSecretForEnvName(missingVariable));
+
+  const createSecret = () => {
+    const bytes = new Uint8Array(32);
+    globalThis.crypto.getRandomValues(bytes);
+    return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  };
 
   const handleApply = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const res = await fetch(`/api/runs/${runId}/remediate`, {
+      const endpoint = `/api/runs/${runId}/remediate`;
+      const approvedValues = {
+        approved: true,
+        targetApp,
+        env_value: envValue.trim() || undefined,
+        value_source: valueSource || "manual",
+      };
+      const approvalResponse = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          env_value: envValue.trim() || undefined,
-        }),
+        body: JSON.stringify({ ...approvedValues, phase: "approve" }),
+      });
+      const approvalData = await approvalResponse.json();
+      if (!approvalResponse.ok || !approvalData.ok || !approvalData.approvalId) {
+        throw new Error(approvalData.error || "تأیید راهکار ثبت نشد.");
+      }
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...approvedValues, phase: "execute", approval_id: approvalData.approvalId }),
       });
 
       const data = await res.json();
@@ -55,6 +80,7 @@ export function RemediationApprovalWidget({
       setResult({
         isRecovered: Boolean(data.isRecovered),
         verification: data.verification,
+        generatedSecret: valueSource === "generated" ? envValue : undefined,
       });
 
       if (onRemediated) {
@@ -95,8 +121,30 @@ export function RemediationApprovalWidget({
             {result.verification?.endpoint_url}
           </a>
         </p>
+        {result.generatedSecret && <div className="mt-3 rounded-lg border border-amber-500/40 bg-amber-950/30 p-3 text-xs text-amber-200">
+          <p>این secret امن فقط همین‌جا نمایش داده می‌شود. آن را در محل امن ذخیره کنید؛ بعد از بستن صفحه قابل بازیابی نیست.</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <code dir="ltr">{showGeneratedSecret ? result.generatedSecret : "•".repeat(24)}</code>
+            <button type="button" className="underline" onClick={() => setShowGeneratedSecret((show) => !show)}>{showGeneratedSecret ? "پنهان" : "نمایش موقت"}</button>
+            <button type="button" className="underline" onClick={() => void navigator.clipboard.writeText(result.generatedSecret || "")}>کپی امن</button>
+          </div>
+        </div>}
       </div>
     );
+  }
+
+  if (result && !result.isRecovered) {
+    return <div className="mt-3 rounded-xl border border-amber-500/40 bg-amber-950/20 p-4 text-amber-200">
+      <p className="font-semibold text-sm">متغیر در Liara ثبت شد، اما سلامت برنامه هنوز تأیید نشده است.</p>
+      <p className="mt-1 text-xs">برای جلوگیری از تغییر تکراری، این راهکار دوباره اجرا نمی‌شود. لاگ‌های runtime و تنظیمات برنامه را بررسی کنید.</p>
+      {result.generatedSecret && <div className="mt-3 rounded-lg border border-amber-500/40 p-3 text-xs">
+        <p>این secret را در محل امن ذخیره کنید؛ پس از بستن صفحه قابل بازیابی نیست.</p>
+        <div className="mt-2 flex flex-wrap items-center gap-2"><code dir="ltr">{showGeneratedSecret ? result.generatedSecret : "•".repeat(24)}</code>
+          <button type="button" className="underline" onClick={() => setShowGeneratedSecret((show) => !show)}>{showGeneratedSecret ? "پنهان" : "نمایش موقت"}</button>
+          <button type="button" className="underline" onClick={() => void navigator.clipboard.writeText(result.generatedSecret || "")}>کپی امن</button>
+        </div>
+      </div>}
+    </div>;
   }
 
   return (
@@ -143,18 +191,25 @@ export function RemediationApprovalWidget({
       {missingVariable ? (
         <div className="mt-3 bg-card/40 rounded-xl p-3 border border-border">
           <label className="block text-xs font-medium text-foreground mb-1">
-            مقدار متغیر محیطی پیشنهادی جهت تزریق به سرویس (
+            مقدار متغیر محیطی برای ثبت روی سرویس تأییدشده (
             <code className="text-primary font-mono">{missingVariable}</code>):
           </label>
+          {canGenerate && <fieldset className="mb-3 space-y-2 text-xs">
+            <legend>برای تأمین این secret چه روشی را انتخاب می‌کنید؟</legend>
+            <label className="flex items-center gap-2"><input type="radio" name="remediation-value-source" checked={valueSource === "manual"} onChange={() => { setValueSource("manual"); setEnvValue(""); }} /> خودم مقدار را وارد می‌کنم</label>
+            <label className="flex items-center gap-2"><input type="radio" name="remediation-value-source" checked={valueSource === "generated"} onChange={() => { setValueSource("generated"); setEnvValue(createSecret()); }} /> مقدار امن تصادفی بساز</label>
+          </fieldset>}
           <input
-            type="text"
+            type={isSensitiveEnvName(missingVariable) ? "password" : "text"}
             value={envValue}
-            onChange={(e) => setEnvValue(e.target.value)}
-            disabled={loading || disabled}
+            onChange={(e) => { setValueSource("manual"); setEnvValue(e.target.value); }}
+            disabled={loading || disabled || valueSource === "generated"}
             placeholder={`مقدار برای ${missingVariable}`}
             dir="ltr"
             className="w-full text-left font-mono rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
           />
+          {valueSource === "generated" && <p className="mt-2 text-amber-300">مقدار ساخته شد؛ با زدن دکمهٔ تأیید، فقط برای <strong>{targetApp}</strong> ثبت می‌شود. پس از ثبت آن را در محل امن ذخیره کنید.</p>}
+          {!canGenerate && missingVariable && <p className="mt-2 text-muted-foreground">این مقدار از طرف سرویس مربوطه ارائه می‌شود؛ آن را تولید نکنید.</p>}
         </div>
       ) : (
         <div className="mt-3 bg-card/40 rounded-xl p-3 border border-border">
@@ -196,7 +251,7 @@ export function RemediationApprovalWidget({
             <button
               type="button"
               onClick={handleReject}
-              disabled={loading || disabled}
+              disabled={loading || disabled || !envValue.trim() || (canGenerate && !valueSource)}
               className="rounded-xl border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted transition-all cursor-pointer"
             >
               انصراف
@@ -215,7 +270,7 @@ export function RemediationApprovalWidget({
               ) : (
                 <>
                   <span>🩹</span>
-                  <span>{missingVariable ? "اعمال متغیر محیطی و بررسی مجدد" : "تلاش مجدد و بررسی سلامت"}</span>
+                  <span>تأیید ثبت تغییر و بررسی دوبارهٔ سلامت</span>
                 </>
               )}
             </button>

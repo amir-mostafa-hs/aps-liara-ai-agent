@@ -149,7 +149,7 @@ This builds and starts:
 1. **Dashboard Health:** Visit [http://localhost:3000](http://localhost:3000). You will see the **Hybrid System Status** banner showing green badges for Next.js, PostgreSQL, and Python Agent Engine.
 2. **Operator Login:** Click **Operator Login** (or visit `/login`). Sign in with username `admin` and password `adminpassword123`.
 3. **Liara Credentials, Team Selection & Live Test:** In **Step 1 (Liara Cloud Credentials & Connection)**, enter your Liara API token and an optional **Team ID** (e.g. `6ace4ec3ec13fe0c3c19c4db`). Click **Test Connection**. The engine securely verifies access, detects your teams from Liara Cloud (`/v2/teams`), displays team switching chips, and lists active projects in the selected team scope. Clicking any active app in the list automatically selects it as the target app for deployment.
-4. **Static Project Inspection:** In **Step 2 (Static Project Inspection)**, click **Preset: Sample App** (`sample-apps/nodejs-demo`) and click **Inspect Project**. The engine statically analyzes the project, extracts runtime metadata (`nodejs`, port 3000, `node server.js`), detects evidence files, and flags required variables (`SERVICE_SECRET`, `PORT`).
+4. **Static Project Inspection and Environment Review:** In **Step 2 (Static Project Inspection)**, click **Preset: Sample App** (`sample-apps/nodejs-demo`) and click **Inspect Project**. The engine statically analyzes the project, extracts runtime metadata (`nodejs`, port 3000, `node server.js`), and identifies required variables with evidence and a value source. For `SERVICE_SECRET`, it marks the `.env.example` value as a placeholder and asks whether you want to enter a value or generate a secure application secret. External credentials are requested from you and are never fabricated.
 5. **AI Deployment Planning & Interactive Approval Gate:**
    - In **Step 3 (AI Deployment Plan & Human Approval Gate)**, enter your target Liara application name (or click **Generate Deployment Plan →** from Step 2).
    - The engine invokes LangChain with Pydantic structured output (`DeploymentPlan`), determining typed actions (`create_app`, `deploy`), billable impact notice, port mapping, and an immutable canonical SHA-256 cryptographic digest.
@@ -163,15 +163,7 @@ This builds and starts:
    - Real-time build progress and deployment output stream directly to the web dashboard terminal via Server-Sent Events (SSE).
    - All secret tokens, Authorization headers, and sensitive strings are redacted on-the-fly before reaching the browser or database.
    - Upon completion, the full redacted output and exit code are persisted in the PostgreSQL `Run` record.
-7. **Public Endpoint Health Verification & Health Decoupling:**
-   - In **Step 5 (Public Endpoint Verification & Health Decoupling)**, click **Verify Health** (or follow the prompt in the deployment card).
-   - The engine sends an HTTP probe to `https://<app_id>.liara.run` and evaluates response status codes, latency, and response bodies.
-   - The dashboard reports **Provider Status** (e.g. `SUCCESS`) and **Application Health** (e.g. `UNHEALTHY` if `SERVICE_SECRET` was omitted, or `HEALTHY` if present) as distinct signals.
-   - In the deliberate failure test scenario, the agent detects the startup crash without falsely claiming success, priming the workflow for closed-loop SRE Diagnosis (Ticket 07).
-8. **Autonomous SRE Log Diagnosis & Approved Remediation:**
-   - In **Step 6 (Autonomous SRE Diagnosis & Approved Remediation)**, click **Diagnose Failure with AI**.
-   - The engine analyzes the crash stack trace, isolates root cause evidence, and cites the exact missing variable (`SERVICE_SECRET`).
-   - A targeted remediation proposal (`liara env:set SERVICE_SECRET=... --app <targetApp>`) is generated with a cryptographic plan digest.
-   - The operator inspects the proposed remediation and clicks **Approve Fix & Recover Service**.
-   - The engine applies the environment variable on Liara Cloud, restarts the application container, and re-probes `https://<targetApp>.liara.run`.
-   - Once verified, the dashboard displays: **"🎉 Service Successfully Recovered! Incident Closed."** with HTTP 200 health confirmed and all steps marked complete.
+7. **Provider Confirmation and Deployment:** Environment values are written to Liara only after your confirmation. The UI waits for Liara to accept the write before starting deployment. If the write fails or is ambiguous, deployment is blocked and the error is explained in Persian.
+8. **Health Verification, Runtime Diagnosis, and Approved Recovery:** The agent reports Liara deployment status separately from HTTP health. If health fails, it fetches runtime logs independently from deployment logs. A missing `SERVICE_SECRET` is explained in Persian with a redacted log excerpt. You choose manual entry or secure generation, review the target and exact variable change, then explicitly approve. Health is checked again only after Liara confirms the write; success is reported only for a healthy response. When logs are unavailable, the agent reports an inconclusive result and offers no speculative change.
+
+Automated Engine and web tests use simulated Liara responses. A live smoke test must use an existing app and the normal in-product approval flow; it must not create or delete a service for this check. See [SRE and diagnostics](user-guide/sre-and-diagnostics.md) for the manual smoke-test steps.

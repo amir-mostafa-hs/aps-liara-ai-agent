@@ -10,6 +10,67 @@ class LiaraAdapter:
     def __init__(self, base_url: str = "https://api.liara.ir"):
         self.base_url = base_url.rstrip("/")
 
+    async def set_environment_variables(
+        self,
+        app_name: str,
+        env_vars: dict[str, str],
+        api_token: str,
+        team_id: str | None = None,
+    ) -> dict:
+        """Apply env values through Liara's API, keeping secrets out of process argv."""
+        app = (app_name or "").strip()
+        token = (api_token or "").strip()
+        if not app or not token or not env_vars:
+            return {"ok": False, "error": "نام برنامه، توکن و دست‌کم یک متغیر لازم است."}
+
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "User-Agent": "LiaraAgent/0.1.0",
+            "Content-Type": "application/json",
+        }
+        clean_team_id = team_id.strip() if team_id and team_id.strip() else None
+        params = {"teamID": clean_team_id} if clean_team_id else None
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                project_response = await client.get(
+                    f"{self.base_url}/v1/projects/{app}", headers=headers, params=params
+                )
+                if project_response.status_code != 200:
+                    return {
+                        "ok": False,
+                        "error": redact_text(project_response.text, token),
+                        "status_code": project_response.status_code,
+                    }
+                project_data = project_response.json()
+                project = project_data.get("project", project_data) if isinstance(project_data, dict) else {}
+                existing = project.get("envs", []) if isinstance(project, dict) else []
+                merged = {
+                    item.get("key"): item.get("value", "")
+                    for item in existing
+                    if isinstance(item, dict) and item.get("key")
+                }
+                merged.update(env_vars)
+                variables = [{"key": key, "value": value} for key, value in merged.items()]
+                response = await client.post(
+                    f"{self.base_url}/v1/projects/update-envs",
+                    headers=headers,
+                    params=params,
+                    json={"project": app, "variables": variables},
+                )
+                safe_response = redact_text(response.text, token)
+                for value in env_vars.values():
+                    if value:
+                        safe_response = redact_text(safe_response, value)
+                if response.status_code not in (200, 201, 202):
+                    return {"ok": False, "error": safe_response, "status_code": response.status_code}
+                return {"ok": True, "app_name": app, "variables_set": list(env_vars.keys()), "output": safe_response}
+        except Exception as error:
+            safe_error = redact_text(str(error), token)
+            for value in env_vars.values():
+                if value:
+                    safe_error = redact_text(safe_error, value)
+            return {"ok": False, "error": safe_error}
+
     async def get_teams(self, api_token: str) -> list[dict]:
         """Fetches the list of teams accessible by the given API token."""
         if not api_token or not api_token.strip():

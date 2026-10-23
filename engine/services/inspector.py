@@ -2,7 +2,11 @@ import json
 import os
 import re
 from pathlib import Path
-from engine.domain.models import ProjectAnalysis, DetectedDatabase
+from engine.domain.models import (
+    DetectedDatabase,
+    EnvironmentVariableRequirement,
+    ProjectAnalysis,
+)
 
 DB_MAPPINGS = {
     "postgres": {
@@ -51,6 +55,20 @@ DB_MAPPINGS = {
         "display_name": "MariaDB",
     },
 }
+
+PLATFORM_ENV_NAMES = {"PORT"}
+PLACEHOLDER_VALUE = re.compile(
+    r"(?i)(demo|sample|example|placeholder|changeme|change-me|replace|your[-_ ]|xxxx|<[^>]+>)"
+)
+GENERATED_SECRET_NAME = re.compile(
+    r"(?i)(^|_)(secret|password|passphrase|private_key|encryption_key)($|_)"
+)
+EXTERNAL_CREDENTIAL_NAME = re.compile(
+    r"(?i)(^|_)(api_key|access_token|client_secret|credential|stripe|openai|anthropic|github|google|aws|twilio|sendgrid|resend|paypal)($|_)"
+)
+EXTERNAL_SERVICE_CREDENTIAL = re.compile(
+    r"(?i)^(stripe|openai|github|aws|sentry|sendgrid|resend|twilio|liara|cloudflare|supabase|firebase|google|vercel|anthropic)_.*(key|secret|token|credential)"
+)
 
 
 class ProjectInspector:
@@ -218,6 +236,9 @@ class ProjectInspector:
 
         evidence_files: list[str] = []
         required_envs: set[str] = set()
+        optional_envs: set[str] = set()
+        env_evidence: dict[str, set[str]] = {}
+        env_example_values: dict[str, str] = {}
         missing_configs: list[str] = []
 
         detected_platform = "unknown"
@@ -308,9 +329,13 @@ class ProjectInspector:
                         for line in f:
                             line = line.strip()
                             if line and not line.startswith("#") and "=" in line:
-                                var_name = line.split("=")[0].strip()
+                                var_name, _, value = line.partition("=")
+                                var_name = var_name.strip()
                                 if var_name:
                                     required_envs.add(var_name)
+                                    env_evidence.setdefault(var_name, set()).add(env_file)
+                                    if env_file == ".env.example":
+                                        env_example_values[var_name] = value.strip().strip("\"'")
                 except Exception:
                     pass
 
@@ -330,6 +355,15 @@ class ProjectInspector:
                         )
                         for m in matches:
                             required_envs.add(m)
+                            env_evidence.setdefault(m, set()).add(file_name)
+                            escaped_name = re.escape(m)
+                            optional_patterns = (
+                                rf"process\.env\.{escaped_name}\s*(?:\|\||\?\?)",
+                                rf"process\.env\.{escaped_name}\s*\?",
+                                rf"if\s*\(\s*!?\s*process\.env\.{escaped_name}\s*\)",
+                            )
+                            if any(re.search(pattern, content) for pattern in optional_patterns):
+                                optional_envs.add(m)
                 except Exception:
                     pass
 
@@ -342,6 +376,45 @@ class ProjectInspector:
         for db in detected_databases:
             for env_sugg in db.suggested_env_vars:
                 required_envs.add(env_sugg)
+                env_evidence.setdefault(env_sugg, set()).add(
+                    db.evidence or "detected service dependency"
+                )
+
+        database_env_names = {
+            env.upper()
+            for db in detected_databases
+            for env in db.suggested_env_vars
+        }
+        env_requirements = []
+        for name in sorted(required_envs):
+            upper_name = name.upper()
+            if upper_name in PLATFORM_ENV_NAMES:
+                value_source = "platform_provided"
+            elif upper_name in database_env_names:
+                value_source = "liara_service"
+            elif EXTERNAL_CREDENTIAL_NAME.search(upper_name) or EXTERNAL_SERVICE_CREDENTIAL.search(upper_name):
+                value_source = "external_credential"
+            elif GENERATED_SECRET_NAME.search(upper_name):
+                value_source = "generated_secret"
+            else:
+                value_source = "unresolved"
+
+            env_requirements.append(
+                EnvironmentVariableRequirement(
+                    name=name,
+                    evidence=sorted(env_evidence.get(name, set())),
+                    required=value_source != "platform_provided" and name not in optional_envs,
+                    sensitive=value_source in {
+                        "external_credential",
+                        "generated_secret",
+                        "liara_service",
+                    },
+                    value_source=value_source,
+                    example_is_placeholder=bool(
+                        PLACEHOLDER_VALUE.search(env_example_values.get(name, ""))
+                    ),
+                )
+            )
 
         persian_summary = self._generate_persian_summary(
             detected_platform, detected_databases, port
@@ -356,6 +429,7 @@ class ProjectInspector:
             port=port,
             evidence_files=sorted(list(set(evidence_files))),
             required_env_names=sorted(list(required_envs)),
+            env_requirements=env_requirements,
             missing_configurations=missing_configs,
             detected_databases=detected_databases,
             persian_summary=persian_summary,

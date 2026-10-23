@@ -27,5 +27,14 @@ def redact_text(text: str, secret: str | None = None) -> str:
         flags=re.IGNORECASE,
     )
 
+    # Runtime output can echo app secrets as KEY=value or KEY: value. Mask the
+    # value before it reaches diagnosis prompts, evidence, or persisted logs.
+    redacted = re.sub(
+        r"(\b[A-Z0-9_]*(?:SECRET|PASSWORD|PASSphrase|TOKEN|API[_-]?KEY|PRIVATE[_-]?KEY|CREDENTIAL)[A-Z0-9_]*\s*[:=]\s*['\"]?)([^\s,;'\"]+)(['\"]?)",
+        r"\1[REDACTED_SECRET]\3",
+        redacted,
+        flags=re.IGNORECASE,
+    )
+
     return redacted
 

@@ -38,7 +38,7 @@ export async function POST(
 
     // Must find an approved ActionApproval specifically matching the deploy action or operation
     const validApproval = run.approvals.find(
-      (a) =>
+      (a: { approved: boolean; actionId: string; operation: string }) =>
         a.approved &&
         (a.actionId === deployActionId ||
           a.actionId === "plan-approval" ||

@@ -78,7 +78,7 @@ This rehearsed script guides presenters, evaluators, and operators through a 5-m
   > 
   > *We run an independent HTTP health probe directly against `https://demo-node-app.liara.run`. As you can see, Provider Status is SUCCESS, but Application Health is UNHEALTHY.*
   > 
-  > *Because we didn't provide `SERVICE_SECRET`, the Node.js process crashed on startup. Instead of reporting a false success, the agent detects the crash and primes the Autonomous SRE Loop."*
+  > *Before deployment, the agent inspects `SERVICE_SECRET` and asks us to resolve it; a successful live run should therefore not intentionally omit this value. If a previously deployed app is unhealthy, the agent checks runtime logs separately and shows the evidence before proposing a fix."*
 
 ---
 
@@ -86,17 +86,14 @@ This rehearsed script guides presenters, evaluators, and operators through a 5-m
 - **On Screen:**
   1. Scroll down to **Step 6 (Autonomous SRE Diagnosis & Approved Remediation)**.
   2. Click **Diagnose Failure with AI**.
-  3. Show the SRE Diagnosis card:
-     - Root Cause description
-     - Exact quoted log evidence: `[FATAL] Missing required environment variable: SERVICE_SECRET`
-     - Proposed fix: `liara env:set SERVICE_SECRET=... --app demo-node-app`
-  4. Click **Approve Fix & Recover Service**.
+  3. Show the SRE Diagnosis card in Persian with source-labeled, redacted runtime evidence: `[FATAL] Missing required environment variable: SERVICE_SECRET`.
+  4. Choose manual entry or secure generation. Review the target app and variable, then click the approval button. The generated secret stays masked and must be saved securely.
 - **Narrator:**
   > *"Now watch our SRE agent in action. We click 'Diagnose Failure with AI'.*
   > 
   > *The agent parses the crash stack trace, isolates the root cause, and cites the exact failing line: `[FATAL] Missing required environment variable: SERVICE_SECRET`.*
   > 
-  > *It formulates a targeted remediation plan to inject the missing variable via `liara env set`. Once again, the change is gated behind operator approval. We click 'Approve Fix & Recover Service'. The agent sets the environment variable and restarts the container."*
+  > *It proposes one exact change for the existing app. The agent waits for our approval, confirms Liara accepted the environment update, and only then checks application health again. If the provider rejects the update, it does not claim recovery."*
 
 ---
 

@@ -80,6 +80,56 @@ async def test_inspect_sample_nodejs_app_success():
         assert "server.js" in analysis["evidence_files"]
         assert "SERVICE_SECRET" in analysis["required_env_names"]
         assert "PORT" in analysis["required_env_names"]
+        requirements = {item["name"]: item for item in analysis["env_requirements"]}
+        assert requirements["SERVICE_SECRET"] == {
+            "name": "SERVICE_SECRET",
+            "evidence": [".env.example", "server.js"],
+            "required": True,
+            "sensitive": True,
+            "value_source": "generated_secret",
+            "example_is_placeholder": True,
+        }
+        assert requirements["PORT"]["value_source"] == "platform_provided"
+        assert requirements["PORT"]["sensitive"] is False
+        assert "demo-secret-key-12345" not in response.text
+
+
+def test_inspector_classifies_external_credentials_and_does_not_return_example_values(tmp_path):
+    from engine.services.inspector import ProjectInspector
+
+    (tmp_path / "package.json").write_text('{"name":"env-test"}', encoding="utf-8")
+    (tmp_path / ".env.example").write_text(
+        "STRIPE_SECRET_KEY=replace-with-provider-key\nCUSTOM_ENDPOINT=https://example.test\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "index.js").write_text(
+        "const key = process.env.STRIPE_SECRET_KEY;\nconst url = process.env.CUSTOM_ENDPOINT;",
+        encoding="utf-8",
+    )
+
+    analysis = ProjectInspector(allowed_roots=[str(tmp_path)]).inspect(str(tmp_path))
+    requirements = {item.name: item for item in analysis.env_requirements}
+
+    assert requirements["STRIPE_SECRET_KEY"].value_source == "external_credential"
+    assert requirements["STRIPE_SECRET_KEY"].example_is_placeholder is True
+    assert requirements["CUSTOM_ENDPOINT"].value_source == "unresolved"
+    assert "replace-with-provider-key" not in analysis.model_dump_json()
+
+
+def test_inspector_marks_environment_values_with_code_defaults_as_optional(tmp_path):
+    from engine.services.inspector import ProjectInspector
+
+    (tmp_path / "package.json").write_text('{"name":"optional-env-test"}', encoding="utf-8")
+    (tmp_path / ".env.example").write_text("FEATURE_FLAG=off\nREQUIRED_URL=https://example.test\n", encoding="utf-8")
+    (tmp_path / "server.js").write_text(
+        'const enabled = process.env.FEATURE_FLAG || "off";\nconst url = process.env.REQUIRED_URL;',
+        encoding="utf-8",
+    )
+
+    analysis = ProjectInspector(allowed_roots=[str(tmp_path)]).inspect(str(tmp_path))
+    requirements = {item.name: item for item in analysis.env_requirements}
+    assert requirements["FEATURE_FLAG"].required is False
+    assert requirements["REQUIRED_URL"].required is True
 
 
 @pytest.mark.anyio

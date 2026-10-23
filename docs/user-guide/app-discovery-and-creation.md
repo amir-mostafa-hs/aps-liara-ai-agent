@@ -35,3 +35,7 @@ If your project requires a database (such as PostgreSQL):
 - If no database is found, the agent renders `PlanSelectorCard` so you can choose a database plan.
 - Upon creation, internal private network hostnames and connection strings are generated and prepared for injection into the project's `.env` and `liara.json`.
 
+Connection values from a database created by the Agent are kept out of ordinary chat and terminal output. They are sent to the app environment only after the user approves the write, and deployment starts only after Liara confirms it. External-service credentials that the Agent cannot retrieve through an authorized integration must be supplied by the user.
+
+For environment review and the post-deployment runtime diagnosis and recovery flow, see [SRE and diagnostics](sre-and-diagnostics.md).
+

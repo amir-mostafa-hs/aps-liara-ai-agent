@@ -29,20 +29,36 @@ class SREDiagnoser:
         logs: str,
         app_id: str,
         provider_status: str = "success",
+        project_evidence: list[str] | None = None,
     ) -> DiagnosisResult:
         """Inspects crash logs, extracts root cause evidence, and constructs a structured remediation plan."""
         clean_logs = redact_text(logs)
 
         # Early return if no logs are available: do not fabricate false findings
         if not clean_logs.strip():
+            safe_project_evidence = [
+                redact_text(str(item))[:240]
+                for item in (project_evidence or [])
+                if str(item).strip()
+            ][:8]
+            evidence = (
+                "شواهد بازرسی پروژه: " + "؛ ".join(safe_project_evidence)
+                if safe_project_evidence
+                else "لاگ اجرایی دریافت نشد."
+            )
             return DiagnosisResult(
                 diagnosis_id=f"diag-{uuid.uuid4().hex[:8]}",
-                root_cause="No runtime logs or crash stack traces could be retrieved for this application.",
-                error_evidence="N/A (Logs were empty)",
+                root_cause=(
+                    "لاگ اجرایی در دسترس نیست. شواهد بازرسی پروژه دریافت شد، اما برای تعیین علت خرابی کافی نیست."
+                    if safe_project_evidence
+                    else "اطلاعات کافی برای تشخیص علت در دسترس نیست؛ لاگ اجرایی یا شاهد تأییدکننده‌ای از پروژه دریافت نشد."
+                ),
+                error_evidence=evidence,
                 missing_variable=None,
                 remediation=None,
                 confidence=0.0,
                 requires_approval=False,
+                diagnosis_status="inconclusive",
                 digest="",
             )
 
@@ -65,18 +81,19 @@ class SREDiagnoser:
                     f"Analyze the following application runtime logs for Liara app '{app_id}'.\n"
                     f"Provider Status: {provider_status}\n"
                     f"Logs:\n{clean_logs[-2000:]}\n\n"
-                    f"Extract the exact root cause in Persian (فارسی) or English and the specific error line as error_evidence.\n"
-                    f"If a missing environment variable is detected, specify missing_variable and create a RemediationAction "
-                    f"with operation 'set_env', target '{app_id}', and a suitable default env_value.\n"
+                    f"Write every user-facing field in Persian. Keep error_evidence as an exact, redacted excerpt from the logs. "
+                    f"Do not invent values, credentials, or remediations. For a missing environment variable, identify its name "
+                    f"but leave remediation empty; the user must choose how to supply a secret.\n"
                     f"If the app does not exist or was deleted, state that clearly and set missing_variable=null."
                 )
 
                 result: DiagnosisResult = structured_llm.invoke(prompt)
-                if result and isinstance(result, DiagnosisResult):
+                if result and isinstance(result, DiagnosisResult) and re.search(r"[\u0600-\u06FF]", result.root_cause):
                     if not result.diagnosis_id:
                         result.diagnosis_id = f"diag-{uuid.uuid4().hex[:8]}"
-                    if result.remediation:
-                        result.remediation.target = app_id
+                    # The model may describe evidence, but executable actions are
+                    # constructed only by the approval-gated server workflow.
+                    result.remediation = None
                     result.requires_approval = True
                     result.digest = result.compute_digest()
                     return result
@@ -93,7 +110,7 @@ class SREDiagnoser:
         if "could not find the app" in lower_logs or "app not found" in lower_logs:
             evidence_line = next(
                 (l.strip() for l in clean_logs.splitlines() if "could not find the app" in l.lower()),
-                "Error: Could not find the app."
+                "خطای پیدا نشدن برنامه در حساب لیارا ثبت شد."
             )
             remediation = RemediationAction(
                 action_id=f"rem-{uuid.uuid4().hex[:8]}",
@@ -148,21 +165,12 @@ class SREDiagnoser:
                 (l.strip() for l in clean_logs.splitlines() if missing_var in l),
                 f"[FATAL] Missing required environment variable: {missing_var}"
             )
-            remediation = RemediationAction(
-                action_id=f"rem-{uuid.uuid4().hex[:8]}",
-                operation="set_env",
-                target=app_id,
-                env_variable=missing_var,
-                env_value="sre-recovery-secret-key-123",
-                description=f"Set missing environment variable '{missing_var}' on Liara app '{app_id}' via 'liara env set'",
-                requires_approval=True,
-            )
             diagnosis = DiagnosisResult(
                 diagnosis_id=f"diag-{uuid.uuid4().hex[:8]}",
-                root_cause=f"Application crashed during startup due to missing mandatory configuration '{missing_var}'.",
+                root_cause=f"برنامه هنگام راه‌اندازی به‌دلیل تنظیم‌نشدن متغیر محیطی اجباری «{missing_var}» متوقف شده است.",
                 error_evidence=evidence_line,
                 missing_variable=missing_var,
-                remediation=remediation,
+                remediation=None,
                 confidence=0.98,
                 requires_approval=True,
                 digest="",
@@ -192,16 +200,17 @@ class SREDiagnoser:
         # 5. Generic execution failure
         evidence_line = next(
             (l.strip() for l in clean_logs.splitlines() if "error" in l.lower() or "exit" in l.lower()),
-            "Process exited with non-zero status"
+            "فرآیند با کد خطا متوقف شد؛ جزئیات علت در لاگ موجود نیست."
         )
         diagnosis = DiagnosisResult(
             diagnosis_id=f"diag-{uuid.uuid4().hex[:8]}",
-            root_cause=f"فرآیند اجرای اپلیکیشن با خطا متوقف شد.",
+            root_cause="فرآیند اجرای اپلیکیشن با خطا متوقف شد، اما از شواهد موجود علت دقیق مشخص نیست.",
             error_evidence=evidence_line,
             missing_variable=None,
             remediation=None,
-            confidence=0.85,
+            confidence=0.35,
             requires_approval=True,
+            diagnosis_status="inconclusive",
             digest="",
         )
         diagnosis.digest = diagnosis.compute_digest()
@@ -250,15 +259,14 @@ class SREDiagnoser:
             raw = "\n".join(raw_lines[-safe_lines:])
             clean_logs = redact_text(raw, api_token)
             if process.returncode != 0:
-                safe_error = clean_logs.strip() or "فرمان دریافت لاگ‌های لیارا با خطا پایان یافت."
-                return {"ok": False, "logs": clean_logs, "error": safe_error}
+                return {"ok": False, "logs": "", "error": "لیارا نتوانست لاگ‌های اجرای این سرویس را ارائه کند."}
             if not clean_logs.strip():
                 return {"ok": False, "logs": "", "error": "لیارا برای این سرویس لاگ اجرایی برنگرداند."}
             return {"ok": True, "logs": clean_logs, "error": None}
         except Exception as e:
             safe_error = redact_text(str(e), api_token)
             logger.warning("Failed to fetch runtime logs via CLI: %s", safe_error)
-            return {"ok": False, "logs": "", "error": f"دریافت لاگ‌های اجرای سرویس ناموفق بود: {safe_error}"}
+            return {"ok": False, "logs": "", "error": "ارتباط با Liara برای دریافت لاگ‌های اجرای سرویس برقرار نشد."}
 
     async def apply_remediation(
         self,
@@ -321,10 +329,12 @@ class SREDiagnoser:
                 "output": "Error: 'liara' CLI executable not found on PATH.",
             }
         except Exception as e:
+            safe_error = redact_text(str(e), api_token)
+            safe_error = redact_text(safe_error, remediation.env_value)
             return {
                 "ok": False,
                 "exit_code": 1,
-                "output": f"Failed to execute liara env set: {e}",
+                "output": f"اجرای فرمان ثبت متغیر در Liara ناموفق بود: {safe_error}",
             }
 
 

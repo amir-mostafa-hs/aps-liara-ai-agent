@@ -114,6 +114,11 @@ Validates an API token against Liara Cloud and returns associated user profile a
   "api_token": "def_liara_secret_token"
 }
 ```
+
+### `POST /api/liara/env/set`
+Writes approved environment values to an existing Liara app. The route requires an authenticated same-origin request and validates a SHA-256 digest that binds the confirmation to the exact app and values. The Engine applies the values through Liara's `POST /v1/projects/update-envs` API and preserves existing variables before adding or replacing the selected keys. Secret values are not passed as process arguments and are redacted from provider output. The API contract follows the [official Liara CLI implementation](https://github.com/liara-cloud/cli/blob/master/src/commands/env/set.ts).
+
+The request contains `appName`, `envVars`, and `approval: { confirmed: true, appName, digest }`. The response is successful only when Liara accepts the write; the caller must wait for `ok: true` before starting deployment.
 - **Response `200 OK`**:
 ```json
 {
@@ -201,8 +206,8 @@ Submits human approval with the required cryptographic digest token.
 Streams live deployment logs from Liara CLI / API via Server-Sent Events (SSE).
 
 ### `POST /api/runs/[id]/diagnose`
-Invokes the SRE intelligent diagnostics engine on deployment or runtime failures. Returns parsed root cause and suggested remediation steps.
+Invokes the SRE diagnostics engine on deployment or runtime failures. A health failure requests runtime logs independently of any deployment output. The response includes `log_source`, `logs_warning`, `diagnosis_status`, confidence, and a Persian root cause. When evidence is unavailable or inconclusive, no speculative remediation is returned.
 
 ### `POST /api/runs/[id]/remediate`
-Applies chosen remediation action (e.g. updating configuration, rolling back, or adjusting environment variables).
+Applies an explicitly approved environment-variable change to the run's already-confirmed Liara app. The request must include `approved: true`, the selected `env_value`, and `value_source` (`manual` or `generated`). The endpoint rejects missing approval, empty values, unsupported remediation types, and a target that does not match the run. It returns a successful recovery only after Liara confirms the write and the HTTP health check is healthy; provider failure blocks the health check.
 
