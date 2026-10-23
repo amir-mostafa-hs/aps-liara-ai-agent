@@ -15,7 +15,9 @@ import { DeployApprovalWidget } from "@/components/chat/DeployApprovalWidget";
 import { RemediationApprovalWidget } from "@/components/chat/RemediationApprovalWidget";
 import { EnvironmentPreflightWidget } from "@/components/chat/EnvironmentPreflightWidget";
 import { createLiaraApp } from "@/lib/app-creation-workflow";
+import { runPostDeployCheck, updateChatMessage } from "@/lib/post-deploy-status";
 import { formatPlanPrice } from "@/lib/app-preflight";
+import { redactChatText } from "@/lib/chat-history";
 
 let messageSequence = 0;
 function createMsgId(prefix: string): string {
@@ -57,6 +59,7 @@ export default function HomePage() {
       },
     },
   ]);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
 
   // Sidecar & Infrastructure State
@@ -193,6 +196,35 @@ export default function HomePage() {
           router.push("/login");
         } else {
           setUser(data);
+          fetch("/api/conversations")
+            .then((response) => response.json())
+            .then(async (chatData) => {
+              if (chatData.ok && chatData.activeConversation) {
+                const active = chatData.activeConversation;
+                setConversationId(active.id);
+                const saved = Array.isArray(active.messages) ? active.messages : [];
+                if (saved.length) {
+                  setMessages(saved.map((item: any) => {
+                    const inspection = item.metadata?.tool_results?.find((tool: any) => tool.name === "inspect_project" && tool.result?.ok);
+                    const analysis = inspection?.result?.analysis;
+                    return {
+                      id: item.id,
+                      role: item.role,
+                      content: item.content,
+                      timestamp: item.createdAt,
+                      widget: analysis ? {
+                        type: "app_target_selector",
+                        data: { sourcePath: inspection.result.source_path, analysis, suggestedAppName: analysis.suggested_app_name, detectedPlatform: analysis.detected_platform },
+                      } : undefined,
+                    };
+                  }));
+                }
+                return;
+              }
+              const created = await fetch("/api/conversations", { method: "POST" }).then((response) => response.json());
+              if (created.ok && created.conversation?.id) setConversationId(created.conversation.id);
+            })
+            .catch(() => {});
         }
       })
       .catch(() => {});
@@ -683,98 +715,69 @@ export default function HomePage() {
                 `✔ عملیات استقرار با موفقیت به پایان رسید. در حال بررسی سلامت سرویس...`,
               ]);
 
+              let progressMessageId: string | null = null;
               try {
-                const verifyRes = await fetch(`/api/runs/${runId}/verify`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                });
-                const verifyData = await verifyRes.json();
-                const verification = verifyData.verification;
-                if (!verifyRes.ok || !verifyData.ok || !verification) {
-                  throw new Error(verifyData.error || "نتیجهٔ بررسی سلامت از لیارا دریافت نشد.");
+                const { progressMessage, result } = await runPostDeployCheck(
+                  runId,
+                  (message) => {
+                    progressMessageId = message.id;
+                    setMessages((prev) => [...prev, message]);
+                  },
+                );
+
+                const providerSummary = `• وضعیت دپلوی: **${result.provider_deployment_state === "succeeded" ? "موفق" : result.provider_deployment_state}**` +
+                  (result.provider_release_state ? `\n• وضعیت release در Liara: **${result.provider_release_state}**` : "") +
+                  (result.provider_release_warning ? `\n• بررسی release: ${result.provider_release_warning}` : "");
+                const runtimeLines = typeof result.runtime_logs === "string" ? result.runtime_logs.split("\n").filter(Boolean) : [];
+                if (result.runtime_logs_status === "available") {
+                  setTerminalLogs((prev) => [...prev, "[RUNTIME LOGS]", ...runtimeLines]);
                 }
 
-                if (verification?.application_health === "healthy") {
-                  const runtimeRes = await fetch(`/api/runs/${runId}/runtime-logs`, { method: "POST" });
-                  const runtimeData = await runtimeRes.json();
+                if (result.application_health === "healthy") {
                   let runtimeSummary = "";
-                  if (runtimeRes.ok && runtimeData.ok && typeof runtimeData.logs === "string") {
-                    const runtimeLines = runtimeData.logs.split("\n").filter(Boolean);
+                  if (result.runtime_logs_status === "available") {
                     const highlights = runtimeLines.filter((line: string) => /listen|started|healthy|error|warning/i.test(line)).slice(-5);
-                    setTerminalLogs((prev) => [...prev, "[RUNTIME LOGS]", ...runtimeLines]);
-                    runtimeSummary = `\n• لاگ runtime: از لیارا دریافت شد (${runtimeLines.length} خط)${highlights.length ? `\n• نکته‌ها: ${highlights.join(" | ")}` : ""}`;
+                    runtimeSummary = `\n• لاگ runtime: از Liara دریافت شد (${runtimeLines.length} خط)${highlights.length ? `\n• نکته‌ها: ${highlights.join(" | ")}` : ""}`;
                   } else {
-                    const runtimeError = runtimeData.error || "لاگ runtime در دسترس نبود.";
-                    setTerminalLogs((prev) => [...prev, `[RUNTIME LOGS] ${runtimeError}`]);
-                    runtimeSummary = `\n• بررسی لاگ runtime: ${runtimeError}`;
+                    runtimeSummary = `\n• سایت سالم است، اما لاگ runtime پس از ${result.attempts} تلاش دریافت نشد.${result.runtime_logs_warning ? `\n• جزئیات: ${result.runtime_logs_warning}` : ""}`;
                   }
-                  setMessages((prev) => [
-                    ...prev,
-                    {
-                      id: createMsgId("ast"),
-                      role: "assistant",
-                      content: `🎉 **دپلوی با موفقیت کامل شد و برنامه در دسترس است!**\n\n• کد وضعیت HTTP: **${verification.http_status_code}**\n• آدرس عمومی سرویس: [${verification.endpoint_url}](${verification.endpoint_url})\n• وضعیت سلامت برنامه: **سالم**${runtimeSummary}`,
+                  setMessages((prev) => updateChatMessage(prev, progressMessage.id, {
+                      content: `🎉 **دپلوی انجام شد و برنامه در دسترس است.**\n\n${providerSummary}\n• بررسی سلامت برنامه: **سالم (HTTP ${result.http_status_code})**\n• آدرس عمومی سرویس: [${result.endpoint_url}](${result.endpoint_url})\n• مدت پایش: ${result.elapsed_seconds} ثانیه${runtimeSummary}`,
                       timestamp: new Date().toISOString(),
-                    },
-                  ]);
+                  }));
                 } else {
                   setTerminalLogs((prev) => [
                     ...prev,
-                    `✖ سرویس پاسخ ناموفق داد (HTTP ${verification?.http_status_code || "Unknown"}). آغاز ریشه‌یابی SRE...`,
+                    `✖ بررسی سلامت برنامه موفق نبود (HTTP ${result.http_status_code || "نامشخص"}). لاگ runtime پس از ${result.attempts} تلاش بررسی شد.`,
                   ]);
-
-                  const diagRes = await fetch(`/api/runs/${runId}/diagnose`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      logs: logs || "",
-                      provider_status: "success",
-                      fetch_runtime_logs: true,
-                    }),
-                  });
-                  const diagData = await diagRes.json();
-                  if (!diagRes.ok || !diagData.ok || !diagData.diagnosis) {
-                    throw new Error(diagData.error || "تحلیل لاگ‌های اجرای برنامه کامل نشد.");
-                  }
-                  const diagnosis = diagData.diagnosis;
+                  const diagnosis = result.diagnosis;
+                  if (!diagnosis) throw new Error("تشخیص بر پایهٔ شواهد runtime دریافت نشد.");
                   const conclusive = diagnosis?.diagnosis_status !== "inconclusive";
                   const canRemediate = conclusive && Boolean(diagnosis?.missing_variable);
-                  const logSourceLabel = diagnosis?.log_source === "runtime" ? "لاگ اجرای برنامه" : diagnosis?.log_source === "deployment" ? "لاگ دپلوی" : "لاگ اجرایی در دسترس نبود";
+                  const logSourceLabel = result.log_source === "runtime" ? "لاگ اجرای برنامه" : "لاگ اجرایی در دسترس نبود";
 
-                  setMessages((prev) => [
-                    ...prev,
-                    {
-                      id: createMsgId("ast"),
-                      role: "assistant",
-                      content: `⚠️ دپلوی در Liara انجام شد، اما آزمون سلامت برنامه پاسخ HTTP ${
-                        verification?.http_status_code || "503"
-                      }** داد.\n\n${conclusive ? "علت بر اساس شواهد زیر تشخیص داده شد:" : "تشخیص قطعی ممکن نشد:"}\n\n**${
-                        diagnosis?.root_cause || "اطلاعات کافی برای تشخیص علت در دسترس نیست."
-                      }**\n\nمنبع بررسی‌شده: **${logSourceLabel}**${diagnosis?.logs_warning ? `\n\n⚠️ دریافت لاگ اجرایی ناموفق بود: ${diagnosis.logs_warning}` : ""}${canRemediate ? "\n\nراهکار پیشنهادی در ادامه برای تأیید شما نمایش داده شده است:" : !conclusive ? "\n\nبرای تشخیص دقیق‌تر، دسترسی لاگ‌های اجرای سرویس را بررسی کنید. هیچ تغییری در سرویس اعمال نشده است." : "\n\nبرای این علت، اقدامی به‌صورت خودکار انجام نمی‌شود. راهنمایی بالا را دنبال کنید."}`,
+                  setMessages((prev) => updateChatMessage(prev, progressMessage.id, {
+                      content: `⚠️ دپلوی در Liara انجام شد، اما برنامه سالم نیست.\n\n${providerSummary}\n• وضعیت HTTP: **${result.http_status_code || "نامشخص"}**\n• منبع تشخیص: **${logSourceLabel}**\n\n${conclusive ? "علت بر اساس شواهد زیر تشخیص داده شد:" : "تشخیص قطعی ممکن نشد:"}\n\n**${diagnosis?.root_cause || "اطلاعات کافی برای تشخیص علت در دسترس نیست."}**${result.runtime_logs_warning ? `\n\n⚠️ وضعیت لاگ runtime: ${result.runtime_logs_warning}` : ""}${canRemediate ? "\n\nراهکار پیشنهادی در ادامه برای تأیید شما نمایش داده شده است:" : !conclusive ? "\n\nشواهد کافی برای تشخیص قطعی وجود ندارد. هیچ تغییری در سرویس اعمال نشده است." : "\n\nبرای این علت، اقدامی به‌صورت خودکار انجام نمی‌شود. راهنمایی بالا را دنبال کنید."}`,
                       timestamp: new Date().toISOString(),
                       widget: canRemediate ? {
                         type: "remediation_approval",
-                        data: {
-                          runId,
-                          targetApp,
-                          diagnosis,
-                        },
+                        data: { runId, targetApp, diagnosis },
                       } : undefined,
-                    },
-                  ]);
+                  }));
                 }
               } catch (err: unknown) {
                 const detail = "دریافت نتیجهٔ بررسی سلامت یا لاگ‌های اجرای برنامه ناموفق بود.";
                 setTerminalLogs((prev) => [...prev, `⚠️ بررسی سلامت یا لاگ‌های برنامه کامل نشد: ${detail}`]);
-                setMessages((prev) => [
-                  ...prev,
-                  {
-                    id: createMsgId("ast"),
-                    role: "assistant",
+                const failureMessage = {
+                    role: "assistant" as const,
                     content: `دپلوی از طرف لیارا موفق گزارش شد، اما بررسی سلامت یا لاگ‌های runtime کامل نشد: ${detail}\n\nآدرس برنامه را می‌توانید جداگانه بررسی کنید.`,
                     timestamp: new Date().toISOString(),
-                  },
-                ]);
+                };
+                if (progressMessageId) {
+                  setMessages((prev) => updateChatMessage(prev, progressMessageId!, failureMessage));
+                } else {
+                  setMessages((prev) => [...prev, { id: createMsgId("ast"), ...failureMessage }]);
+                }
               }
             } else {
               setTerminalLogs((prev) => [
@@ -890,66 +893,87 @@ export default function HomePage() {
   // Handle User Message in Chat
   const handleSendMessage = async (text: string) => {
     const userMessageId = createMsgId("usr");
+    const displayedText = redactChatText(text);
     const userMsg: ChatMessage = {
       id: userMessageId,
       role: "user",
-      content: text,
+      content: displayedText,
       timestamp: new Date().toISOString(),
     };
 
     setMessages((prev) => [...prev, userMsg]);
     setIsStreaming(true);
+    setTerminalLogs((prev) => [...prev, "[AGENT] درخواست جدید در حال تحلیل است..."]);
 
-    // Initial response logic / bridge to agent API
     try {
-      // Stream terminal log announcement
-      setTerminalLogs((prev) => [
-        ...prev,
-        `[AGENT] دریافت دستور جدید از کاربر: "${text}"`,
-      ]);
-
-      // If user requested analyzing or deploying sample app
-      if (text.includes("sample-apps/nodejs-demo") || text.includes("پروژه نمونه")) {
-        await handleSourceIngested("sample-apps/nodejs-demo", "path");
-      } else if (text.includes("توکن") || text.includes("token")) {
-        setTimeout(() => {
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: createMsgId("ast"),
-              role: "assistant",
-              content:
-                "برای اتصال به حساب لیارا، لطفاً کلید دسترسی (API Token) خود را در فرم امن زیر وارد کنید:",
-              timestamp: new Date().toISOString(),
-              widget: { type: "token_input" },
-            },
-          ]);
-          setIsStreaming(false);
-        }, 1000);
-      } else {
-        setTimeout(() => {
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: createMsgId("ast"),
-              role: "assistant",
-              content: `درخواست شما دریافت شد: «${text}».\n\nمن سورس‌کد و زیرساخت را طبق خواستهٔ شما پردازش می‌کنم. در صورتی که نیاز به ایجاد دیتابیس یا تنظیم مشخصات پلتفرم باشد، گزینه‌های لازم را به شما نشان خواهم داد.`,
-              timestamp: new Date().toISOString(),
-            },
-          ]);
-          setIsStreaming(false);
-        }, 1200);
+      let activeConversationId = conversationId;
+      if (!activeConversationId) {
+        const createResponse = await fetch("/api/conversations", { method: "POST" });
+        const createData = await createResponse.json();
+        if (!createResponse.ok || !createData.ok || !createData.conversation?.id) {
+          throw new Error(createData.error || "گفت‌وگوی فعال ساخته نشد.");
+        }
+        activeConversationId = createData.conversation.id;
+        setConversationId(activeConversationId);
       }
-    } catch (err: any) {
+
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversationId: activeConversationId, message: text }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok || !data.message) {
+        throw new Error(data.error || "پاسخ Agent دریافت نشد.");
+      }
+
+      const toolResults = Array.isArray(data.toolResults) ? data.toolResults : [];
+      const inspection = [...toolResults].reverse().find((tool: any) => tool.name === "inspect_project" && tool.result?.ok);
+      const analysis = inspection?.result?.analysis;
+      const toolLabels: Record<string, string> = {
+        inspect_project: "بررسی پروژه",
+        list_liara_apps: "فهرست اپلیکیشن‌ها",
+        get_liara_app_details: "جزئیات اپلیکیشن",
+        get_liara_app_logs: "لاگ‌های اپلیکیشن",
+        get_liara_app_releases: "نسخه‌های منتشرشده",
+        get_liara_app_events: "رویدادهای اپلیکیشن",
+        list_liara_databases: "فهرست دیتابیس‌ها",
+        list_liara_buckets: "فهرست مخزن‌های Object Storage",
+        list_liara_dns_zones: "فهرست دامنه‌های DNS",
+        list_liara_mail_servers: "فهرست سرویس‌های Mail",
+      };
+      for (const tool of toolResults) {
+        setTerminalLogs((prev) => [...prev, `[ابزار] ${toolLabels[tool.name] || "عملیات Liara"}: ${tool.result?.ok ? "انجام شد" : "ناموفق"}`]);
+      }
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: data.message.id || createMsgId("ast"),
+          role: "assistant",
+          content: data.message.content,
+          timestamp: data.message.createdAt || new Date().toISOString(),
+          widget: analysis ? {
+            type: "app_target_selector",
+            data: {
+              sourcePath: inspection.result.source_path,
+              analysis,
+              suggestedAppName: analysis.suggested_app_name,
+              detectedPlatform: analysis.detected_platform,
+            },
+          } : undefined,
+        },
+      ]);
+    } catch (err: unknown) {
       setMessages((prev) => [
         ...prev,
         {
           id: createMsgId("err"),
           role: "assistant",
-          content: `خطا در برقراری ارتباط با موتور: ${err.message}`,
+          content: "در پردازش درخواست مشکلی پیش آمد. لطفاً اتصال را بررسی کنید و دوباره تلاش کنید.",
           timestamp: new Date().toISOString(),
         },
       ]);
+    } finally {
       setIsStreaming(false);
     }
   };

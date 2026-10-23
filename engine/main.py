@@ -1,14 +1,16 @@
 import json
 import os
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, Header, HTTPException, status
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 from engine.domain.models import (
     CreateProjectRequest,
+    AgentChatRequest,
     DeployRequest,
     DiagnoseRequest,
     InspectRequest,
     PlanRequest,
+    PostDeployCheckRequest,
     RemediateRequest,
     RuntimeLogsRequest,
     VerifyRequest,
@@ -25,6 +27,8 @@ from engine.services.env_manager import env_manager
 from engine.services.inspector import project_inspector
 from engine.services.planner import deployment_planner
 from engine.services.verifier import endpoint_verifier
+from engine.services.post_deploy_monitor import post_deploy_monitor
+from engine.services.chat_agent import liara_chat_agent
 
 app = FastAPI(
     title="Liara Agent Engine",
@@ -94,6 +98,17 @@ async def health_check():
     }
 
 
+@app.post("/agent/chat", dependencies=[Depends(verify_internal_secret)])
+async def agent_chat(payload: AgentChatRequest):
+    result = await liara_chat_agent.respond(
+        message=payload.message,
+        history=[item.model_dump() for item in payload.history],
+        api_token=payload.api_token,
+        team_id=payload.team_id,
+    )
+    return {"ok": True, **result}
+
+
 @app.get("/liara/plans", dependencies=[Depends(verify_internal_secret)])
 async def list_liara_plans(api_token: str | None = None):
     plans = await db_provisioner.get_available_plans(api_token=api_token)
@@ -125,7 +140,8 @@ async def check_liara_project_name(payload: ProjectNameAvailabilityRequest):
 
 @app.get("/liara/services", dependencies=[Depends(verify_internal_secret)])
 async def list_liara_services(
-    api_token: str | None = None, team_id: str | None = None
+    team_id: str | None = None,
+    api_token: str | None = Header(default=None, alias="X-Liara-Token"),
 ):
     if not api_token or not api_token.strip():
         return {
@@ -333,6 +349,30 @@ async def verify_deployment_endpoint(payload: VerifyRequest):
         "ok": True,
         "verification": result.model_dump(),
     }
+
+
+@app.post("/agent/post-deploy-check", dependencies=[Depends(verify_internal_secret)])
+async def check_post_deploy(payload: PostDeployCheckRequest):
+    result = await post_deploy_monitor.check(
+        app_id=payload.app_id,
+        api_token=payload.api_token,
+        team_id=payload.team_id,
+        endpoint_url=payload.endpoint_url,
+        provider_deployment_state=payload.provider_deployment_state,
+        max_wait_seconds=payload.max_wait_seconds,
+    )
+    data = result.model_dump()
+    data["log_source"] = "runtime" if result.runtime_logs_status == "available" else "none"
+    if result.outcome != "healthy":
+        diagnosis = sre_diagnoser.diagnose_logs(
+            logs=result.runtime_logs,
+            app_id=payload.app_id,
+            provider_status=payload.provider_deployment_state,
+        )
+        data["diagnosis"] = diagnosis.model_dump()
+    else:
+        data["diagnosis"] = None
+    return {"ok": True, "result": data}
 
 
 @app.post("/agent/diagnose", dependencies=[Depends(verify_internal_secret)])

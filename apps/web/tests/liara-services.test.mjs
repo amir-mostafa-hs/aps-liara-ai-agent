@@ -6,6 +6,7 @@ test("Next.js liara services route proxies request to engine with internal secre
   const secret = "mock-secret-services-test";
   let receivedHeader = "";
   let receivedUrl = "";
+  let receivedLiaraToken = "";
 
   const mockServices = [
     { name: "test-app", type: "app", status: "running", endpoint: "https://test-app.liara.run" },
@@ -15,6 +16,7 @@ test("Next.js liara services route proxies request to engine with internal secre
   const server = http.createServer((req, res) => {
     receivedHeader = req.headers["x-internal-secret"] || "";
     receivedUrl = req.url || "";
+    receivedLiaraToken = req.headers["x-liara-token"] || "";
     if (receivedHeader === secret) {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(
@@ -38,16 +40,18 @@ test("Next.js liara services route proxies request to engine with internal secre
     process.env.INTERNAL_AGENT_SECRET = secret;
     process.env.LIARA_API_TOKEN = "mock-token-abc-123";
 
-    const res = await fetch(`http://127.0.0.1:${port}/liara/services?api_token=mock-token-abc-123`, {
+    const res = await fetch(`http://127.0.0.1:${port}/liara/services`, {
       method: "GET",
       headers: {
         "X-Internal-Secret": secret,
+        "X-Liara-Token": "mock-token-abc-123",
       },
     });
 
     assert.equal(res.status, 200);
     assert.equal(receivedHeader, secret);
-    assert.ok(receivedUrl.includes("api_token=mock-token-abc-123"));
+    assert.equal(receivedUrl, "/liara/services");
+    assert.equal(receivedLiaraToken, "mock-token-abc-123");
 
     const data = await res.json();
     assert.equal(data.ok, true);

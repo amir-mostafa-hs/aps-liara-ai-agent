@@ -14,6 +14,10 @@ logger = logging.getLogger(__name__)
 
 
 class SREDiagnoser:
+    RUNTIME_LOG_TIMEOUT_SECONDS = 30
+    MAX_RUNTIME_LOG_LINES = 500
+    MAX_RUNTIME_LOG_CHARS = 50_000
+
     def __init__(
         self,
         api_key: str | None = None,
@@ -223,7 +227,7 @@ class SREDiagnoser:
         api_token: str | None = None,
         team_id: str | None = None,
     ) -> str:
-        """Fetches bounded runtime logs using liara logs --app <app_id>."""
+        """Fetches bounded runtime logs using the official Liara CLI."""
         result = await self.fetch_runtime_logs_result(app_id, lines, api_token, team_id)
         return result["logs"]
 
@@ -234,39 +238,127 @@ class SREDiagnoser:
         api_token: str | None = None,
         team_id: str | None = None,
     ) -> dict:
-        """Fetch bounded runtime logs and keep provider failures distinct from empty output."""
+        """Fetch bounded runtime logs through Liara's supported app-logs CLI command."""
         clean_app_id = (app_id or "").strip()
         if not clean_app_id:
-            return {"ok": False, "logs": "", "error": "نام سرویس برای دریافت لاگ‌های اجرا مشخص نیست."}
-        safe_lines = min(max(int(lines), 1), 500)
-        cmd = [
-            "liara", "logs", "--app", clean_app_id,
-            "--since", "30 minutes ago", "--timestamps", "--last-lines",
+            return {"ok": False, "logs": "", "error": "نام سرویس برای دریافت لاگ‌های اجرا مشخص نیست.", "retryable": False}
+        token = (api_token or "").strip()
+        if not token:
+            return {"ok": False, "logs": "", "error": "توکن Liara برای دریافت لاگ‌های اجرا تنظیم نشده است.", "retryable": False}
+
+        safe_lines = min(max(int(lines), 1), self.MAX_RUNTIME_LOG_LINES)
+        command = [
+            "liara",
+            "app",
+            "logs",
+            "--app",
+            clean_app_id,
+            "--since",
+            "30 minutes ago",
+            "--timestamps",
+            "--last-lines",
+            "--debug",
         ]
-        if api_token and api_token.strip():
-            cmd.extend(["--api-token", api_token.strip()])
         if team_id and team_id.strip():
-            cmd.extend(["--team-id", team_id.strip()])
+            command.extend(["--team-id", team_id.strip()])
+        command.extend(["--api-token", token])
 
         try:
             process = await asyncio.create_subprocess_exec(
-                *cmd,
+                *command,
                 stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.STDOUT,
+                stderr=asyncio.subprocess.PIPE,
             )
-            stdout, _ = await asyncio.wait_for(process.communicate(), timeout=15.0)
-            raw_lines = stdout.decode("utf-8", errors="replace").splitlines()
-            raw = "\n".join(raw_lines[-safe_lines:])
-            clean_logs = redact_text(raw, api_token)
-            if process.returncode != 0:
-                return {"ok": False, "logs": "", "error": "لیارا نتوانست لاگ‌های اجرای این سرویس را ارائه کند."}
-            if not clean_logs.strip():
-                return {"ok": False, "logs": "", "error": "لیارا برای این سرویس لاگ اجرایی برنگرداند."}
-            return {"ok": True, "logs": clean_logs, "error": None}
-        except Exception as e:
-            safe_error = redact_text(str(e), api_token)
-            logger.warning("Failed to fetch runtime logs via CLI: %s", safe_error)
-            return {"ok": False, "logs": "", "error": "ارتباط با Liara برای دریافت لاگ‌های اجرای سرویس برقرار نشد."}
+            try:
+                stdout, stderr = await asyncio.wait_for(
+                    process.communicate(),
+                    timeout=self.RUNTIME_LOG_TIMEOUT_SECONDS,
+                )
+            except asyncio.TimeoutError:
+                process.kill()
+                return {
+                    "ok": False,
+                    "logs": "",
+                    "error": "دریافت لاگ‌های اجرای برنامه از Liara بیش از زمان مجاز طول کشید.",
+                    "retryable": True,
+                }
+        except FileNotFoundError:
+            return {
+                "ok": False,
+                "logs": "",
+                "exit_code": 127,
+                "error": "ابزار رسمی Liara CLI روی موتور Agent نصب یا در دسترس نیست.",
+                "retryable": False,
+            }
+        except Exception as error:
+            return {
+                "ok": False,
+                "logs": "",
+                "error": redact_text(str(error), token),
+                "retryable": True,
+            }
+
+        safe_stdout = redact_text(stdout.decode("utf-8", errors="replace"), token).strip()
+        safe_stderr = redact_text(stderr.decode("utf-8", errors="replace"), token).strip()
+        if process.returncode == 0:
+            # Liara CLI writes app stderr log records to process.stderr. Keep those
+            # timestamped records while excluding its own --debug diagnostics.
+            runtime_stderr = [
+                line
+                for line in safe_stderr.splitlines()
+                if re.search(r"(?:^| \| )\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", line)
+            ]
+            output_lines = [
+                line
+                for line in [*safe_stdout.splitlines(), *runtime_stderr]
+                if line.strip()
+            ]
+            bounded_logs = "\n".join(output_lines[-safe_lines:])[-self.MAX_RUNTIME_LOG_CHARS:]
+            if bounded_logs:
+                return {
+                    "ok": True,
+                    "logs": bounded_logs,
+                    "status_code": 200,
+                    "exit_code": 0,
+                    "error": None,
+                    "retryable": False,
+                }
+            return {
+                "ok": False,
+                "logs": "",
+                "status_code": 200,
+                "exit_code": 0,
+                "error": "Liara هنوز لاگ اجرایی برای این بازه برنگردانده است.",
+                "retryable": True,
+            }
+
+        error_output = f"{safe_stdout}\n{safe_stderr}".strip()[-4000:]
+        status_match = re.search(r"\b(401|403|404|429|5\d{2})\b", error_output)
+        status_code = int(status_match.group(1)) if status_match else None
+        lower_error = error_output.lower()
+        if status_code is None and ("app not found" in lower_error or "project not found" in lower_error):
+            status_code = 404
+        if status_code == 401 or "unauthorized" in lower_error or "unauthenticated" in lower_error:
+            message, retryable = "توکن Liara اجازهٔ خواندن لاگ‌های این سرویس را ندارد (401).", False
+        elif status_code == 403 or "forbidden" in lower_error:
+            message, retryable = "حساب Liara اجازهٔ خواندن لاگ‌های این سرویس را ندارد (403).", False
+        elif status_code == 404 or "app not found" in lower_error or "project not found" in lower_error:
+            message, retryable = "سرویس در حساب یا تیم انتخاب‌شدهٔ Liara پیدا نشد.", False
+        elif status_code == 429 or (status_code is not None and status_code >= 500):
+            message, retryable = "Liara موقتاً نتوانست لاگ‌های runtime را برگرداند.", True
+        elif any(term in lower_error for term in ("timeout", "timed out", "econn", "network", "temporar")):
+            message, retryable = "ارتباط موقت با Liara برقرار نشد؛ دریافت لاگ دوباره امتحان می‌شود.", True
+        else:
+            message, retryable = "فرمان دریافت لاگ runtime در Liara ناموفق شد.", False
+        return {
+            "ok": False,
+            "logs": "",
+            "status_code": status_code,
+            "exit_code": process.returncode,
+            "error": message,
+            "error_detail": redact_text(error_output, token)[:1000],
+            "retryable": retryable,
+        }
 
     async def apply_remediation(
         self,

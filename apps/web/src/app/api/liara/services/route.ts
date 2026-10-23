@@ -18,15 +18,16 @@ export async function GET(req: NextRequest) {
     const internalSecret = process.env.INTERNAL_AGENT_SECRET || "dev-internal-secret-change-me";
 
     const params = new URLSearchParams();
-    params.set("api_token", token.trim());
     if (teamId && teamId.trim()) {
       params.set("team_id", teamId.trim());
     }
 
-    const res = await fetch(`${engineUrl}/liara/services?${params.toString()}`, {
+    const query = params.size > 0 ? `?${params.toString()}` : "";
+    const res = await fetch(`${engineUrl}/liara/services${query}`, {
       method: "GET",
       headers: {
         "X-Internal-Secret": internalSecret,
+        "X-Liara-Token": token.trim(),
       },
       cache: "no-store",
     });

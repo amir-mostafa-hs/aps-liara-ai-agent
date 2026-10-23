@@ -10,6 +10,258 @@ class LiaraAdapter:
     def __init__(self, base_url: str = "https://api.liara.ir"):
         self.base_url = base_url.rstrip("/")
 
+    @staticmethod
+    def _auth(api_token: str) -> dict[str, str]:
+        return {"Authorization": f"Bearer {api_token.strip()}", "User-Agent": "LiaraAgent/0.1.0"}
+
+    @staticmethod
+    def _team_params(team_id: str | None) -> dict[str, str] | None:
+        return {"teamID": team_id.strip()} if team_id and team_id.strip() else None
+
+    async def list_apps_result(self, api_token: str, team_id: str | None = None) -> dict:
+        token = (api_token or "").strip()
+        if not token:
+            return {"ok": False, "error": "توکن Liara برای فهرست اپلیکیشن‌ها لازم است."}
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                response = await client.get(
+                    f"{self.base_url}/v1/projects",
+                    headers=self._auth(token),
+                    params=self._team_params(team_id),
+                )
+            if response.status_code != 200:
+                return {"ok": False, "status_code": response.status_code, "error": redact_text(response.text[:500], token)}
+            data = response.json()
+            projects = data.get("projects") if isinstance(data, dict) else None
+            if not isinstance(projects, list):
+                return {"ok": False, "error": "قالب فهرست اپلیکیشن‌های Liara معتبر نیست."}
+            apps = []
+            for project in projects:
+                if not isinstance(project, dict):
+                    continue
+                name = project.get("project_id") or project.get("name")
+                if not name:
+                    continue
+                apps.append({
+                    "name": str(name),
+                    "platform": project.get("type"),
+                    "status": project.get("status"),
+                    "is_deployed": project.get("isDeployed"),
+                    "plan_id": project.get("planID"),
+                    "created_at": project.get("created_at"),
+                    "url": f"https://{name}.liara.run",
+                })
+            return {"ok": True, "apps": apps}
+        except Exception as error:
+            return {"ok": False, "error": redact_text(str(error), token), "retryable": True}
+
+    async def get_app_details_result(self, app_name: str, api_token: str, team_id: str | None = None) -> dict:
+        app = (app_name or "").strip()
+        token = (api_token or "").strip()
+        if not re.fullmatch(r"[a-z0-9-]{3,64}", app) or not token:
+            return {"ok": False, "error": "نام اپلیکیشن معتبر یا توکن Liara مشخص نیست."}
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                response = await client.get(
+                    f"{self.base_url}/v1/projects/{app}",
+                    headers=self._auth(token),
+                    params=self._team_params(team_id),
+                )
+            if response.status_code != 200:
+                return {"ok": False, "status_code": response.status_code, "error": redact_text(response.text[:500], token)}
+            payload = response.json()
+            project = payload.get("project", payload) if isinstance(payload, dict) else None
+            if not isinstance(project, dict):
+                return {"ok": False, "error": "قالب جزئیات اپلیکیشن Liara معتبر نیست."}
+            env_names = [item.get("key") for item in project.get("envs", []) if isinstance(item, dict) and item.get("key")]
+            return {"ok": True, "app": {
+                "name": project.get("project_id", app),
+                "platform": project.get("type"),
+                "status": project.get("status"),
+                "is_deployed": project.get("isDeployed"),
+                "plan_id": project.get("planID"),
+                "hourly_price": project.get("hourlyPrice"),
+                "created_at": project.get("created_at"),
+                "environment_variable_names": env_names,
+                "url": f"https://{app}.liara.run",
+            }}
+        except Exception as error:
+            return {"ok": False, "error": redact_text(str(error), token), "retryable": True}
+
+    async def get_app_releases_result(self, app_id: str, api_token: str, team_id: str | None = None) -> dict:
+        token = (api_token or "").strip()
+        app = (app_id or "").strip()
+        if not app or not token:
+            return {"ok": False, "error": "نام اپلیکیشن یا توکن Liara مشخص نیست."}
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                response = await client.get(f"{self.base_url}/v1/projects/{app}/releases", headers=self._auth(token), params=self._team_params(team_id))
+            if response.status_code != 200:
+                return {"ok": False, "status_code": response.status_code, "error": redact_text(response.text[:500], token)}
+            data = response.json()
+            if not isinstance(data, dict) or not isinstance(data.get("releases", []), list):
+                return {"ok": False, "error": "قالب releaseهای Liara معتبر نیست."}
+            releases = [{key: item.get(key) for key in ("tag", "state", "createdAt", "finishedAt", "projectType", "port") if key in item} for item in data["releases"] if isinstance(item, dict)]
+            return {"ok": True, "current_release": data.get("currentRelease"), "ready_releases_count": data.get("readyReleasesCount"), "releases": releases}
+        except Exception as error:
+            return {"ok": False, "error": redact_text(str(error), token), "retryable": True}
+
+    async def get_app_events_result(self, app_id: str, api_token: str, team_id: str | None = None) -> dict:
+        token = (api_token or "").strip()
+        app = (app_id or "").strip()
+        if not app or not token:
+            return {"ok": False, "error": "نام اپلیکیشن یا توکن Liara مشخص نیست."}
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                response = await client.get(f"{self.base_url}/v1/projects/{app}/events", headers=self._auth(token), params=self._team_params(team_id))
+            if response.status_code != 200:
+                return {"ok": False, "status_code": response.status_code, "error": redact_text(response.text[:500], token)}
+            data = response.json()
+            return {"ok": True, "events": data.get("data", []) if isinstance(data, dict) else data}
+        except Exception as error:
+            return {"ok": False, "error": redact_text(str(error), token), "retryable": True}
+
+    async def list_databases_result(self, api_token: str, team_id: str | None = None) -> dict:
+        token = (api_token or "").strip()
+        if not token:
+            return {"ok": False, "error": "توکن Liara برای فهرست دیتابیس‌ها لازم است."}
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                response = await client.get(f"{self.base_url}/v1/databases", headers=self._auth(token), params=self._team_params(team_id))
+            if response.status_code != 200:
+                return {"ok": False, "status_code": response.status_code, "error": redact_text(response.text[:500], token)}
+            data = response.json()
+            databases = data.get("databases") if isinstance(data, dict) else None
+            if not isinstance(databases, list):
+                return {"ok": False, "error": "قالب فهرست دیتابیس‌های Liara معتبر نیست."}
+            safe_items = [{key: item.get(key) for key in ("name", "hostname", "type", "status", "planID", "created_at") if key in item} for item in databases if isinstance(item, dict)]
+            return {"ok": True, "databases": safe_items}
+        except Exception as error:
+            return {"ok": False, "error": redact_text(str(error), token), "retryable": True}
+
+    async def _list_service_result(
+        self,
+        *,
+        host: str,
+        path: str,
+        collection_key: str,
+        response_path: tuple[str, ...] | None = None,
+        api_token: str,
+        team_id: str | None = None,
+    ) -> dict:
+        """Read a documented Liara service catalog without returning credentials."""
+        token = (api_token or "").strip()
+        if not token:
+            return {"ok": False, "error": "توکن Liara برای خواندن این فهرست لازم است."}
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                response = await client.get(
+                    f"{host.rstrip('/')}{path}",
+                    headers=self._auth(token),
+                    params=self._team_params(team_id),
+                )
+            if response.status_code != 200:
+                return {
+                    "ok": False,
+                    "status_code": response.status_code,
+                    "error": redact_text(response.text[:500], token),
+                    "retryable": response.status_code == 429 or response.status_code >= 500,
+                }
+            payload = response.json()
+            resources = payload
+            for segment in response_path or (collection_key,):
+                resources = resources.get(segment) if isinstance(resources, dict) else None
+            if not isinstance(resources, list):
+                return {"ok": False, "error": "قالب پاسخ فهرست Liara معتبر نیست."}
+            safe_resources = []
+            for item in resources:
+                if not isinstance(item, dict):
+                    continue
+                safe_resources.append({
+                    key: redact_text(str(item[key]), token)
+                    for key in ("id", "name", "domain", "status", "type", "planID", "created_at", "createdAt")
+                    if item.get(key) is not None
+                })
+            return {"ok": True, collection_key: safe_resources}
+        except Exception as error:
+            return {"ok": False, "error": redact_text(str(error), token), "retryable": True}
+
+    async def list_buckets_result(self, api_token: str, team_id: str | None = None) -> dict:
+        return await self._list_service_result(
+            host="https://storage-service.liara.ir",
+            path="/api/v1/buckets",
+            collection_key="buckets",
+            api_token=api_token,
+            team_id=team_id,
+        )
+
+    async def list_dns_zones_result(self, api_token: str, team_id: str | None = None) -> dict:
+        return await self._list_service_result(
+            host="https://dns-service.liara.ir",
+            path="/api/v1/zones",
+            collection_key="zones",
+            response_path=("data",),
+            api_token=api_token,
+            team_id=team_id,
+        )
+
+    async def list_mail_servers_result(self, api_token: str, team_id: str | None = None) -> dict:
+        return await self._list_service_result(
+            host="https://mail-service.liara.ir",
+            path="/api/v1/mails",
+            collection_key="mail_servers",
+            response_path=("data", "mailServers"),
+            api_token=api_token,
+            team_id=team_id,
+        )
+
+    async def get_latest_release_result(
+        self, app_id: str, api_token: str, team_id: str | None = None
+    ) -> dict:
+        """Read the latest release metadata through Liara's documented PaaS API."""
+        app = (app_id or "").strip()
+        token = (api_token or "").strip()
+        if not app or not token:
+            return {"ok": False, "error": "نام سرویس یا توکن Liara مشخص نیست."}
+        params = {"teamID": team_id.strip()} if team_id and team_id.strip() else None
+        headers = {"Authorization": f"Bearer {token}", "User-Agent": "LiaraAgent/0.1.0"}
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                response = await client.get(
+                    f"{self.base_url}/v1/projects/{app}/releases",
+                    headers=headers,
+                    params=params,
+                )
+            if response.status_code != 200:
+                return {
+                    "ok": False,
+                    "status_code": response.status_code,
+                    "retryable": response.status_code == 429 or response.status_code >= 500,
+                    "error": redact_text(response.text[:500], token),
+                }
+            data = response.json()
+            if not isinstance(data, dict):
+                return {"ok": False, "error": "پاسخ فهرست releaseهای Liara معتبر نبود."}
+            current_tag = data.get("currentRelease")
+            releases = data.get("releases", [])
+            current = next(
+                (item for item in releases if isinstance(item, dict) and item.get("tag") == current_tag),
+                releases[0] if releases and isinstance(releases[0], dict) else {},
+            )
+            return {
+                "ok": True,
+                "state": str(current.get("state") or "unknown"),
+                "tag": current.get("tag") or current_tag,
+                "current_release": current_tag,
+                "ready_releases_count": data.get("readyReleasesCount"),
+            }
+        except Exception as error:
+            return {
+                "ok": False,
+                "retryable": True,
+                "error": redact_text(str(error), token),
+            }
+
     async def set_environment_variables(
         self,
         app_name: str,

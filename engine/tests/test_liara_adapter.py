@@ -122,7 +122,8 @@ async def test_liara_get_services_requires_internal_secret():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.get(
-            "/liara/services?api_token=mock-token-123"
+            "/liara/services",
+            headers={"X-Liara-Token": "mock-token-123"},
         )
         assert response.status_code == 403
 
@@ -152,8 +153,11 @@ async def test_liara_get_services_returns_apps_and_databases():
     with patch.object(AsyncClient, "get", new=mock_get):
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             response = await client.get(
-                "/liara/services?api_token=valid-token-123",
-                headers={"X-Internal-Secret": TEST_SECRET},
+                "/liara/services",
+                headers={
+                    "X-Internal-Secret": TEST_SECRET,
+                    "X-Liara-Token": "valid-token-123",
+                },
             )
             assert response.status_code == 200
             data = response.json()
@@ -492,6 +496,69 @@ async def test_approved_create_api_uses_liara_contract_and_returns_confirmed_ser
     }
     assert provider_calls[0][2]["params"] == {"teamID": "team-42"}
     assert provider_calls[1][1].endswith("/v1/projects/simple-app")
+
+
+@pytest.mark.anyio
+async def test_latest_release_lookup_returns_the_current_release_state():
+    from httpx import Response
+    from engine.providers.liara_adapter import LiaraAdapter
+
+    async def mock_get(self, url, headers=None, params=None):
+        assert str(url).endswith("/v1/projects/demo-app/releases")
+        return Response(
+            status_code=200,
+            json={
+                "currentRelease": "v7",
+                "readyReleasesCount": 2,
+                "releases": [
+                    {"tag": "v6", "state": "ready"},
+                    {"tag": "v7", "state": "ready"},
+                ],
+            },
+        )
+
+    with patch("engine.providers.liara_adapter.httpx.AsyncClient.get", new=mock_get):
+        result = await LiaraAdapter().get_latest_release_result("demo-app", "token")
+
+    assert result == {
+        "ok": True,
+        "state": "ready",
+        "tag": "v7",
+        "current_release": "v7",
+        "ready_releases_count": 2,
+    }
+
+
+@pytest.mark.anyio
+async def test_service_catalog_reads_use_fixed_official_hosts_and_safe_fields():
+    from httpx import Response
+    from engine.providers.liara_adapter import LiaraAdapter
+
+    calls = []
+
+    async def mock_get(self, url, headers=None, params=None):
+        calls.append((str(url), params))
+        if "storage-service" in str(url):
+            return Response(status_code=200, json={"buckets": [{"name": "assets", "status": "ready", "accessKey": "never-return-this"}]})
+        if "dns-service" in str(url):
+            return Response(status_code=200, json={"status": "success", "data": [{"name": "example.com", "status": "active", "token": "never-return-this"}]})
+        return Response(status_code=200, json={"status": "success", "data": {"mailServers": [{"domain": "example.com", "status": "active", "password": "never-return-this"}]}})
+
+    with patch("engine.providers.liara_adapter.httpx.AsyncClient.get", new=mock_get):
+        adapter = LiaraAdapter()
+        buckets = await adapter.list_buckets_result("private-token", "team-9")
+        zones = await adapter.list_dns_zones_result("private-token", "team-9")
+        mails = await adapter.list_mail_servers_result("private-token", "team-9")
+
+    assert [call[0] for call in calls] == [
+        "https://storage-service.liara.ir/api/v1/buckets",
+        "https://dns-service.liara.ir/api/v1/zones",
+        "https://mail-service.liara.ir/api/v1/mails",
+    ]
+    assert all(call[1] == {"teamID": "team-9"} for call in calls)
+    assert buckets["buckets"] == [{"name": "assets", "status": "ready"}]
+    assert zones["zones"] == [{"name": "example.com", "status": "active"}]
+    assert mails["mail_servers"] == [{"domain": "example.com", "status": "active"}]
 
 
 

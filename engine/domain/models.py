@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 import hashlib
 import json
+from typing import Literal
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -177,6 +178,43 @@ class VerifyRequest(BaseModel):
     provider_status: str = "success"
     timeout_seconds: float = 5.0
     retries: int = 2
+
+
+class PostDeployCheckRequest(BaseModel):
+    app_id: str
+    api_token: str
+    team_id: str | None = None
+    endpoint_url: str | None = None
+    provider_deployment_state: str = "succeeded"
+    max_wait_seconds: int = Field(default=180, ge=0, le=180)
+
+
+class PostDeployCheckResult(BaseModel):
+    outcome: str
+    provider_deployment_state: str
+    provider_release_state: str | None = None
+    provider_release_warning: str | None = None
+    application_health: str
+    endpoint_url: str
+    http_status_code: int | None = None
+    runtime_logs_status: str
+    runtime_logs: str = ""
+    runtime_logs_warning: str | None = None
+    attempts: int
+    elapsed_seconds: float
+
+
+class ChatHistoryMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+
+class AgentChatRequest(BaseModel):
+    conversation_id: str
+    message: str = Field(min_length=1, max_length=8000)
+    history: list[ChatHistoryMessage] = Field(default_factory=list, max_length=20)
+    api_token: str
+    team_id: str | None = None
 
 
 class RemediationAction(BaseModel):

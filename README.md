@@ -130,9 +130,9 @@ cp .env.example apps/web/.env
 # 3. Start PostgreSQL container
 pnpm db:up
 
-# 4. Install Node dependencies & push Prisma schema
+# 4. Install Node dependencies & create/update the database schema from migrations
 pnpm install
-pnpm --filter web prisma:push
+pnpm db:migrate
 
 # 5. Initialize Python virtual environment
 python3 -m venv engine/.venv
@@ -144,7 +144,25 @@ pnpm dev
 ```
 
 Visit the Web Dashboard at: **[http://localhost:3000](http://localhost:3000)**  
-Sign in with operator credentials: `admin` / `change-this-password` (or configured in `.env`).
+Sign in with operator credentials from `.env` (`ADMIN_USERNAME` / `ADMIN_PASSWORD`). The template defaults are `admin` / `change-this-password`.
+
+### Database setup and migrations
+
+The checked-in initial migration creates the full schema from `apps/web/prisma/schema.prisma`, including the existing app tables and chat history. Use `pnpm db:migrate` for both new databases and databases already managed by Prisma Migrate. For a pre-existing database created with `prisma db push`, first compare its schema with the Prisma schema. If it matches exactly, mark the baseline as already applied with `pnpm --filter web exec prisma migrate resolve --applied 20261023000000_initial_schema`, then run `pnpm db:migrate`. Do not mark the baseline applied if the schema differs; back up the database and reconcile the differences first. `pnpm db:sync` remains available for disposable local development databases, but it does not create migration history and should not be used as the production migration workflow.
+
+Useful local commands:
+
+```bash
+pnpm db:up       # start PostgreSQL
+pnpm db:status   # check PostgreSQL container state
+pnpm db:migrate  # initialize a fresh database or apply pending migrations
+pnpm db:sync     # schema push for disposable local development databases only
+pnpm dev         # run the web app and Python engine
+```
+
+For Docker Compose, `pnpm docker:up` starts PostgreSQL, the engine, and the web container. Initialize the schema from the host with `pnpm db:migrate` before using the app. If `.env` values are changed, keep `DATABASE_URL` (host-side port `5432`) and `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` consistent. `apps/web/.env` is only needed when running Prisma commands from inside `apps/web` in tools that do not load the root `.env`.
+
+Liara credentials are forwarded from the web API to the engine in the `X-Liara-Token` header. Do not put API tokens in URLs or query parameters because HTTP access logs commonly record the full URL.
 
 ---
 

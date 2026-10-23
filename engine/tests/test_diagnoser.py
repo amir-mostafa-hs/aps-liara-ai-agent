@@ -54,29 +54,122 @@ def test_missing_runtime_logs_include_bounded_project_evidence_without_claiming_
 
 
 @pytest.mark.anyio
-async def test_runtime_log_fetch_reports_provider_failure_and_redacts_token(monkeypatch):
+async def test_runtime_log_fetch_uses_official_cli_and_redacts_secrets(monkeypatch):
     import asyncio
-    captured = []
 
-    class FailedProcess:
-        returncode = 1
+    captured = {}
+
+    class FakeProcess:
+        returncode = 0
 
         async def communicate(self):
-            return b"invalid token mock-liara-secret", b""
+            return (
+                b"2026-10-23T14:34:06 [stdout] Server listening\n"
+                b"2026-10-23T14:34:07 [stdout] mock-liara-secret\n",
+                b"release-v1 | 2026-10-23T14:34:08 | Missing SERVICE_SECRET\nPolling...\n",
+            )
 
     async def fake_subprocess(*args, **kwargs):
-        captured.extend(args)
-        return FailedProcess()
+        captured["args"] = list(args)
+        captured["kwargs"] = kwargs
+        return FakeProcess()
 
     monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_subprocess)
     result = await SREDiagnoser().fetch_runtime_logs_result(
-        "simple-app", api_token="mock-liara-secret", lines=9999,
+        "simple-app",
+        api_token="mock-liara-secret",
+        team_id="team-42",
+        lines=1,
     )
+
+    assert captured["args"][:3] == ["liara", "app", "logs"]
+    assert captured["args"][captured["args"].index("--app") + 1] == "simple-app"
+    assert captured["args"][captured["args"].index("--since") + 1] == "30 minutes ago"
+    assert "--timestamps" in captured["args"]
+    assert "--last-lines" in captured["args"]
+    assert captured["args"][captured["args"].index("--team-id") + 1] == "team-42"
+    assert "shell" not in captured["kwargs"]
+    assert "mock-liara-secret" not in result["logs"]
+    assert len(result["logs"].splitlines()) == 1
+    assert "Missing SERVICE_SECRET" in result["logs"]
+    assert "Polling..." not in result["logs"]
+    assert result["ok"] is True
+
+
+@pytest.mark.anyio
+async def test_runtime_log_fetch_treats_empty_cli_output_as_retryable(monkeypatch):
+    import asyncio
+
+    class FakeProcess:
+        returncode = 0
+
+        async def communicate(self):
+            return b"", b""
+
+    async def fake_subprocess(*args, **kwargs):
+        return FakeProcess()
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_subprocess)
+    result = await SREDiagnoser().fetch_runtime_logs_result("simple-app", api_token="token")
     assert result["ok"] is False
-    assert "mock-liara-secret" not in result["error"]
-    assert "--last-lines" in captured
-    assert "--timestamps" in captured
-    assert captured[captured.index("--since") + 1] == "30 minutes ago"
+    assert result["logs"] == ""
+    assert result["retryable"] is True
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("stdout", "expected_status", "expected_retryable"),
+    [
+        (b"HTTP 401 unauthorized", 401, False),
+        (b"HTTP 403 forbidden", 403, False),
+        (b"HTTP 503 temporarily unavailable", 503, True),
+        (b"App not found", 404, False),
+    ],
+)
+async def test_runtime_log_fetch_classifies_cli_failures(monkeypatch, stdout, expected_status, expected_retryable):
+    import asyncio
+
+    class FakeProcess:
+        returncode = 2
+
+        async def communicate(self):
+            return stdout, b""
+
+    async def fake_subprocess(*args, **kwargs):
+        return FakeProcess()
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_subprocess)
+    result = await SREDiagnoser().fetch_runtime_logs_result("simple-app", api_token="token")
+    assert result["ok"] is False
+    assert result["status_code"] == expected_status
+    assert result["retryable"] is expected_retryable
+
+
+@pytest.mark.anyio
+async def test_runtime_log_fetch_handles_missing_cli_and_timeouts(monkeypatch):
+    import asyncio
+
+    async def missing_cli(*args, **kwargs):
+        raise FileNotFoundError("liara missing")
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", missing_cli)
+    missing = await SREDiagnoser().fetch_runtime_logs_result("simple-app", api_token="token")
+    assert missing["ok"] is False
+    assert missing["retryable"] is False
+
+    class TimeoutProcess:
+        returncode = 1
+
+        async def communicate(self):
+            raise asyncio.TimeoutError()
+
+    async def timeout_cli(*args, **kwargs):
+        return TimeoutProcess()
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", timeout_cli)
+    timed_out = await SREDiagnoser().fetch_runtime_logs_result("simple-app", api_token="token")
+    assert timed_out["ok"] is False
+    assert timed_out["retryable"] is True
 
 
 def test_diagnoser_detects_app_not_found_on_liara():
@@ -237,22 +330,19 @@ async def test_sre_diagnoser_includes_team_id_in_commands(monkeypatch):
 
     monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_subprocess)
 
-    # 1. fetch_runtime_logs with team_id
-    await diagnoser.fetch_runtime_logs(
+    # Runtime logs use the documented CLI command with explicit account scope.
+    logs = await diagnoser.fetch_runtime_logs(
         app_id="aps-test",
         lines=50,
         api_token="mock-token",
         team_id="6ace4ec3ec13fe0c3c19c4db",
     )
-    assert len(captured_cmds) == 1
-    cmd = captured_cmds[0]
-    assert "--team-id" in cmd
-    assert "--last-lines" in cmd
-    assert "--timestamps" in cmd
-    idx = cmd.index("--team-id")
-    assert cmd[idx + 1] == "6ace4ec3ec13fe0c3c19c4db"
+    assert logs == "output"
+    assert captured_cmds[0][:3] == ["liara", "app", "logs"]
+    assert captured_cmds[0][captured_cmds[0].index("--api-token") + 1] == "mock-token"
+    assert captured_cmds[0][captured_cmds[0].index("--team-id") + 1] == "6ace4ec3ec13fe0c3c19c4db"
 
-    # 2. apply_remediation with team_id
+    # Environment mutation remains a fixed CLI operation with explicit team scope.
     remediation = RemediationAction(
         action_id="rem-team-1",
         operation="set_env",
@@ -277,10 +367,10 @@ async def test_sre_diagnoser_includes_team_id_in_commands(monkeypatch):
         team_id="6ace4ec3ec13fe0c3c19c4db",
     )
     assert len(captured_cmds) == 2
-    rem_cmd = captured_cmds[1]
-    assert "--team-id" in rem_cmd
-    rem_idx = rem_cmd.index("--team-id")
-    assert rem_cmd[rem_idx + 1] == "6ace4ec3ec13fe0c3c19c4db"
+    cmd = captured_cmds[1]
+    assert "--team-id" in cmd
+    idx = cmd.index("--team-id")
+    assert cmd[idx + 1] == "6ace4ec3ec13fe0c3c19c4db"
 
 
 
