@@ -33,6 +33,7 @@ htmlcov/
 *.swo
 .vscode/
 .idea/
+.claude/
 
 # Prisma generated engines (local binary cache if any)
 apps/web/prisma/*.db
