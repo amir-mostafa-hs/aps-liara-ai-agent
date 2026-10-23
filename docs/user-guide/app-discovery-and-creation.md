@@ -31,3 +31,4 @@ If your project requires a database (such as PostgreSQL):
 - The agent checks your active cloud inventory. If an existing database of the matching type is running, it offers to connect to it.
 - If no database is found, the agent renders `PlanSelectorCard` so you can choose a database plan.
 - Upon creation, internal private network hostnames and connection strings are generated and prepared for injection into the project's `.env` and `liara.json`.
+

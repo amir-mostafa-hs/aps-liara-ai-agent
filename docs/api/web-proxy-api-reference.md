@@ -205,3 +205,4 @@ Invokes the SRE intelligent diagnostics engine on deployment or runtime failures
 
 ### `POST /api/runs/[id]/remediate`
 Applies chosen remediation action (e.g. updating configuration, rolling back, or adjusting environment variables).
+

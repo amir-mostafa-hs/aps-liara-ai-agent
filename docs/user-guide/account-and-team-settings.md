@@ -28,3 +28,4 @@ Liara supports collaboration workspaces (Teams). The agent enables switching bet
    - To return to your personal account, choose **«حساب شخصی (بدون تیم)»** or leave the field blank.
 3. **Saving Team Changes:**
    - Click **«ذخیره تغییرات»**. All subsequent project listings, database provisioning calls, and deployments will automatically be scoped to that team (`?teamID=...`).
+

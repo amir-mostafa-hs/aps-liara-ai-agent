@@ -107,3 +107,4 @@ Probes live app URL for availability.
 
 ### `POST /agent/diagnose`
 Analyzes error logs and returns actionable remediation.
+

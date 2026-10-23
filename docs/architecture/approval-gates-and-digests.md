@@ -34,3 +34,4 @@ Before any file modification is written to disk (such as generating `liara.json`
 - Clearly demarcated additions and deletions.
 - Opt-in checkbox for persisting generated database credentials locally.
 - Explicit "اعمال خودکار تغییرات" button that records user consent before applying the changes.
+

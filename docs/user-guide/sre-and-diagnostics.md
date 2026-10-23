@@ -25,3 +25,4 @@ If a deployment fails or crashes at runtime:
    - **Build & Dependency Errors:** Node.js syntax errors, missing packages, or compilation crashes.
 3. **Adaptive Remediation:** Instead of generic prompts, the agent presents a context-aware remediation widget proposing exact fixes (e.g. creating the missing service, updating `liara.json` port, or injecting the missing env variable).
 4. **Operator Approval:** The operator reviews the proposed remediation and clicks **«تأیید و اجرای اصلاحات»** to automatically trigger healing.
+

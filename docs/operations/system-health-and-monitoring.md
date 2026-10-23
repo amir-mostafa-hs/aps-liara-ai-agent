@@ -55,3 +55,4 @@ The **Services** tab in the sidecar console manages live Liara Cloud state:
 - **Manual Trigger**: Dedicated refresh button (`بروزرسانی سرویس‌ها`) forces an immediate sync with Liara's REST API.
 - **Multi-Resource Sync**: Concurrently fetches both running web applications (`/v1/projects`) and managed databases (`/v1/databases`).
 - **Workspace Filtering**: If a specific team workspace is selected in Account Settings, only services belonging to that workspace are retrieved.
+

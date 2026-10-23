@@ -125,3 +125,4 @@ pnpm --filter web prisma:studio
 - [ ] Change `APP_SECRET` to protect user session cookies.
 - [ ] Bind ports `8000` and `5432` only to localhost (`127.0.0.1`) if exposing `web` (port `3000`) publicly behind Nginx or Caddy.
 - [ ] Never hardcode or commit tokens to version control.
+

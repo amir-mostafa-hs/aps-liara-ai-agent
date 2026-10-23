@@ -26,3 +26,4 @@ The agent interacts with third-party cloud infrastructure on behalf of the devel
 ### E. Service-to-Service Secret Authentication
 - **Rule:** The Python FastAPI engine only accepts requests from the Next.js server.
 - **Implementation:** All requests between Next.js API routes and the FastAPI engine must include the `X-Internal-Secret` header matching `INTERNAL_AGENT_SECRET`. Unauthenticated direct requests are rejected with HTTP 403.
+

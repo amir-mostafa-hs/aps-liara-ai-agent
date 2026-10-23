@@ -45,3 +45,4 @@ The **Liara AI Deployment & SRE Agent** is designed as a secure, hybrid dual-run
 2. **Security & Redaction by Default:** Cloud API credentials (Liara API tokens) are strictly stored at rest, masked in the UI (`••••••••XXXX`), and never passed into LLM prompt contexts. Subprocess outputs automatically scrub tokens before reaching frontend streams.
 3. **Conversational Disambiguation:** When project configuration is ambiguous (e.g. missing `liara.json`), the agent does not guess or hijack existing unrelated cloud applications; it presents interactive widgets directly in chat to let the user select an active app or provision a new one.
 4. **Deterministic Digest Verification:** Deployment and configuration actions require human-in-the-loop approval, verified via SHA-256 digest checks to prevent race conditions or tampering.
+
