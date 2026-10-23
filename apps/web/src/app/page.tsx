@@ -28,6 +28,17 @@ export default function HomePage() {
     username: "admin",
   });
   const [activeTeam, setActiveTeam] = useState<{ id: string; name: string } | null>(null);
+  const [accountSettings, setAccountSettings] = useState<{
+    configured: boolean;
+    maskedToken: string;
+    teamId: string;
+    teams?: Array<{ id: string; name: string }>;
+  }>({
+    configured: false,
+    maskedToken: "",
+    teamId: "",
+    teams: [],
+  });
 
   // Chat State
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -97,6 +108,78 @@ export default function HomePage() {
     }
   }, []);
 
+  const fetchAccountSettings = useCallback(async () => {
+    try {
+      const res = await fetch("/api/settings/liara-token");
+      if (res.ok) {
+        const data = await res.json();
+        setAccountSettings((prev) => ({
+          ...prev,
+          configured: Boolean(data.configured),
+          maskedToken: data.maskedToken || "",
+          teamId: data.teamId || "",
+        }));
+        if (data.teamId) {
+          setActiveTeam({ id: data.teamId, name: "تیم فعال" });
+        } else {
+          setActiveTeam(null);
+        }
+      }
+    } catch {}
+  }, []);
+
+  const handleUpdateAccountSettings = async (payload: { token?: string; teamId?: string }) => {
+    try {
+      const res = await fetch("/api/settings/liara-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        return { ok: false, error: data.error || "خطا در ذخیره‌سازی تنظیمات" };
+      }
+      setAccountSettings((prev) => ({
+        ...prev,
+        configured: Boolean(data.configured),
+        maskedToken: data.maskedToken || prev.maskedToken,
+        teamId: data.teamId !== undefined ? data.teamId : prev.teamId,
+      }));
+      if (data.teamId) {
+        setActiveTeam({ id: data.teamId, name: "تیم فعال" });
+      } else {
+        setActiveTeam(null);
+      }
+      fetchLiveServices();
+      return { ok: true };
+    } catch (err: unknown) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  };
+
+  const handleTestConnection = async (payload?: { api_token?: string; team_id?: string }) => {
+    try {
+      const res = await fetch("/api/liara/test-connection", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload || {}),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        if (Array.isArray(data.teams)) {
+          setAccountSettings((prev) => ({
+            ...prev,
+            teams: data.teams,
+          }));
+        }
+        return { ok: true, teams: data.teams };
+      }
+      return { ok: false, error: data.error || "خطا در تست اتصال به لیارا" };
+    } catch (err: unknown) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  };
+
   // Check auth and initial status on mount
   useEffect(() => {
     fetch("/api/auth/me")
@@ -118,21 +201,14 @@ export default function HomePage() {
     fetchLiveServices();
     const servicesInterval = setInterval(fetchLiveServices, 60000);
 
-    // Fetch team settings
-    fetch("/api/settings/liara-token")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.teamId) {
-          setActiveTeam({ id: data.teamId, name: "تیم فعال" });
-        }
-      })
-      .catch(() => {});
+    // Fetch team and account settings
+    fetchAccountSettings();
 
     return () => {
       clearInterval(healthInterval);
       clearInterval(servicesInterval);
     };
-  }, [router, checkSystemHealth, fetchLiveServices]);
+  }, [router, checkSystemHealth, fetchLiveServices, fetchAccountSettings]);
 
   // Handle Source Ingestion from Widget
   const handleSourceIngested = async (sourcePath: string, type: string) => {
@@ -693,6 +769,9 @@ export default function HomePage() {
           isRefreshingServices={isRefreshingServices}
           onSelectService={setSelectedApp}
           selectedServiceName={selectedApp}
+          accountSettings={accountSettings}
+          onUpdateAccountSettings={handleUpdateAccountSettings}
+          onTestConnection={handleTestConnection}
         />
 
         {/* Right Chat Space */}

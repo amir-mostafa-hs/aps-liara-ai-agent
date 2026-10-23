@@ -28,15 +28,15 @@ test("Chat message model maintains valid role, content, and optional widget data
   assert.equal(agentMsg.widget.type, "plan_selector");
 });
 
-test("Sidecar console state transitions correctly between terminal, services, and health tabs", () => {
+test("Sidecar console state transitions correctly between terminal, services, health, and settings tabs", () => {
   const initialSidecarState = {
-    activeTab: "terminal", // terminal | services | health
+    activeTab: "terminal", // terminal | services | health | settings
     isCollapsed: false,
     terminalLines: ["[AGENT] آماده دریافت دستورات..."],
   };
 
   const setTab = (state, tab) => {
-    assert.ok(["terminal", "services", "health"].includes(tab));
+    assert.ok(["terminal", "services", "health", "settings"].includes(tab));
     return { ...state, activeTab: tab };
   };
 
@@ -48,7 +48,10 @@ test("Sidecar console state transitions correctly between terminal, services, an
   const state1 = setTab(initialSidecarState, "services");
   assert.equal(state1.activeTab, "services");
 
-  const state2 = toggleCollapsed(state1);
+  const stateSettings = setTab(state1, "settings");
+  assert.equal(stateSettings.activeTab, "settings");
+
+  const state2 = toggleCollapsed(stateSettings);
   assert.equal(state2.isCollapsed, true);
 
   const state3 = toggleCollapsed(state2);
