@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, resolveLiaraCredentials } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isEnvironmentApprovalValid } from "@/lib/env-preflight";
 
@@ -14,8 +14,7 @@ export async function POST(req: NextRequest) {
     }
 
     const dbUser = await prisma.user.findUnique({ where: { username: user.username } });
-    const token = dbUser?.liaraToken || process.env.LIARA_API_TOKEN || "";
-    const teamId = dbUser?.liaraTeamId || process.env.LIARA_TEAM_ID || "";
+    const { token, teamId } = resolveLiaraCredentials(user.username, dbUser);
 
     const body = await req.json().catch(() => ({}));
     const { appName, envVars, approval } = body;

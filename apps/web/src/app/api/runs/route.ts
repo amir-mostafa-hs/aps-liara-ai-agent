@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, resolveLiaraCredentials } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { computePlanDigest } from "@/lib/plan-digest";
 
@@ -117,8 +117,7 @@ export async function POST(req: NextRequest) {
 
     const resolvedTeamId =
       (typeof teamId === "string" && teamId.trim()) ||
-      dbUser?.liaraTeamId ||
-      process.env.LIARA_TEAM_ID ||
+      resolveLiaraCredentials(user.username, dbUser).teamId ||
       undefined;
 
     // 3. Persist Run in PostgreSQL with awaiting_approval status

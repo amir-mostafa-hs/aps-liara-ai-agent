@@ -9,6 +9,29 @@ export function getExpectedAdminCredentials() {
   };
 }
 
+export function getExpectedDemoCredentials() {
+  const username = process.env.DEMO_USERNAME?.trim();
+  const password = process.env.DEMO_PASSWORD;
+  if (!username || !password) return null;
+  return { username, password };
+}
+
+export function isDemoUsername(username: string | undefined): boolean {
+  const demo = getExpectedDemoCredentials();
+  return Boolean(demo && username === demo.username);
+}
+
+export function resolveLiaraCredentials(
+  username: string | undefined,
+  user: { liaraToken: string | null; liaraTeamId: string | null } | null | undefined,
+) {
+  const allowEnvironmentFallback = Boolean(username) && !isDemoUsername(username);
+  return {
+    token: user?.liaraToken || (allowEnvironmentFallback ? process.env.LIARA_API_TOKEN || "" : ""),
+    teamId: user?.liaraTeamId || (allowEnvironmentFallback ? process.env.LIARA_TEAM_ID || "" : ""),
+  };
+}
+
 export function maskToken(token?: string | null): string {
   if (!token || token.trim().length === 0) {
     return "";

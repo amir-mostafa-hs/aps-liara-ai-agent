@@ -23,7 +23,14 @@ if [ -z "${ADMIN_PASSWORD:-}" ] || [ "$ADMIN_PASSWORD" = "admin123" ] || [ "$ADM
   exit 1
 fi
 
-pnpm --filter web prisma:migrate
-pnpm --filter web exec node scripts/ensure-admin.mjs
+cd /app/apps/web
+
+# Dependencies and the Prisma client are prepared in the image. Calling the
+# binaries directly avoids pnpm's runtime dependency verification, which tries
+# to rewrite /app/node_modules after the image has switched to the agent user.
+./node_modules/.bin/prisma migrate deploy
+node scripts/ensure-admin.mjs
+
+cd /app
 
 exec supervisord -n -c /etc/supervisor/conf.d/liara-agent.conf

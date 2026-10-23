@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, resolveLiaraCredentials } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(
@@ -19,7 +19,8 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "اجازهٔ دسترسی به این اجرا را ندارید." }, { status: 403 });
   }
 
-  const token = user.liaraToken || process.env.LIARA_API_TOKEN || "";
+  const activeCredentials = resolveLiaraCredentials(session.username, user);
+  const token = activeCredentials.token;
   if (!token.trim()) {
     return NextResponse.json({ ok: false, error: "توکن Liara برای بررسی وضعیت و لاگ لازم است." }, { status: 400 });
   }
@@ -36,7 +37,7 @@ export async function POST(
       body: JSON.stringify({
         app_id: run.targetApp,
         api_token: token,
-        team_id: run.teamId || user.liaraTeamId || process.env.LIARA_TEAM_ID || undefined,
+        team_id: run.teamId || activeCredentials.teamId || undefined,
         provider_deployment_state: "succeeded",
         max_wait_seconds: 180,
       }),

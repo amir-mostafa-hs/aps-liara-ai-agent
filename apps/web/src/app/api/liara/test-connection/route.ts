@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isDemoUsername, resolveLiaraCredentials } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(req: NextRequest) {
   try {
     const user = await getCurrentUser();
+    if (!user.authenticated || !user.username) {
+      return NextResponse.json({ ok: false, error: "برای بررسی اتصال ابتدا وارد حساب شوید." }, { status: 401 });
+    }
+    if (isDemoUsername(user.username)) {
+      return NextResponse.json({ ok: false, error: "حساب نمایشی عمومی امکان اتصال به حساب Liara را ندارد." }, { status: 403 });
+    }
     const body = await req.json().catch(() => ({}));
     let token = typeof body.api_token === "string" ? body.api_token.trim() : "";
     let teamId = typeof body.team_id === "string" ? body.team_id.trim() : "";
@@ -17,23 +23,9 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (!token) {
-      if (dbUser?.liaraToken) {
-        token = dbUser.liaraToken;
-      }
-      if (!token) {
-        token = process.env.LIARA_API_TOKEN || "";
-      }
-    }
-
-    if (!teamId) {
-      if (dbUser?.liaraTeamId) {
-        teamId = dbUser.liaraTeamId;
-      }
-      if (!teamId) {
-        teamId = process.env.LIARA_TEAM_ID || "";
-      }
-    }
+    const saved = resolveLiaraCredentials(user.username, dbUser);
+    if (!token) token = saved.token;
+    if (!teamId) teamId = saved.teamId;
 
     if (!token || token.trim().length === 0) {
       return NextResponse.json(

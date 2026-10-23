@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, resolveLiaraCredentials } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(
@@ -17,6 +17,7 @@ export async function POST(
 
   try {
     const dbUser = await prisma.user.findUnique({ where: { username: user.username } });
+    const activeCredentials = resolveLiaraCredentials(user.username, dbUser);
     const engineUrl = process.env.ENGINE_URL || "http://127.0.0.1:8000";
     const internalSecret = process.env.INTERNAL_AGENT_SECRET || "dev-internal-secret-change-me";
     const response = await fetch(`${engineUrl}/agent/runtime-logs`, {
@@ -25,8 +26,8 @@ export async function POST(
       body: JSON.stringify({
         app_id: run.targetApp || "unknown",
         lines: 100,
-        api_token: dbUser?.liaraToken || process.env.LIARA_API_TOKEN || "",
-        team_id: run.teamId || dbUser?.liaraTeamId || process.env.LIARA_TEAM_ID || undefined,
+        api_token: activeCredentials.token,
+        team_id: run.teamId || activeCredentials.teamId || undefined,
       }),
       cache: "no-store",
     });

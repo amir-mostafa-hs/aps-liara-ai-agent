@@ -18,18 +18,24 @@ WORKDIR /app
 
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/web/package.json ./apps/web/package.json
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --prefer-offline
+
+# Keep Python dependency installation independent from engine source changes.
+# The project dependency list stays canonical in pyproject.toml.
+COPY engine/pyproject.toml ./engine/pyproject.toml
+RUN python3 -c "import subprocess,sys,tomllib; deps=tomllib.load(open('engine/pyproject.toml','rb'))['project']['dependencies']; subprocess.run([sys.executable,'-m','pip','install','--no-cache-dir','--break-system-packages',*deps],check=True)"
 
 COPY apps/web ./apps/web
+RUN pnpm --filter web build
+
+# These change more often than dependency manifests and are not needed for the
+# Next.js build, so copying them afterwards preserves the expensive build layers.
 COPY engine ./engine
 COPY sample-apps ./sample-apps
 
-RUN pnpm --filter web prisma:generate \
-    && pnpm --filter web build \
-    && pip3 install --no-cache-dir --break-system-packages ./engine \
-    && useradd --create-home --shell /usr/sbin/nologin agent \
-    && mkdir -p /app/apps/web/.workspace \
-    && chown -R agent:agent /app /home/agent
+RUN useradd --create-home --shell /usr/sbin/nologin agent \
+    && mkdir -p /app/apps/web/.workspace /app/apps/web/.next/cache \
+    && chown -R agent:agent /app/apps/web/.workspace /app/apps/web/.next/cache /home/agent
 
 COPY deploy/liara-entrypoint.sh /usr/local/bin/liara-entrypoint
 COPY deploy/supervisord.conf /etc/supervisor/conf.d/liara-agent.conf
