@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Lock, User, ArrowRight, ShieldCheck, AlertCircle } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -25,83 +25,112 @@ export default function LoginPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Authentication failed");
+        setError(data.error || "خطا در احراز هویت");
       } else {
         router.push("/");
         router.refresh();
       }
     } catch {
-      setError("Unable to connect to server. Check network connection.");
+      setError("امکان برقراری ارتباط با سرور وجود ندارد.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-[75vh] items-center justify-center">
-      <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900/80 p-8 shadow-2xl backdrop-blur">
-        <div className="mb-8 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 font-bold text-white shadow-lg shadow-blue-500/20">
-            <ShieldCheck className="h-6 w-6" />
+    <div className="h-full w-full grid lg:grid-cols-2 bg-[#0c0c0e] bg-grid text-zinc-200">
+      {/* Form side */}
+      <main className="relative grid place-items-center p-6 overflow-hidden">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/assets/bg-cyan.webp"
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover opacity-20 pointer-events-none"
+        />
+        <div className="relative w-full max-w-md rounded-none border border-zinc-800 bg-zinc-950/90 backdrop-blur p-8 shadow-none">
+          <div className="flex items-center gap-3 mb-8">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/assets/logo.webp"
+              alt="لوگوی ایجنت هوشمند لیارا"
+              className="ico w-14 h-14"
+            />
+            <div>
+              <h1 className="text-lg font-bold text-zinc-100">ایجنت هوشمند لیارا</h1>
+              <p className="text-xs font-mono text-zinc-400">OPERATOR SECURE ACCESS</p>
+            </div>
           </div>
-          <h2 className="text-2xl font-bold tracking-tight text-zinc-100">Operator Access</h2>
-          <p className="mt-1 text-xs text-zinc-400">
-            Sign in to access the Liara Deployment & SRE dashboard
-          </p>
-        </div>
 
-        {error && (
-          <div className="mb-6 flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
+          {error && (
+            <div className="mb-6 flex items-center gap-2 rounded-none border border-rose-500/30 bg-rose-500/10 p-3 text-xs font-mono text-rose-300">
+              <AlertCircle className="h-4 w-4 shrink-0 text-rose-400" />
+              <span>{error}</span>
+            </div>
+          )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-300">Username</label>
-            <div className="relative">
-              <User className="absolute left-3 top-2.5 h-4 w-4 text-zinc-500" />
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <label className="block">
+              <span className="text-xs font-mono text-zinc-400">نام کاربری</span>
               <input
                 type="text"
+                dir="ltr"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-9 pr-3 text-sm text-zinc-100 placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
+                className="mt-1.5 w-full rounded-none bg-zinc-900 border border-zinc-800 px-3.5 py-2.5 font-mono text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-colors"
                 placeholder="admin"
               />
-            </div>
-          </div>
+            </label>
 
-          <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-300">Password</label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-2.5 h-4 w-4 text-zinc-500" />
+            <label className="block">
+              <span className="text-xs font-mono text-zinc-400">رمز عبور</span>
               <input
                 type="password"
+                dir="ltr"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-9 pr-3 text-sm text-zinc-100 placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
-                placeholder="Enter password"
+                placeholder="••••••••"
+                className="mt-1.5 w-full rounded-none bg-zinc-900 border border-zinc-800 px-3.5 py-2.5 font-mono text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-colors"
               />
-            </div>
-            <p className="mt-1 text-[11px] text-zinc-500">
-              Default password configured in <code className="text-zinc-400">.env</code>
-            </p>
-          </div>
+            </label>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-2.5 text-sm font-medium text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-500 disabled:opacity-50"
-          >
-            {loading ? "Authenticating..." : "Sign In to Dashboard"}
-            <ArrowRight className="h-4 w-4" />
-          </button>
-        </form>
-      </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 rounded-none bg-gradient-to-l from-liara to-mint py-2.5 font-mono text-xs font-semibold text-zinc-950 hover:brightness-110 focus:outline-none disabled:opacity-50 transition-all cursor-pointer shadow-sm"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin text-zinc-950" />
+                  <span>در حال احراز هویت...</span>
+                </>
+              ) : (
+                "ورود به فضای کاری"
+              )}
+            </button>
+          </form>
+
+          <p className="mt-6 flex gap-2 text-xs leading-6 text-zinc-400">
+            <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-none bg-mint"></span>
+            نشست شما در کوکی امن (HttpOnly) نگهداری می‌شود تا عملیات زیرساختی ناخواسته اجرا نشود.
+          </p>
+        </div>
+      </main>
+
+      {/* Hero side */}
+      <aside className="relative hidden lg:grid place-items-center overflow-hidden border-r border-zinc-800 bg-zinc-950/80">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/assets/login-hero.webp"
+          alt="Liara Infrastructure Agent"
+          className="absolute inset-0 w-full h-full object-cover opacity-80"
+        />
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#0c0c0e] via-[#0c0c0e]/80 to-transparent p-10 pt-32">
+          <h2 className="text-xl font-bold leading-9 text-zinc-100">زیرساخت خود را با یک گفت‌وگو مدیریت کنید</h2>
+          <p className="mt-1 text-xs leading-6 text-zinc-400">دپلوی، رفع خطا و پایش سرویس‌ها، همه با تأیید شما.</p>
+        </div>
+      </aside>
     </div>
   );
 }
-

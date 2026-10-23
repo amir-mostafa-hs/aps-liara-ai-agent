@@ -46,6 +46,7 @@ export default function HomePage() {
     teams: [],
   });
 
+
   // Chat State
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -990,7 +991,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="flex flex-col h-full w-full bg-zinc-950 text-zinc-100 overflow-hidden">
+    <div className="flex flex-col h-full w-full bg-[#0c0c0e] bg-grid text-zinc-200 overflow-hidden">
       {/* Top Header */}
       <Header
         username={user.username}
@@ -1000,8 +1001,24 @@ export default function HomePage() {
       />
 
       {/* Main Dual Workspace Area */}
-      <div className="flex-1 flex flex-col-reverse lg:flex-row overflow-hidden relative">
-        {/* Left Sidecar Console (Terminal, Services & Status) */}
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden relative">
+        {/* Chat Space */}
+        <section className="flex-1 min-h-0 min-w-0 flex flex-col relative overflow-hidden">
+          <ChatMessageList
+            messages={messages}
+            isStreaming={isStreaming}
+            renderWidget={renderWidget}
+            onStartDeploy={() => handleSendMessage("می‌خواهم پروژه sample-apps/nodejs-demo را روی لیارا دیپلوی کنم.")}
+            onShowGuide={() => handleSendMessage("راهنمای گام‌به‌گام دپلوی و قابلیت‌های ایجنت هوشمند را توضیح بده.")}
+            onSelectPrompt={handleSendMessage}
+          />
+          <ChatInput
+            onSendMessage={handleSendMessage}
+            isLoading={isStreaming}
+          />
+        </section>
+
+        {/* Sidecar Console (Terminal, Services & Health) */}
         <SidecarConsole
           logs={terminalLogs}
           services={services}
@@ -1018,19 +1035,6 @@ export default function HomePage() {
           onUpdateAccountSettings={handleUpdateAccountSettings}
           onTestConnection={handleTestConnection}
         />
-
-        {/* Right Chat Space */}
-        <main className="flex-1 flex flex-col bg-zinc-950/40 relative overflow-hidden">
-          <ChatMessageList
-            messages={messages}
-            isStreaming={isStreaming}
-            renderWidget={renderWidget}
-          />
-          <ChatInput
-            onSendMessage={handleSendMessage}
-            isLoading={isStreaming}
-          />
-        </main>
       </div>
     </div>
   );

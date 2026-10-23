@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { Loader2 } from "lucide-react";
 
 export interface PlanTier {
   plan_id: string;
@@ -34,38 +35,29 @@ interface PlanSelectorCardProps {
 export const DEFAULT_PLANS: PlanTier[] = [
   {
     plan_id: "ir-standard-1",
-    name_fa: "اقتصادی",
-    ram: "512 MB",
+    name_fa: "پایه (اقتصادی)",
+    ram: "512 مگابایت",
     cpu: "0.25 هسته",
-    disk: "10 GB SSD",
+    disk: "10 گیگابایت SSD",
     price_monthly: 60000,
     is_recommended: false,
   },
   {
     plan_id: "ir-standard-2",
     name_fa: "استاندارد",
-    ram: "1024 MB (1 GB)",
+    ram: "1 گیگابایت",
     cpu: "0.5 هسته",
-    disk: "20 GB SSD",
+    disk: "20 گیگابایت SSD",
     price_monthly: 120000,
     is_recommended: true,
   },
   {
     plan_id: "ir-standard-4",
     name_fa: "حرفه‌ای",
-    ram: "2048 MB (2 GB)",
+    ram: "2 گیگابایت",
     cpu: "1 هسته",
-    disk: "40 GB SSD",
+    disk: "40 گیگابایت SSD",
     price_monthly: 240000,
-    is_recommended: false,
-  },
-  {
-    plan_id: "ir-standard-8",
-    name_fa: "تجاری",
-    ram: "4096 MB (4 GB)",
-    cpu: "2 هسته",
-    disk: "60 GB SSD",
-    price_monthly: 480000,
     is_recommended: false,
   },
 ];
@@ -145,20 +137,9 @@ export function PlanSelectorCard({
     }
   };
 
-  const dbIcon =
-    primaryDb.db_type.includes("postgres")
-      ? "🐘"
-      : primaryDb.db_type.includes("redis")
-      ? "⚡"
-      : primaryDb.db_type.includes("mongo")
-      ? "🍃"
-      : primaryDb.db_type.includes("mysql")
-      ? "🐬"
-      : "🗄️";
-
   if (cancelled) {
     return (
-      <div className="mt-3 rounded-xl border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+      <div className="rounded-none border border-zinc-800 bg-zinc-950/80 p-3 text-xs font-mono text-zinc-400">
         ساخت دیتابیس توسط کاربر لغو گردید.
       </div>
     );
@@ -166,139 +147,146 @@ export function PlanSelectorCard({
 
   if (created) {
     return (
-      <div className="mt-3 rounded-xl border border-emerald-500/40 bg-emerald-950/20 p-4 text-emerald-300">
-        <div className="flex items-center gap-2 font-bold text-sm">
-          <span>✔</span>
-          <span>پایگاه‌داده {dbName} با موفقیت روی لیارا ایجاد شد.</span>
+      <article className="relative overflow-hidden rounded-none border border-emerald-500/30 bg-emerald-500/[.04] p-5 shadow-none">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/assets/state-success.webp"
+          alt=""
+          className="absolute inset-y-0 left-0 h-full w-1/2 object-cover opacity-80 [mask-image:linear-gradient(to_right,#000_30%,transparent)] pointer-events-none"
+        />
+        <div className="relative sm:w-3/5 mr-auto space-y-1">
+          <h3 className="font-bold text-emerald-300 text-base">دیتابیس آماده شد</h3>
+          <p className="t">
+            پایگاه‌داده <b className="text-emerald-200">{dbName}</b> با موفقیت ایجاد شد و اطلاعات اتصال در متغیرها تنظیم گردید.
+          </p>
         </div>
-        <p className="mt-1 text-xs text-emerald-400/80">
-          مشخصات اتصال جهت تزریق خودکار به متغیرهای محیطی برنامه آماده است.
-        </p>
-      </div>
+      </article>
     );
   }
 
   return (
-    <div className="mt-4 rounded-2xl border border-border bg-card/60 p-4 shadow-sm backdrop-blur">
-      <div className="flex items-center justify-between pb-3 border-b border-border/60">
-        <div className="flex items-center gap-2">
-          <span className="text-xl">{dbIcon}</span>
+    <article className="card w-full !items-stretch flex-col space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+        <div className="flex items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/assets/icon-db.webp" alt="" className="ico fl !w-10 !h-10" />
           <div>
-            <h4 className="text-sm font-semibold text-foreground">
-              ایجاد سرویس پایگاه‌داده {primaryDb.db_type.toUpperCase()} روی لیارا
-            </h4>
-            <p className="text-xs text-muted-foreground">
-              درایور شناسایی‌شده: <code className="text-primary">{primaryDb.driver_or_orm}</code> (پورت {primaryDb.default_port})
+            <h3 className="font-bold text-zinc-100 text-base">
+              پلن دیتابیس {primaryDb.db_type.toUpperCase()}
+            </h3>
+            <p className="text-xs text-zinc-400 mt-0.5">
+              درایور شناسایی‌شده: <code className="text-liara font-mono">{primaryDb.driver_or_orm}</code> (پورت {primaryDb.default_port})
             </p>
           </div>
         </div>
-        <span className="text-xs rounded-full bg-primary/10 text-primary px-2.5 py-0.5 font-medium border border-primary/20">
-          تأیید اپراتور الزامی است
+        <span className="pill border border-liara/30 bg-liara/10 text-liara">
+          تأیید اپراتور
         </span>
       </div>
 
-      {/* Database Name Input */}
-      <div className="mt-4">
-        <label className="block text-xs font-medium text-foreground mb-1">
-          شناسه / نام هاست دیتابیس در لیارا:
-        </label>
+      {/* Database Name */}
+      <div className="space-y-1.5">
+        <label className="text-xs text-zinc-400 font-medium">نام هاست دیتابیس در لیارا:</label>
         <input
           type="text"
+          dir="ltr"
           value={dbName}
           onChange={(e) => setDbName(e.target.value)}
           disabled={loading || disabled}
-          placeholder="e.g. my-postgres-db"
-          dir="ltr"
-          className="w-full text-left font-mono rounded-lg border border-border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+          placeholder="e.g. app-postgres-db"
+          className="inp"
         />
       </div>
 
-      {/* Plan Tiers Selection */}
-      <div className="mt-4">
-        <label className="block text-xs font-medium text-foreground mb-2">
-          انتخاب پلن منابع سخت‌افزاری:
-        </label>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+      {/* Plans Grid */}
+      <div className="space-y-2">
+        <label className="text-xs text-zinc-400 font-medium">انتخاب پلن سخت‌افزاری:</label>
+        <div className="grid sm:grid-cols-3 gap-3">
           {plans.map((p) => {
             const isSelected = selectedPlan === p.plan_id;
             return (
-              <button
+              <div
                 key={p.plan_id}
-                type="button"
-                onClick={() => setSelectedPlan(p.plan_id)}
-                disabled={loading || disabled}
-                className={`relative flex flex-col items-start p-3 rounded-xl border text-right transition-all cursor-pointer ${
+                onClick={() => !loading && !disabled && setSelectedPlan(p.plan_id)}
+                className={`plan relative cursor-pointer ${
                   isSelected
-                    ? "border-primary bg-primary/10 shadow-sm"
-                    : "border-border hover:border-border/80 bg-background/50 hover:bg-background/80"
+                    ? "border-liara bg-liara/10 shadow-[0_0_20px_-8px_#2cc4f4]"
+                    : "border-zinc-800 bg-zinc-950/60 hover:border-zinc-700"
                 }`}
               >
-                {p.is_recommended && (
-                  <span className="absolute top-2 left-2 text-[10px] bg-primary text-primary-foreground font-semibold px-2 py-0.5 rounded-full">
-                    پیشنهادی
-                  </span>
-                )}
-                <div className="flex items-center gap-1.5 font-medium text-xs text-foreground">
-                  <span>{p.name_fa}</span>
-                  <span className="font-mono text-[11px] text-muted-foreground">({p.plan_id})</span>
+                <div className="flex items-center justify-between">
+                  <b className="text-zinc-100 text-sm">{p.name_fa}</b>
+                  {p.is_recommended && (
+                    <span className="pill bg-emerald-400/20 text-emerald-300 border border-emerald-400/40 text-[10px]">
+                      پیشنهادی
+                    </span>
+                  )}
                 </div>
-                <div className="mt-1 text-[11px] text-muted-foreground space-y-0.5">
-                  <div>رم: <span className="font-semibold text-foreground">{p.ram}</span> | پردازنده: <span className="font-semibold text-foreground">{p.cpu}</span></div>
-                  <div>دیسک: <span className="font-semibold text-foreground">{p.disk}</span></div>
-                </div>
-                <div className="mt-2 text-xs font-semibold text-primary">
-                  {p.price_monthly.toLocaleString()} تومان / ماه
-                </div>
-              </button>
+
+                <dl className="mt-3 space-y-1.5">
+                  <div className="row">
+                    <dt>رم</dt>
+                    <dd>{p.ram}</dd>
+                  </div>
+                  <div className="row">
+                    <dt>CPU</dt>
+                    <dd>{p.cpu}</dd>
+                  </div>
+                  <div className="row">
+                    <dt>SSD</dt>
+                    <dd>{p.disk}</dd>
+                  </div>
+                </dl>
+
+                <p className="mt-3 text-sm font-bold text-liara">
+                  {p.price_monthly ? (
+                    <>
+                      {p.price_monthly.toLocaleString("fa-IR")} تومان
+                      <span className="text-xs font-normal text-zinc-500"> / ماه</span>
+                    </>
+                  ) : (
+                    "رایگان یا بر اساس مصرف"
+                  )}
+                </p>
+              </div>
             );
           })}
         </div>
       </div>
 
       {error && (
-        <div className="mt-3 rounded-lg bg-rose-500/10 border border-rose-500/20 p-2.5 text-xs text-rose-400">
+        <p className="text-xs font-mono text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-none p-2">
           {error}
-        </div>
+        </p>
       )}
 
-      {/* Action Button */}
-      <div className="mt-4 pt-3 border-t border-border/60 flex items-center justify-between">
-        <span className="text-[11px] text-muted-foreground">
-          هزینه بر اساس مصرف دقیق ساعتی در حساب لیارا محاسبه می‌شود.
-        </span>
-        <div className="flex items-center gap-2">
+      {/* Buttons */}
+      <div className="flex items-center gap-2 pt-2">
+        <button
+          type="button"
+          onClick={handleCreate}
+          disabled={loading || disabled}
+          className="b1 flex items-center justify-center gap-2"
+        >
+          {loading && <Loader2 className="h-4 w-4 animate-spin text-zinc-950" />}
+          <span>ساخت دیتابیس</span>
+        </button>
+
+        {onCancel && (
           <button
             type="button"
             onClick={() => {
               setCancelled(true);
-              if (onCancel) onCancel();
+              onCancel();
             }}
             disabled={loading || disabled}
-            className="rounded-xl border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted transition-all cursor-pointer"
+            className="b0"
           >
             انصراف
           </button>
-          <button
-            type="button"
-            onClick={handleCreate}
-            disabled={loading || disabled || !dbName.trim()}
-            className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-50 cursor-pointer shadow"
-          >
-            {loading ? (
-              <>
-                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                <span>در حال ایجاد در لیارا...</span>
-              </>
-            ) : (
-              <>
-                <span>⚡</span>
-                <span>ایجاد دیتابیس در لیارا</span>
-              </>
-            )}
-          </button>
-        </div>
+        )}
       </div>
-    </div>
+    </article>
   );
 }
-

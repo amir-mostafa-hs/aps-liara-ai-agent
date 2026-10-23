@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Key, Eye, EyeOff, CheckCircle2, ExternalLink, ArrowLeft, Shield } from "lucide-react";
+import { Eye, EyeOff, CheckCircle2, Loader2, ExternalLink } from "lucide-react";
 
 interface TokenInputWidgetProps {
   onTokenSaved?: (maskedToken: string, teams?: any[]) => void;
@@ -16,10 +16,36 @@ export function TokenInputWidget({
   const [teamId, setTeamId] = useState("");
   const [showToken, setShowToken] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testStatus, setTestStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(
     initialTokenMasked ? `توکن فعال: ${initialTokenMasked}` : null
   );
+
+  const handleTestConnection = async () => {
+    if (!token.trim()) return;
+    setTesting(true);
+    setError(null);
+    setTestStatus(null);
+    try {
+      const res = await fetch("/api/liara/test-connection", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ api_token: token.trim(), team_id: teamId.trim() || undefined }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setTestStatus("اتصال برقرار است. توکن معتبر می‌باشد.");
+      } else {
+        setError(data.error || "اتصال با خطا مواجه شد.");
+      }
+    } catch {
+      setError("خطا در برقراری ارتباط با سرویس تست.");
+    } finally {
+      setTesting(false);
+    }
+  };
 
   const handleSave = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -42,7 +68,7 @@ export function TokenInputWidget({
       const data = await res.json();
       if (!data.ok) throw new Error(data.error);
 
-      setSuccess(`توکن با موفقیت در پروفایل شما ذخیره شد: ${data.maskedToken}`);
+      setSuccess(`توکن با موفقیت در نشست شما ذخیره شد: ${data.maskedToken}`);
       setToken("");
       if (onTokenSaved) {
         onTokenSaved(data.maskedToken, data.teams);
@@ -55,102 +81,109 @@ export function TokenInputWidget({
   };
 
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-zinc-950/80 p-4 w-full flex flex-col gap-3.5 shadow-lg">
-      {/* Educational Guide Header */}
-      <div className="flex items-start gap-3 border-b border-zinc-800/80 pb-3">
-        <div className="h-9 w-9 rounded-xl bg-blue-600/10 border border-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
-          <Key className="h-4 w-4" />
+    <article className="card w-full">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/assets/icon-key.webp"
+        alt=""
+        className="ico fl"
+      />
+      <div className="body">
+        <div className="flex items-center justify-between">
+          <h3 className="font-bold text-zinc-100 text-base">ثبت کلید دسترسی لیارا</h3>
+          <span className="pill border border-emerald-400/30 bg-emerald-400/10 text-emerald-300">
+            ذخیره محلی امن
+          </span>
         </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <h4 className="text-sm font-bold text-zinc-100">تنظیم کلید دسترسی (API Token) لیارا</h4>
-            <span className="flex items-center gap-1 text-[11px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
-              <Shield className="h-3 w-3" />
-              ذخیره محلی امن
-            </span>
-          </div>
-          <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
-            برای صدور دستورات خودکار، وارد{" "}
-            <a
-              href="https://console.liara.ir"
-              target="_blank"
-              rel="noreferrer"
-              className="text-blue-400 hover:underline inline-flex items-center gap-0.5"
-            >
-              کنسول کاربری لیارا
-              <ExternalLink className="h-3 w-3" />
-            </a>{" "}
-            شوید، از بخش پروفایل روی <strong>«دسترسی به API»</strong> کلیک کنید و کلید جدید بسازید.
-          </p>
-        </div>
-      </div>
 
-      {/* Input Form */}
-      <form onSubmit={handleSave} className="flex flex-col gap-3">
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[11px] text-zinc-400 font-medium">توکن API لیارا:</label>
-          <div className="relative flex items-center">
-            <input
-              type={showToken ? "text" : "password"}
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              placeholder="مثال: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-              disabled={loading}
-              dir="ltr"
-              className="w-full rounded-xl bg-zinc-900 border border-zinc-800 pl-10 pr-3.5 py-2 text-xs text-zinc-100 placeholder-zinc-600 outline-none focus:border-blue-500 font-mono"
-            />
+        <p className="t">
+          برای صدور دستورات خودکار، کلید دسترسی خود را از{" "}
+          <a
+            href="https://console.liara.ir"
+            target="_blank"
+            rel="noreferrer"
+            className="text-liara hover:underline inline-flex items-center gap-1 font-medium"
+          >
+            کنسول لیارا
+            <ExternalLink className="h-3 w-3" />
+          </a>{" "}
+          دریافت کرده و در این کادر وارد نمایید.
+        </p>
+
+        <form onSubmit={handleSave} className="space-y-3">
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <input
+                type={showToken ? "text" : "password"}
+                dir="ltr"
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                disabled={loading}
+                className="inp pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowToken(!showToken)}
+                className="absolute right-3 top-3 text-zinc-400 hover:text-zinc-200 cursor-pointer"
+              >
+                {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
             <button
               type="button"
-              onClick={() => setShowToken(!showToken)}
-              className="absolute left-3 text-zinc-500 hover:text-zinc-300"
-              title={showToken ? "مخفی کردن" : "نمایش"}
+              onClick={handleTestConnection}
+              disabled={testing || !token.trim()}
+              className="b0 shrink-0 flex items-center gap-1.5"
             >
-              {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              {testing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              <span>تست اتصال</span>
             </button>
           </div>
-        </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[11px] text-zinc-400 font-medium">شناسه تیم در لیارا (اختیاری):</label>
-          <input
-            type="text"
-            value={teamId}
-            onChange={(e) => setTeamId(e.target.value)}
-            placeholder="مثلاً: 6ace4ec3ec13fe0c3c19c4db (در صورت استفاده از حالت تیمی)"
-            disabled={loading}
-            dir="ltr"
-            className="w-full rounded-xl bg-zinc-900 border border-zinc-800 px-3.5 py-2 text-xs text-zinc-100 placeholder-zinc-600 outline-none focus:border-blue-500 font-mono"
-          />
-        </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-zinc-400 whitespace-nowrap">شناسه تیم (اختیاری):</span>
+            <input
+              type="text"
+              dir="ltr"
+              value={teamId}
+              onChange={(e) => setTeamId(e.target.value)}
+              placeholder="team-..."
+              disabled={loading}
+              className="inp !py-1 text-xs"
+            />
+          </div>
 
-        <div className="flex items-center justify-between pt-1">
-          <span className="text-[11px] text-zinc-500">
-            توکن شما به مدل هوش مصنوعی ارسال نمی‌شود و فقط برای فراخوانی امن CLI لیارا استفاده می‌شود.
-          </span>
+          {testStatus && (
+            <p className="flex items-center gap-2 text-xs font-mono text-emerald-400">
+              <i className="h-1.5 w-1.5 rounded-none bg-emerald-400" />
+              {testStatus}
+            </p>
+          )}
+
+          {success && (
+            <p className="flex items-center gap-2 text-xs font-mono text-emerald-400">
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+              {success}
+            </p>
+          )}
+
+          {error && (
+            <p className="text-xs font-mono text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-none p-2">
+              {error}
+            </p>
+          )}
+
           <button
             type="submit"
-            disabled={!token.trim() || loading}
-            className="h-8 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium flex items-center gap-1.5 disabled:opacity-40 transition-colors shadow-md shadow-blue-500/20"
+            disabled={loading || !token.trim()}
+            className="b2 flex items-center justify-center gap-2"
           >
-            <span>{loading ? "در حال اعتبارسنجی..." : "ذخیره و اعتبارسنجی"}</span>
-            <ArrowLeft className="h-3 w-3" />
+            {loading && <Loader2 className="h-4 w-4 animate-spin text-zinc-950" />}
+            <span>ذخیره کلید</span>
           </button>
-        </div>
-      </form>
-
-      {error && (
-        <div className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-3 py-2 text-xs text-rose-400">
-          {error}
-        </div>
-      )}
-
-      {success && (
-        <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-xs text-emerald-400 flex items-center gap-2">
-          <CheckCircle2 className="h-4 w-4 shrink-0" />
-          <span>{success}</span>
-        </div>
-      )}
-    </div>
+        </form>
+      </div>
+    </article>
   );
 }
-

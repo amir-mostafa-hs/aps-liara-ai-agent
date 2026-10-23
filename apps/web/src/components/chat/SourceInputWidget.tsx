@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { FolderCode, UploadCloud, GitBranch, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 interface SourceInputWidgetProps {
   onSourceIngested: (sourcePath: string, type: string) => void;
@@ -88,140 +88,143 @@ export function SourceInputWidget({
     }
   };
 
+  const handleAction = () => {
+    if (tab === "path") handleSubmitPath();
+    else if (tab === "zip") handleSubmitZip();
+    else if (tab === "git") handleSubmitGit();
+  };
+
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-4 w-full flex flex-col gap-3">
-      {/* Tabs */}
-      <div className="flex items-center gap-1.5 p-1 bg-zinc-900 rounded-lg text-xs font-medium">
+    <article className="card w-full">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/assets/icon-source.webp"
+        alt=""
+        className="ico fl"
+      />
+      <div className="body">
+        <h3 className="font-bold text-zinc-100 text-base">سورس پروژه را مشخص کنید</h3>
+
+        <div className="relative rounded-none border border-zinc-800 bg-zinc-950/70 p-3 space-y-3">
+          {/* Tab Selection */}
+          <div className="flex gap-1 rounded-none bg-zinc-900/80 border border-zinc-800 p-1 text-sm">
+            <button
+              type="button"
+              onClick={() => setTab("path")}
+              className={`flex-1 cursor-pointer rounded-none py-1.5 text-center text-xs font-mono transition-all border ${
+                tab === "path"
+                  ? "bg-zinc-900 text-liara border-zinc-700 font-medium"
+                  : "text-zinc-400 hover:text-zinc-200 border-transparent"
+              }`}
+            >
+              مسیر محلی
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("zip")}
+              className={`flex-1 cursor-pointer rounded-none py-1.5 text-center text-xs font-mono transition-all border ${
+                tab === "zip"
+                  ? "bg-zinc-900 text-liara border-zinc-700 font-medium"
+                  : "text-zinc-400 hover:text-zinc-200 border-transparent"
+              }`}
+            >
+              فایل ZIP
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("git")}
+              className={`flex-1 cursor-pointer rounded-none py-1.5 text-center text-xs font-mono transition-all border ${
+                tab === "git"
+                  ? "bg-zinc-900 text-liara border-zinc-700 font-medium"
+                  : "text-zinc-400 hover:text-zinc-200 border-transparent"
+              }`}
+            >
+              مخزن Git
+            </button>
+          </div>
+
+          {/* Tab Panels */}
+          {tab === "path" && (
+            <div className="space-y-2">
+              <input
+                type="text"
+                dir="ltr"
+                value={pathInput}
+                onChange={(e) => setPathInput(e.target.value)}
+                disabled={loading || disabled}
+                placeholder="sample-apps/nodejs-demo"
+                className="inp"
+              />
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-zinc-400">
+                <span className="font-mono text-zinc-500">PRESET:</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPathInput("sample-apps/nodejs-demo");
+                    handleSubmitPath("sample-apps/nodejs-demo");
+                  }}
+                  className="rounded-none border border-zinc-800 bg-zinc-900/80 px-2 py-0.5 text-liara hover:border-zinc-700 cursor-pointer font-mono"
+                >
+                  sample-apps/nodejs-demo
+                </button>
+              </div>
+            </div>
+          )}
+
+          {tab === "zip" && (
+            <div className="space-y-2">
+              <label className="grid place-items-center rounded-none border border-dashed border-zinc-800 py-7 text-xs font-mono text-zinc-400 hover:border-zinc-600 hover:bg-zinc-900/40 cursor-pointer transition-colors">
+                <input
+                  type="file"
+                  accept=".zip"
+                  className="sr-only"
+                  disabled={loading || disabled}
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setFile(e.target.files[0]);
+                    }
+                  }}
+                />
+                {file ? (
+                  <span className="font-mono text-xs text-liara">{file.name}</span>
+                ) : (
+                  "فایل ZIP را اینجا رها کنید یا کلیک کنید"
+                )}
+              </label>
+            </div>
+          )}
+
+          {tab === "git" && (
+            <div className="space-y-2">
+              <input
+                type="text"
+                dir="ltr"
+                value={gitInput}
+                onChange={(e) => setGitInput(e.target.value)}
+                disabled={loading || disabled}
+                placeholder="https://github.com/user/repo.git"
+                className="inp"
+              />
+            </div>
+          )}
+        </div>
+
+        {error && (
+          <p className="text-xs font-mono text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-none p-2">
+            {error}
+          </p>
+        )}
+
         <button
           type="button"
-          onClick={() => setTab("path")}
-          className={`flex-1 py-1.5 rounded-md flex items-center justify-center gap-1.5 transition-colors ${
-            tab === "path" ? "bg-zinc-800 text-zinc-100 shadow-sm" : "text-zinc-400 hover:text-zinc-200"
-          }`}
+          onClick={handleAction}
+          disabled={loading || disabled}
+          className="b1 flex items-center justify-center gap-2"
         >
-          <FolderCode className="h-3.5 w-3.5 text-blue-400" />
-          <span>مسیر محلی پوشه</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab("zip")}
-          className={`flex-1 py-1.5 rounded-md flex items-center justify-center gap-1.5 transition-colors ${
-            tab === "zip" ? "bg-zinc-800 text-zinc-100 shadow-sm" : "text-zinc-400 hover:text-zinc-200"
-          }`}
-        >
-          <UploadCloud className="h-3.5 w-3.5 text-emerald-400" />
-          <span>فایل ZIP</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab("git")}
-          className={`flex-1 py-1.5 rounded-md flex items-center justify-center gap-1.5 transition-colors ${
-            tab === "git" ? "bg-zinc-800 text-zinc-100 shadow-sm" : "text-zinc-400 hover:text-zinc-200"
-          }`}
-        >
-          <GitBranch className="h-3.5 w-3.5 text-purple-400" />
-          <span>ریپازیتوری Git</span>
+          {loading && <Loader2 className="h-4 w-4 animate-spin text-zinc-950" />}
+          <span>بازرسی سورس</span>
         </button>
       </div>
-
-      {/* Tab 1: Local Path */}
-      {tab === "path" && (
-        <div className="flex flex-col gap-2.5">
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              value={pathInput}
-              onChange={(e) => setPathInput(e.target.value)}
-              placeholder="مثال: sample-apps/nodejs-demo یا /path/to/project"
-              disabled={loading || disabled}
-              dir="ltr"
-              className="flex-1 rounded-xl bg-zinc-900 border border-zinc-800 px-3.5 py-2 text-xs text-zinc-200 placeholder-zinc-500 outline-none focus:border-blue-500"
-            />
-            <button
-              type="button"
-              onClick={() => handleSubmitPath()}
-              disabled={!pathInput.trim() || loading || disabled}
-              className="h-8 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium flex items-center gap-1.5 disabled:opacity-40 transition-colors"
-            >
-              <span>بررسی سورس</span>
-              <ArrowLeft className="h-3 w-3" />
-            </button>
-          </div>
-
-          <div className="flex items-center gap-2 text-[11px] text-zinc-400">
-            <span className="text-zinc-500">انتخاب سریع نمونه:</span>
-            <button
-              type="button"
-              onClick={() => {
-                setPathInput("sample-apps/nodejs-demo");
-                handleSubmitPath("sample-apps/nodejs-demo");
-              }}
-              className="text-blue-400 hover:underline"
-            >
-              پروژه تست Node.js (sample-apps/nodejs-demo)
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Tab 2: ZIP File Upload */}
-      {tab === "zip" && (
-        <div className="flex flex-col gap-2.5">
-          <div className="flex items-center gap-2">
-            <input
-              type="file"
-              accept=".zip"
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
-              disabled={loading || disabled}
-              className="flex-1 text-xs text-zinc-400 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-zinc-800 file:text-zinc-200 hover:file:bg-zinc-700 cursor-pointer"
-            />
-            <button
-              type="button"
-              onClick={handleSubmitZip}
-              disabled={!file || loading || disabled}
-              className="h-8 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium flex items-center gap-1.5 disabled:opacity-40 transition-colors"
-            >
-              <span>آپلود و استخراج</span>
-              <ArrowLeft className="h-3 w-3" />
-            </button>
-          </div>
-          <p className="text-[11px] text-zinc-500">فایل فشرده پروژه شما در محیط ایزوله اکسترکت خواهد شد.</p>
-        </div>
-      )}
-
-      {/* Tab 3: Git URL Clone */}
-      {tab === "git" && (
-        <div className="flex flex-col gap-2.5">
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              value={gitInput}
-              onChange={(e) => setGitInput(e.target.value)}
-              placeholder="https://github.com/username/repository.git"
-              disabled={loading || disabled}
-              dir="ltr"
-              className="flex-1 rounded-xl bg-zinc-900 border border-zinc-800 px-3.5 py-2 text-xs text-zinc-200 placeholder-zinc-500 outline-none focus:border-blue-500"
-            />
-            <button
-              type="button"
-              onClick={handleSubmitGit}
-              disabled={!gitInput.trim() || loading || disabled}
-              className="h-8 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-medium flex items-center gap-1.5 disabled:opacity-40 transition-colors"
-            >
-              <span>کلون ریپازیتوری</span>
-              <ArrowLeft className="h-3 w-3" />
-            </button>
-          </div>
-          <p className="text-[11px] text-zinc-500">ریپازیتوری‌های پابلیک GitHub و GitLab به صورت امن دریافت می‌شوند.</p>
-        </div>
-      )}
-
-      {error && (
-        <div className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-3 py-1.5 text-xs text-rose-400">
-          {error}
-        </div>
-      )}
-    </div>
+    </article>
   );
 }
-

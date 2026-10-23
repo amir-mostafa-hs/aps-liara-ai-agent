@@ -4,11 +4,11 @@
 
 **Blocked by:** 01-assets-and-theme-foundation
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Operator login page split into form side and desktop hero side matching `login.html`
-- [ ] 3D logo (`logo.webp`) and 3D hero landscape (`login-hero.webp`) rendered
-- [ ] Form input fields styled with dark glass background, mono fonts, and cyan focus rings
-- [ ] Gradient submit button (`bg-gradient-to-l from-liara to-mint`) with loading state
-- [ ] HttpOnly session security guidance text included with mint indicator dot
-- [ ] Form submission, error alert handling, and auth session redirect to `/` work identically to original logic
+- [x] Operator login page split into form side and desktop hero side matching `login.html`
+- [x] 3D logo (`logo.webp`) and 3D hero landscape (`login-hero.webp`) rendered
+- [x] Form input fields styled with dark glass background, mono fonts, and cyan focus rings
+- [x] Gradient submit button (`bg-gradient-to-l from-liara to-mint`) with loading state
+- [x] HttpOnly session security guidance text included with mint indicator dot
+- [x] Form submission, error alert handling, and auth session redirect to `/` work identically to original logic

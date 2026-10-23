@@ -4,10 +4,10 @@
 
 **Blocked by:** 01-assets-and-theme-foundation, 03-header-and-stage-navigation
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Welcome hero card with gradient `#16222a` to `#121214`, 3D agent illustration (`hero-agent.webp`), and CTA buttons ("شروع دپلوی", "راهنما") rendered at top of chat stream
-- [ ] User message speech bubbles styled with cyan accent glass (`bg-liara/15 border-liara/25`) and RTL curvature
-- [ ] Assistant messages render clean markdown formatting, code highlights, and widget containers
-- [ ] Chat input bar at bottom updated with quick preset prompt chips matching `index.html`
-- [ ] Input textarea has cyan glowing focus shadow (`shadow-[0_0_30px_-10px_#2cc4f4]`) and gradient send button
+- [x] Welcome hero card with gradient `#16222a` to `#121214`, 3D agent illustration (`hero-agent.webp`), and CTA buttons ("شروع دپلوی", "راهنما") rendered at top of chat stream
+- [x] User message speech bubbles styled with cyan accent glass (`bg-liara/15 border-liara/25`) and RTL curvature
+- [x] Assistant messages render clean markdown formatting, code highlights, and widget containers
+- [x] Chat input bar at bottom updated with quick preset prompt chips matching `index.html`
+- [x] Input textarea has cyan glowing focus shadow (`shadow-[0_0_30px_-10px_#2cc4f4]`) and gradient send button

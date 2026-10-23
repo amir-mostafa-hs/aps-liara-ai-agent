@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { canGenerateSecretForEnvName, isSensitiveEnvName } from "@/lib/remediation-approval";
+import { Loader2 } from "lucide-react";
+import { canGenerateSecretForEnvName } from "@/lib/remediation-approval";
 
 interface RemediationApprovalWidgetProps {
   runId: string;
@@ -104,180 +105,170 @@ export function RemediationApprovalWidget({
 
   if (result?.isRecovered) {
     return (
-      <div className="mt-3 rounded-xl border border-emerald-500/40 bg-emerald-950/20 p-4 text-emerald-300">
-        <div className="flex items-center gap-2 font-bold text-sm">
-          <span>✔</span>
-          <span>راهکار خودترمیمی با موفقیت اعمال شد و برنامه به وضعیت سالم (Healthy) رسید!</span>
+      <article className="relative overflow-hidden rounded-2xl border border-emerald-400/30 bg-emerald-400/[.04] p-5 shadow-lg">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/assets/state-success.webp"
+          alt=""
+          className="absolute inset-y-0 left-0 h-full w-1/2 object-cover opacity-80 [mask-image:linear-gradient(to_right,#000_30%,transparent)] pointer-events-none"
+        />
+        <div className="relative sm:w-3/5 mr-auto space-y-1">
+          <h3 className="font-bold text-emerald-300 text-base">سرویس با موفقیت احیا شد</h3>
+          <p className="t">
+            راهکار خودترمیمی اعمال گردید و برنامه به وضعیت سالم (HTTP {result.verification?.http_status_code || 200}) رسید.
+          </p>
+          {result.generatedSecret && (
+            <div className="mt-3 rounded-none border border-amber-500/40 bg-zinc-950/80 p-3 text-xs text-amber-200 space-y-1">
+              <p>این Secret اختصاصی فقط همین‌جا نمایش داده می‌شود:</p>
+              <div className="flex flex-wrap items-center gap-2 font-mono">
+                <code>{showGeneratedSecret ? result.generatedSecret : "•".repeat(24)}</code>
+                <button
+                  type="button"
+                  className="underline text-liara cursor-pointer font-sans"
+                  onClick={() => setShowGeneratedSecret((s) => !s)}
+                >
+                  {showGeneratedSecret ? "پنهان" : "نمایش موقت"}
+                </button>
+                <button
+                  type="button"
+                  className="underline text-liara cursor-pointer font-sans"
+                  onClick={() => void navigator.clipboard.writeText(result.generatedSecret || "")}
+                >
+                  کپی امن
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-        <p className="mt-1 text-xs text-emerald-400/80">
-          کد وضعیت HTTP: {result.verification?.http_status_code || 200} | آدرس سرویس:{" "}
-          <a
-            href={result.verification?.endpoint_url}
-            target="_blank"
-            rel="noreferrer"
-            className="underline font-mono"
-            dir="ltr"
-          >
-            {result.verification?.endpoint_url}
-          </a>
-        </p>
-        {result.generatedSecret && <div className="mt-3 rounded-lg border border-amber-500/40 bg-amber-950/30 p-3 text-xs text-amber-200">
-          <p>این secret امن فقط همین‌جا نمایش داده می‌شود. آن را در محل امن ذخیره کنید؛ بعد از بستن صفحه قابل بازیابی نیست.</p>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <code dir="ltr">{showGeneratedSecret ? result.generatedSecret : "•".repeat(24)}</code>
-            <button type="button" className="underline" onClick={() => setShowGeneratedSecret((show) => !show)}>{showGeneratedSecret ? "پنهان" : "نمایش موقت"}</button>
-            <button type="button" className="underline" onClick={() => void navigator.clipboard.writeText(result.generatedSecret || "")}>کپی امن</button>
-          </div>
-        </div>}
-      </div>
+      </article>
     );
   }
 
   if (result && !result.isRecovered) {
-    return <div className="mt-3 rounded-xl border border-amber-500/40 bg-amber-950/20 p-4 text-amber-200">
-      <p className="font-semibold text-sm">متغیر در Liara ثبت شد، اما سلامت برنامه هنوز تأیید نشده است.</p>
-      <p className="mt-1 text-xs">برای جلوگیری از تغییر تکراری، این راهکار دوباره اجرا نمی‌شود. لاگ‌های runtime و تنظیمات برنامه را بررسی کنید.</p>
-      {result.generatedSecret && <div className="mt-3 rounded-lg border border-amber-500/40 p-3 text-xs">
-        <p>این secret را در محل امن ذخیره کنید؛ پس از بستن صفحه قابل بازیابی نیست.</p>
-        <div className="mt-2 flex flex-wrap items-center gap-2"><code dir="ltr">{showGeneratedSecret ? result.generatedSecret : "•".repeat(24)}</code>
-          <button type="button" className="underline" onClick={() => setShowGeneratedSecret((show) => !show)}>{showGeneratedSecret ? "پنهان" : "نمایش موقت"}</button>
-          <button type="button" className="underline" onClick={() => void navigator.clipboard.writeText(result.generatedSecret || "")}>کپی امن</button>
-        </div>
-      </div>}
-    </div>;
+    return (
+      <div className="rounded-none border border-amber-400/30 bg-amber-400/[.05] p-4 text-xs text-amber-200 space-y-1">
+        <p className="font-bold text-sm">متغیر در لیارا ثبت شد، اما سلامت برنامه هنوز احراز نشده است.</p>
+        <p className="text-zinc-400">برای جلوگیری از تکرار تغییرات، این راهکار دوباره اعمال نمی‌شود. لاگ‌های کنسول جانبی را بررسی نمایید.</p>
+      </div>
+    );
+  }
+
+  if (rejected) {
+    return (
+      <div className="rounded-none border border-zinc-800 bg-zinc-950/80 p-3 text-xs font-mono text-zinc-400">
+        عملیات خودترمیمی توسط اپراتور رد شد.
+      </div>
+    );
   }
 
   return (
-    <div className="mt-4 rounded-2xl border border-amber-500/30 bg-amber-950/10 p-4 shadow-sm backdrop-blur">
-      <div className="flex items-center justify-between pb-3 border-b border-amber-500/20">
-        <div className="flex items-center gap-2">
-          <span className="text-xl">🩺</span>
-          <div>
-            <h4 className="text-sm font-semibold text-amber-300">
-              تشخیص هوشمند ریشه خطا و راهکار خودترمیمی (SRE)
-            </h4>
-            <p className="text-xs text-amber-400/70 font-mono" dir="ltr">
-              App: {targetApp}
-            </p>
-          </div>
-        </div>
-        <span className="text-xs rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2.5 py-0.5 font-medium">
-          خطای ران‌تایم شناسایی شد
-        </span>
-      </div>
-
-      {/* Root Cause Explanation in Persian */}
-      <div className="mt-3 text-xs leading-relaxed text-foreground">
-        <p className="font-semibold text-amber-200 mb-1">علت وقوع خطا:</p>
-        <p className="text-muted-foreground">{rootCause}</p>
-      </div>
-
-      {/* Error Evidence Log */}
-      {errorEvidence && (
-        <div className="mt-3">
-          <span className="text-[11px] font-medium text-muted-foreground block mb-1">
-            شواهد مستقیم از لاگ‌های برنامه:
+    <article className="card !border-rose-500/40 !bg-rose-500/[.03] relative w-full overflow-hidden rounded-none">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/assets/state-error.webp"
+        alt=""
+        className="bgimg !opacity-30 [mask-image:linear-gradient(to_left,#000,transparent_70%)] pointer-events-none"
+      />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/assets/icon-heal.webp" alt="" className="ico fl relative !w-10 !h-10" />
+      <div className="body">
+        <div className="flex items-center justify-between">
+          <h3 className="font-bold text-rose-300 text-base">خودترمیمی SRE</h3>
+          <span className="pill bg-rose-500/15 text-rose-300 border border-rose-500/30">
+            خطا در سلامت‌سنجی
           </span>
-          <pre
-            className="rounded-lg bg-neutral-950 p-2.5 font-mono text-[11px] text-rose-400 border border-neutral-800 overflow-x-auto whitespace-pre-wrap"
-            dir="ltr"
-          >
+        </div>
+
+        <p className="t">
+          <b>علت ریشه‌ای:</b> {rootCause}
+        </p>
+
+        {errorEvidence && (
+          <div className="rounded-none border border-zinc-800 bg-zinc-950/80 p-2.5 font-mono text-xs text-rose-300/90 overflow-x-auto max-h-24">
             {errorEvidence}
-          </pre>
-        </div>
-      )}
+          </div>
+        )}
 
-      {/* Suggested Remediation */}
-      {missingVariable ? (
-        <div className="mt-3 bg-card/40 rounded-xl p-3 border border-border">
-          <label className="block text-xs font-medium text-foreground mb-1">
-            مقدار متغیر محیطی برای ثبت روی سرویس تأییدشده (
-            <code className="text-primary font-mono">{missingVariable}</code>):
-          </label>
-          {canGenerate && <fieldset className="mb-3 space-y-2 text-xs">
-            <legend>برای تأمین این secret چه روشی را انتخاب می‌کنید؟</legend>
-            <label className="flex items-center gap-2"><input type="radio" name="remediation-value-source" checked={valueSource === "manual"} onChange={() => { setValueSource("manual"); setEnvValue(""); }} /> خودم مقدار را وارد می‌کنم</label>
-            <label className="flex items-center gap-2"><input type="radio" name="remediation-value-source" checked={valueSource === "generated"} onChange={() => { setValueSource("generated"); setEnvValue(createSecret()); }} /> مقدار امن تصادفی بساز</label>
-          </fieldset>}
-          <input
-            type={isSensitiveEnvName(missingVariable) ? "password" : "text"}
-            value={envValue}
-            onChange={(e) => { setValueSource("manual"); setEnvValue(e.target.value); }}
-            disabled={loading || disabled || valueSource === "generated"}
-            placeholder={`مقدار برای ${missingVariable}`}
-            dir="ltr"
-            className="w-full text-left font-mono rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-          {valueSource === "generated" && <p className="mt-2 text-amber-300">مقدار ساخته شد؛ با زدن دکمهٔ تأیید، فقط برای <strong>{targetApp}</strong> ثبت می‌شود. پس از ثبت آن را در محل امن ذخیره کنید.</p>}
-          {!canGenerate && missingVariable && <p className="mt-2 text-muted-foreground">این مقدار از طرف سرویس مربوطه ارائه می‌شود؛ آن را تولید نکنید.</p>}
-        </div>
-      ) : (
-        <div className="mt-3 bg-card/40 rounded-xl p-3 border border-border">
-          <p className="text-xs text-foreground font-medium mb-1">
-            راهکار پیشنهادی ایجنت SRE:
+        {missingVariable && (
+          <div className="space-y-2 pt-1">
+            <div className="flex items-center justify-between text-xs text-zinc-400">
+              <span>متغیر محیطی نیازمند مقدار:</span>
+              <code className="text-liara font-mono">{missingVariable}</code>
+            </div>
+
+            {canGenerate && (
+              <div className="flex gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setValueSource("generated");
+                    setEnvValue(createSecret());
+                  }}
+                  className={`rounded-none px-3 py-1 border transition-all cursor-pointer font-mono ${
+                    valueSource === "generated"
+                      ? "border-mint bg-mint/15 text-mint font-bold"
+                      : "border-zinc-800 text-zinc-400 hover:text-zinc-200"
+                  }`}
+                >
+                  تولید خودکار کلید تصادفی امن
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setValueSource("manual");
+                    setEnvValue("");
+                  }}
+                  className={`rounded-none px-3 py-1 border transition-all cursor-pointer font-mono ${
+                    valueSource === "manual"
+                      ? "border-mint bg-mint/15 text-mint font-bold"
+                      : "border-zinc-800 text-zinc-400 hover:text-zinc-200"
+                  }`}
+                >
+                  ورود دستی مقدار
+                </button>
+              </div>
+            )}
+
+            <input
+              type="text"
+              dir="ltr"
+              value={envValue}
+              onChange={(e) => {
+                setEnvValue(e.target.value);
+                if (valueSource !== "manual") setValueSource("manual");
+              }}
+              placeholder="مقدار متغیر را وارد کنید یا گزینه تولید را بزنید"
+              className="inp"
+            />
+          </div>
+        )}
+
+        {error && (
+          <p className="text-xs font-mono text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-none p-2">
+            {error}
           </p>
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            لطفاً از وجود داشتن اپلیکیشن با نام فوق در حساب یا تیم لیارا اطمینان حاصل کرده و در صورت نیاز نام اپلیکیشن را تغییر داده یا از لیست سرویس‌ها انتخاب کنید.
-          </p>
-        </div>
-      )}
+        )}
 
-      {error && (
-        <div className="mt-3 rounded-lg bg-rose-500/10 border border-rose-500/20 p-2.5 text-xs text-rose-400">
-          {error}
-        </div>
-      )}
-
-      {/* Action CTA */}
-      <div className="mt-4 pt-3 border-t border-amber-500/20 flex items-center justify-between">
-        <span className="text-[11px] text-muted-foreground">
-          {missingVariable
-            ? "پس از اعمال، سلامت سرویس به طور خودکار مجدداً بررسی می‌شود."
-            : "این مشکل با تغییر خودکار تنظیمات حل نمی‌شود؛ سرویس مقصد را انتخاب یا ایجاد کنید و دپلوی را دوباره اجرا کنید."}
-        </span>
-        {rejected ? (
-          <span className="text-xs text-muted-foreground">عملیات لغو گردید.</span>
-        ) : !missingVariable ? (
+        <div className="flex gap-2 pt-2">
+          <button
+            type="button"
+            onClick={handleApply}
+            disabled={loading || disabled || (missingVariable ? !envValue.trim() : false)}
+            className="b3 flex items-center justify-center gap-2 cursor-pointer"
+          >
+            {loading && <Loader2 className="h-4 w-4 animate-spin text-zinc-950" />}
+            <span>اعمال اصلاحیه و بررسی دوباره</span>
+          </button>
           <button
             type="button"
             onClick={handleReject}
-            disabled={disabled}
-            className="rounded-xl border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted transition-all cursor-pointer"
+            disabled={loading || disabled}
+            className="rounded-none border border-zinc-800 px-4 py-2 text-xs font-mono text-zinc-400 hover:text-rose-300 hover:border-rose-500/40 cursor-pointer transition-colors"
           >
-            متوجه شدم
+            رد عملیات
           </button>
-        ) : (
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleReject}
-              disabled={loading || disabled || !envValue.trim() || (canGenerate && !valueSource)}
-              className="rounded-xl border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted transition-all cursor-pointer"
-            >
-              انصراف
-            </button>
-            <button
-              type="button"
-              onClick={handleApply}
-              disabled={loading || disabled}
-              className="flex items-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-black px-4 py-2 text-xs font-semibold transition-all disabled:opacity-50 cursor-pointer shadow"
-            >
-              {loading ? (
-                <>
-                  <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-black border-t-transparent" />
-                  <span>در حال اعمال راهکار و بررسی سلامت...</span>
-                </>
-              ) : (
-                <>
-                  <span>🩹</span>
-                  <span>تأیید ثبت تغییر و بررسی دوبارهٔ سلامت</span>
-                </>
-              )}
-            </button>
-          </div>
-        )}
+        </div>
       </div>
-    </div>
+    </article>
   );
 }
-

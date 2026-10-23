@@ -4,10 +4,10 @@
 
 **Blocked by:** 02-login-page-redesign, 05-interactive-chat-widgets-redesign, 06-sidecar-console-redesign
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Execute `pnpm --filter web test` and ensure all 63 tests pass
-- [ ] Verify that Next.js builds successfully (`pnpm --filter web build` or equivalent)
-- [ ] Confirm all 19 webp assets are correctly served from `/assets/`
-- [ ] Verify responsive layout across mobile and desktop
-- [ ] Validate end-to-end interactive deployment flow (source -> inspect -> plan -> diff -> deploy -> verify) in chat
+- [x] Execute `pnpm --filter web test` and ensure all 63 tests pass
+- [x] Verify that Next.js builds successfully (`pnpm --filter web build` or equivalent)
+- [x] Confirm all 19 webp assets are correctly served from `/assets/`
+- [x] Verify responsive layout across mobile and desktop
+- [x] Validate end-to-end interactive deployment flow (source -> inspect -> plan -> diff -> deploy -> verify) in chat

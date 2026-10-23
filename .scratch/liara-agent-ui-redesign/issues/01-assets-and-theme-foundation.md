@@ -4,10 +4,10 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] All 19 webp assets from `temp/liara-agent-ui/assets/` copied into `apps/web/public/assets/`
-- [ ] Tailwind theme in `apps/web/tailwind.config.ts` extended with `bg: '#121214'`, `liara: '#2cc4f4'`, `mint: '#6ee7b7'`
-- [ ] CSS utilities (`.ico`, `.fl`, `.pulse`, `.card`, `.inp`, `.btn`, `.b1`, `.b2`, `.b3`, `.b0`, `.pill`, `.plan`, `.svc`) added to `apps/web/src/app/globals.css`
-- [ ] Root layout updated with global background gradient matching `temp/liara-agent-ui/index.html`
-- [ ] Existing build and test suite passes without regressions
+- [x] All 19 webp assets from `temp/liara-agent-ui/assets/` copied into `apps/web/public/assets/`
+- [x] Tailwind theme in `apps/web/tailwind.config.ts` extended with `bg: '#121214'`, `liara: '#2cc4f4'`, `mint: '#6ee7b7'`
+- [x] CSS utilities (`.ico`, `.fl`, `.pulse`, `.card`, `.inp`, `.btn`, `.b1`, `.b2`, `.b3`, `.b0`, `.pill`, `.plan`, `.svc`) added to `apps/web/src/app/globals.css`
+- [x] Root layout updated with global background gradient matching `temp/liara-agent-ui/index.html`
+- [x] Existing build and test suite passes without regressions

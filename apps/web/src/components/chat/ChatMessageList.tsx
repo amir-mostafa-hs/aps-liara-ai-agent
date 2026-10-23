@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
-import { Bot, User, Sparkles } from "lucide-react";
 
 export interface ChatMessage {
   id: string;
@@ -18,7 +17,31 @@ interface ChatMessageListProps {
   messages: ChatMessage[];
   isStreaming?: boolean;
   renderWidget?: (widget: { type: string; data?: any }) => React.ReactNode;
+  onStartDeploy?: () => void;
+  onShowGuide?: () => void;
+  onSelectPrompt?: (promptText: string) => void;
 }
+
+const SUGGESTED_PROMPTS = [
+  {
+    icon: "🚀",
+    title: "دپلوی پروژه نمونه Node.js",
+    desc: "پروژه sample-apps/nodejs-demo را روی لیارا دیپلوی کن.",
+    text: "می‌خواهم پروژه sample-apps/nodejs-demo را روی لیارا دیپلوی کنم.",
+  },
+  {
+    icon: "🔍",
+    title: "بررسی نیازمندی‌های پروژه",
+    desc: "سورس‌کد را بررسی کن و سرویس‌های لازم را مشخص کن.",
+    text: "سورس‌کد پروژه من در sample-apps/nodejs-demo را بررسی کن و سرویس‌های لازم را مشخص کن.",
+  },
+  {
+    icon: "🔑",
+    title: "تنظیم توکن اکانت لیارا",
+    desc: "بررسی وضعیت احراز هویت و توکن API لیارا.",
+    text: "چگونه می‌توانم توکن API لیارا را تنظیم کنم؟",
+  },
+];
 
 function renderFormattedContent(text: string) {
   if (!text) return null;
@@ -36,9 +59,9 @@ function renderFormattedContent(text: string) {
         <pre
           key={index}
           dir="ltr"
-          className="my-2 rounded-xl bg-neutral-950 p-3 font-mono text-xs text-emerald-300 border border-neutral-800 overflow-x-auto whitespace-pre leading-relaxed shadow-inner"
+          className="my-2 rounded-none bg-zinc-950/90 p-3.5 font-mono text-xs text-emerald-300 border border-zinc-800 overflow-x-auto whitespace-pre leading-relaxed shadow-none"
         >
-          {lang && <div className="text-[10px] text-zinc-500 mb-1 select-none font-sans uppercase">{lang}</div>}
+          {lang && <div className="text-[10px] text-zinc-500 mb-1 select-none font-mono uppercase">{lang}</div>}
           <code>{code}</code>
         </pre>
       );
@@ -82,7 +105,7 @@ function renderFormattedContent(text: string) {
                   href={url}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-blue-400 underline underline-offset-2 hover:text-blue-300 transition-colors mx-0.5"
+                  className="text-liara underline underline-offset-2 hover:brightness-125 transition-colors mx-0.5"
                   dir="ltr"
                 >
                   {title}
@@ -95,7 +118,7 @@ function renderFormattedContent(text: string) {
                 <code
                   key={inlineKey++}
                   dir="ltr"
-                  className="rounded-md bg-zinc-800/90 px-1.5 py-0.5 font-mono text-xs text-sky-300 border border-zinc-700/60 mx-0.5 select-all"
+                  className="rounded-none bg-zinc-900 px-1.5 py-0.5 font-mono text-xs text-liara border border-zinc-800 mx-0.5 select-all"
                 >
                   {codeText}
                 </code>
@@ -127,101 +150,162 @@ export function ChatMessageList({
   messages = [],
   isStreaming = false,
   renderWidget,
+  onStartDeploy,
+  onShowGuide,
+  onSelectPrompt,
 }: ChatMessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const hasUserStartedChat = messages.some((m) => m.role === "user");
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isStreaming]);
 
   return (
-    <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
-      {messages.length === 0 ? (
-        <div className="h-full flex flex-col items-center justify-center text-center p-8 text-zinc-500">
-          <div className="h-14 w-14 rounded-2xl bg-gradient-to-tr from-blue-600/20 to-indigo-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 mb-4 shadow-inner">
-            <Bot className="h-7 w-7" />
+    <div className="scroll flex-1 overflow-y-auto px-4 lg:px-8 py-6">
+      <div className="mx-auto max-w-3xl space-y-6">
+        {/* Welcome hero banner */}
+        <div className="relative overflow-hidden rounded-none border border-zinc-800 bg-zinc-950/80 bg-grid shadow-none">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/assets/hero-agent.webp"
+            alt=""
+            className="absolute inset-y-0 left-0 h-full w-3/5 object-cover [mask-image:linear-gradient(to_right,#000_35%,transparent)] opacity-80 pointer-events-none"
+          />
+          <div className="relative p-6 sm:p-7 sm:w-3/5 mr-auto">
+            <div className="inline-block px-2 py-0.5 mb-2 rounded-none border border-zinc-800 bg-zinc-900/80 text-[10px] font-mono text-zinc-400 uppercase tracking-widest">
+              SRE PLATFORM AUTOMATION
+            </div>
+            <h2 className="text-lg sm:text-xl font-bold leading-9 text-zinc-100">
+              سلام! من ایجنت SRE لیارا هستم
+            </h2>
+            <p className="t mt-1 text-zinc-400 text-xs sm:text-sm">
+              پروژه را دپلوی می‌کنم، خطاها را ریشه‌یابی می‌کنم و هیچ عملیاتی بدون تأیید شما انجام نمی‌دهم.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={onStartDeploy}
+                className="b3 cursor-pointer"
+              >
+                شروع دپلوی
+              </button>
+              <button
+                type="button"
+                onClick={onShowGuide}
+                className="b0 cursor-pointer"
+              >
+                راهنما
+              </button>
+            </div>
           </div>
-          <h2 className="text-lg font-bold text-zinc-200 mb-2">سلام! چطور می‌تونم در دپلوی به شما کمک کنم؟</h2>
-          <p className="text-xs text-zinc-400 max-w-md leading-relaxed">
-            کافیه مسیر پروژه محلی‌تون رو بنویسید یا نیازمندی‌هاتون رو مطرح کنید. ایجنت هوشمند سورس‌کد شما رو بررسی کرده،
-            دیتابیس‌ها و سرویس‌های لازم در لیارا رو آماده می‌کنه و دپلوی امن رو انجام میده.
-          </p>
         </div>
-      ) : (
-        messages.map((msg) => {
+
+        {/* Transparent floating suggested prompt popups (hidden once chat starts) */}
+        {!hasUserStartedChat && (
+          <div className="space-y-2.5 animate-fadeIn">
+            <div className="flex items-center gap-2 text-[11px] text-zinc-500 font-mono uppercase px-1 tracking-wider">
+              <span className="flex h-1.5 w-1.5 rounded-none bg-liara" />
+              <span>پیشنهادهای گفتگو:</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              {SUGGESTED_PROMPTS.map((prompt, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => onSelectPrompt?.(prompt.text)}
+                  className="group relative text-right rounded-none border border-zinc-800 bg-zinc-950/70 p-3.5 hover:border-zinc-600 hover:bg-zinc-900/60 transition-all cursor-pointer flex flex-col justify-between gap-2.5"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-base shrink-0 p-1 rounded-none bg-zinc-900 border border-zinc-800">
+                      {prompt.icon}
+                    </span>
+                    <span className="font-semibold text-xs sm:text-sm text-zinc-200 group-hover:text-liara transition-colors">
+                      {prompt.title}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-zinc-400 leading-relaxed">
+                    {prompt.desc}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Message Stream */}
+        {messages.map((msg) => {
           const isUser = msg.role === "user";
 
-          return (
-            <div
-              key={msg.id}
-              className={`flex items-start gap-3.5 ${
-                isUser ? "flex-row-reverse" : "flex-row"
-              }`}
-            >
-              {/* Avatar */}
-              <div
-                className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0 shadow-md ${
-                  isUser
-                    ? "bg-zinc-800 text-zinc-200 border border-zinc-700"
-                    : "bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-blue-500/20"
-                }`}
-              >
-                {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
-              </div>
-
-              {/* Message Bubble & Content */}
-              <div
-                className={`flex flex-col max-w-[85%] ${
-                  isUser ? "items-end" : "items-start"
-                }`}
-              >
-                <div
-                  className={`rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
-                    isUser
-                      ? "bg-blue-600 text-white rounded-br-none"
-                      : "bg-zinc-900 border border-zinc-800/80 text-zinc-200 rounded-bl-none"
-                  }`}
-                >
-                  <div className="leading-relaxed break-words">
-                    {renderFormattedContent(msg.content)}
-                  </div>
-
-                  {/* Optional Interactive Widget Slot */}
-                  {msg.widget && renderWidget && (
-                    <div className="mt-3 pt-3 border-t border-zinc-800/80 w-full">
-                      {renderWidget(msg.widget)}
-                    </div>
+          if (isUser) {
+            return (
+              <div key={msg.id} className="flex justify-start">
+                <div className="max-w-[85%] sm:max-w-[80%] rounded-none bg-zinc-900/90 border border-zinc-700/80 px-4 py-3 text-sm leading-7 text-zinc-100 shadow-none">
+                  <div className="leading-relaxed break-words">{renderFormattedContent(msg.content)}</div>
+                  {msg.timestamp && (
+                    <span className="text-[10px] text-zinc-500 font-mono mt-1 block text-left">
+                      {new Date(msg.timestamp).toLocaleTimeString("fa-IR", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
                   )}
                 </div>
+              </div>
+            );
+          }
 
-                {msg.timestamp && (
-                  <span className="text-[10px] text-zinc-500 mt-1 px-1">
-                    {new Date(msg.timestamp).toLocaleTimeString("fa-IR", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
+          // Assistant Message
+          return (
+            <div key={msg.id} className="flex items-start gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/assets/logo.webp"
+                alt=""
+                className="ico !w-9 !h-9 sm:!w-10 sm:!h-10 shrink-0 mt-1"
+              />
+              <div className="flex-1 min-w-0 space-y-3">
+                {msg.content && (
+                  <div className="rounded-none bg-zinc-950/70 border border-zinc-800 px-4 sm:px-5 py-4 text-sm leading-7 text-zinc-200 shadow-none">
+                    <div className="leading-relaxed break-words space-y-2">
+                      {renderFormattedContent(msg.content)}
+                    </div>
+                    {msg.timestamp && (
+                      <span className="text-[10px] text-zinc-500 font-mono mt-2 block">
+                        {new Date(msg.timestamp).toLocaleTimeString("fa-IR", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {msg.widget && renderWidget && (
+                  <div className="w-full">{renderWidget(msg.widget)}</div>
                 )}
               </div>
             </div>
           );
-        })
-      )}
+        })}
 
-      {isStreaming && (
-        <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shrink-0 animate-pulse">
-            <Bot className="h-4 w-4" />
+        {isStreaming && (
+          <div className="flex items-center gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/assets/logo.webp"
+              alt=""
+              className="ico !w-8 !h-8 animate-pulse shrink-0"
+            />
+            <div className="rounded-none bg-zinc-950/80 border border-zinc-800 px-3.5 py-2 text-xs font-mono text-liara flex items-center gap-2">
+              <span className="flex h-1.5 w-1.5 rounded-none bg-liara animate-ping" />
+              <span>ایجنت در حال تحلیل و پردازش است...</span>
+            </div>
           </div>
-          <div className="rounded-2xl rounded-bl-none bg-zinc-900 border border-zinc-800/80 px-4 py-3 text-xs text-zinc-400 flex items-center gap-2">
-            <span className="flex h-2 w-2 rounded-full bg-blue-500 animate-ping" />
-            <span>ایجنت در حال تحلیل و پردازش است...</span>
-          </div>
-        </div>
-      )}
+        )}
 
-      <div ref={messagesEndRef} />
+        <div ref={messagesEndRef} />
+      </div>
     </div>
   );
 }
-
