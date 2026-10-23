@@ -1,0 +1,26 @@
+{
+  "name": "aps-liara-ai-agent-root",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter web dev\" \"pnpm run dev:engine\"",
+    "dev:web": "pnpm --filter web dev",
+    "dev:engine": "PYTHONPATH=. engine/.venv/bin/python -m uvicorn engine.main:app --host 127.0.0.1 --port 8000 --reload",
+    "build": "pnpm --filter web build",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose stop postgres",
+    "db:status": "docker compose ps postgres",
+    "db:migrate": "pnpm --filter web prisma:migrate",
+    "db:sync": "pnpm --filter web prisma:push",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:build": "docker compose build",
+    "test": "pnpm --filter web test && pnpm run test:engine",
+    "test:engine": "PYTHONPATH=. engine/.venv/bin/pytest engine/tests",
+    "cli": "bin/liara-agent",
+    "lint": "pnpm --filter web lint"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}
