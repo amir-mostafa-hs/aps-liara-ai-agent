@@ -35,6 +35,12 @@ export interface SidecarProps {
   };
   onClearLogs?: () => void;
   isStreaming?: boolean;
+  onRefreshHealth?: () => void;
+  isRefreshingHealth?: boolean;
+  onRefreshServices?: () => void;
+  isRefreshingServices?: boolean;
+  onSelectService?: (serviceName: string) => void;
+  selectedServiceName?: string;
 }
 
 export function SidecarConsole({
@@ -43,6 +49,12 @@ export function SidecarConsole({
   systemHealth = { database: true, engine: true },
   onClearLogs,
   isStreaming = false,
+  onRefreshHealth,
+  isRefreshingHealth = false,
+  onRefreshServices,
+  isRefreshingServices = false,
+  onSelectService,
+  selectedServiceName,
 }: SidecarProps) {
   const [activeTab, setActiveTab] = useState<"terminal" | "services" | "health">("terminal");
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -289,33 +301,61 @@ export function SidecarConsole({
 
         {activeTab === "health" && (
           <div className="h-full p-4 overflow-y-auto flex flex-col gap-3">
-            <div className="text-xs font-semibold text-zinc-400 mb-1">وضعیت زیرساخت ایجنت</div>
+            <div className="flex items-center justify-between mb-1">
+              <div className="text-xs font-semibold text-zinc-400">وضعیت زیرساخت ایجنت</div>
+              {onRefreshHealth && (
+                <button
+                  onClick={onRefreshHealth}
+                  disabled={isRefreshingHealth}
+                  className="flex items-center gap-1 text-[11px] text-zinc-400 hover:text-zinc-200 transition-colors p-1 rounded hover:bg-zinc-800/60"
+                  title="بررسی مجدد سلامت سیستم"
+                >
+                  <RefreshCw className={`h-3 w-3 ${isRefreshingHealth ? "animate-spin text-blue-400" : ""}`} />
+                  <span>بررسی مجدد</span>
+                </button>
+              )}
+            </div>
+
             <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3.5 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <Database className="h-4 w-4 text-zinc-400" />
+                <Database className={`h-4 w-4 ${systemHealth.database ? "text-emerald-400" : "text-rose-400"}`} />
                 <div>
                   <div className="text-xs font-medium text-zinc-200">دیتابیس PostgreSQL (Prisma)</div>
                   <div className="text-[11px] text-zinc-500">ذخیره گزارش‌ها، تاییدها و نشست‌ها</div>
                 </div>
               </div>
-              <span className="flex items-center gap-1 text-xs text-emerald-400 font-medium">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                متصل
-              </span>
+              {systemHealth.database ? (
+                <span className="flex items-center gap-1 text-xs text-emerald-400 font-medium">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  متصل
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-xs text-rose-400 font-medium">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  قطع ارتباط / خطا
+                </span>
+              )}
             </div>
 
             <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3.5 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <Server className="h-4 w-4 text-zinc-400" />
+                <Server className={`h-4 w-4 ${systemHealth.engine ? "text-emerald-400" : "text-rose-400"}`} />
                 <div>
                   <div className="text-xs font-medium text-zinc-200">موتور هوش مصنوعی (FastAPI & LangChain)</div>
                   <div className="text-[11px] text-zinc-500">تحلیل کدبیس و هماهنگ‌کننده دپلوی</div>
                 </div>
               </div>
-              <span className="flex items-center gap-1 text-xs text-emerald-400 font-medium">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                متصل
-              </span>
+              {systemHealth.engine ? (
+                <span className="flex items-center gap-1 text-xs text-emerald-400 font-medium">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  متصل
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-xs text-rose-400 font-medium">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  قطع ارتباط با موتور
+                </span>
+              )}
             </div>
           </div>
         )}

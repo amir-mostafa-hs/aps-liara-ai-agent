@@ -55,3 +55,35 @@ test("Sidecar console state transitions correctly between terminal, services, an
   assert.equal(state3.isCollapsed, false);
 });
 
+test("Sidecar health mapping correctly reflects database and engine disconnections", () => {
+  const evaluateHealthDisplay = (systemHealth) => {
+    const dbStatus = systemHealth.database
+      ? { text: "متصل", isError: false }
+      : { text: "قطع ارتباط / خطای پایگاه‌داده", isError: true };
+    const engineStatus = systemHealth.engine
+      ? { text: "متصل", isError: false }
+      : { text: "قطع ارتباط با موتور", isError: true };
+    return {
+      allHealthy: systemHealth.database && systemHealth.engine,
+      dbStatus,
+      engineStatus,
+    };
+  };
+
+  const healthy = evaluateHealthDisplay({ database: true, engine: true });
+  assert.equal(healthy.allHealthy, true);
+  assert.equal(healthy.dbStatus.isError, false);
+  assert.equal(healthy.engineStatus.isError, false);
+
+  const dbDown = evaluateHealthDisplay({ database: false, engine: true });
+  assert.equal(dbDown.allHealthy, false);
+  assert.equal(dbDown.dbStatus.isError, true);
+  assert.equal(dbDown.dbStatus.text, "قطع ارتباط / خطای پایگاه‌داده");
+  assert.equal(dbDown.engineStatus.isError, false);
+
+  const engineDown = evaluateHealthDisplay({ database: true, engine: false });
+  assert.equal(engineDown.allHealthy, false);
+  assert.equal(engineDown.engineStatus.isError, true);
+  assert.equal(engineDown.engineStatus.text, "قطع ارتباط با موتور");
+});
+

@@ -52,6 +52,28 @@ export default function HomePage() {
     },
   ]);
   const [systemConnected, setSystemConnected] = useState(true);
+  const [systemHealth, setSystemHealth] = useState({ database: true, engine: true });
+  const [isRefreshingHealth, setIsRefreshingHealth] = useState(false);
+
+  const checkSystemHealth = useCallback(async () => {
+    setIsRefreshingHealth(true);
+    try {
+      const res = await fetch("/api/health");
+      const data = await res.json();
+      const dbConnected = data.database?.status === "connected";
+      const engineHealthy = data.engine?.status === "healthy";
+      setSystemHealth({
+        database: Boolean(dbConnected),
+        engine: Boolean(engineHealthy),
+      });
+      setSystemConnected(Boolean(dbConnected && engineHealthy));
+    } catch {
+      setSystemHealth({ database: false, engine: false });
+      setSystemConnected(false);
+    } finally {
+      setIsRefreshingHealth(false);
+    }
+  }, []);
 
   // Check auth and initial status on mount
   useEffect(() => {
@@ -66,15 +88,9 @@ export default function HomePage() {
       })
       .catch(() => {});
 
-    // Check system health
-    fetch("/api/health")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.status === "ok") {
-          setSystemConnected(true);
-        }
-      })
-      .catch(() => setSystemConnected(false));
+    // Initial and periodic system health check
+    checkSystemHealth();
+    const healthInterval = setInterval(checkSystemHealth, 30000);
 
     // Fetch team settings
     fetch("/api/settings/liara-token")
@@ -85,7 +101,9 @@ export default function HomePage() {
         }
       })
       .catch(() => {});
-  }, [router]);
+
+    return () => clearInterval(healthInterval);
+  }, [router, checkSystemHealth]);
 
   // Handle Source Ingestion from Widget
   const handleSourceIngested = async (sourcePath: string, type: string) => {
@@ -634,8 +652,11 @@ export default function HomePage() {
         <SidecarConsole
           logs={terminalLogs}
           services={services}
+          systemHealth={systemHealth}
           onClearLogs={handleClearLogs}
           isStreaming={isStreaming}
+          onRefreshHealth={checkSystemHealth}
+          isRefreshingHealth={isRefreshingHealth}
         />
 
         {/* Right Chat Space */}
