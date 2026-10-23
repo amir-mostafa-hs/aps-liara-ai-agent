@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { Loader2 } from "lucide-react";
 import { createDeployStreamParser } from "@/lib/deploy-stream";
 
 interface DeployApprovalWidgetProps {
@@ -29,7 +30,7 @@ export function DeployApprovalWidget({
   disabled = false,
 }: DeployApprovalWidgetProps) {
   const [status, setStatus] = useState<"idle" | "approving" | "deploying" | "success" | "failed" | "rejected">("idle");
-  const [phaseBadge, setPhaseBadge] = useState<string>("آماده دپلوی");
+  const [phaseBadge, setPhaseBadge] = useState<string>("در انتظار تأیید شما");
   const [error, setError] = useState<string | null>(null);
 
   const handleReject = async () => {
@@ -50,7 +51,7 @@ export function DeployApprovalWidget({
   const handleApproveAndDeploy = async () => {
     setStatus("approving");
     setError(null);
-    setPhaseBadge("در حال ثبت تأییدیه اپراتور...");
+    setPhaseBadge("در حال ثبت تأییدیه...");
 
     try {
       // 1. Send cryptographic approval
@@ -70,7 +71,7 @@ export function DeployApprovalWidget({
 
       // 2. Start deployment SSE stream
       setStatus("deploying");
-      setPhaseBadge("در حال برقراری ارتباط با لیارا...");
+      setPhaseBadge("در حال ارسال بسته به لیارا...");
       if (onDeployStarted) onDeployStarted();
 
       const deployRes = await fetch(`/api/runs/${runId}/deploy`, {
@@ -92,10 +93,10 @@ export function DeployApprovalWidget({
       const parser = createDeployStreamParser((lineText) => {
         onStreamChunk?.(lineText);
         const lower = lineText.toLowerCase();
-        if (lower.includes("archive") || lower.includes("packaging")) setPhaseBadge("در حال فشرده‌سازی و بسته‌بندی کد...");
-        else if (lower.includes("building") || lower.includes("step ")) setPhaseBadge("در حال ساخت ایمیج در کلود لیارا...");
-        else if (lower.includes("pushing")) setPhaseBadge("در حال بارگذاری ایمیج...");
-        else if (lower.includes("release created") || lower.includes("deployed")) setPhaseBadge("انتشار نسخه در حال تکمیل است...");
+        if (lower.includes("archive") || lower.includes("packaging")) setPhaseBadge("در حال فشرده‌سازی سورس...");
+        else if (lower.includes("building") || lower.includes("step ")) setPhaseBadge("در حال ساخت ایمیج ابری...");
+        else if (lower.includes("pushing")) setPhaseBadge("در حال بارگذاری کانتینر...");
+        else if (lower.includes("release created") || lower.includes("deployed")) setPhaseBadge("انتشار نسخه روی لیارا...");
       });
 
       while (true) {
@@ -109,11 +110,11 @@ export function DeployApprovalWidget({
       const isSuccess = result.succeeded;
       if (isSuccess) {
         setStatus("success");
-        setPhaseBadge("دپلوی با موفقیت انجام شد ✔");
+        setPhaseBadge("دپلوی موفق");
         onDeployFinished?.(true, result.logs);
       } else {
         setStatus("failed");
-        setPhaseBadge("دپلوی ناموفق یا نامشخص بود ✖");
+        setPhaseBadge("دپلوی ناموفق");
         onDeployFinished?.(false, result.logs || "پاسخ نهایی دپلوی از سرور دریافت نشد.");
       }
     } catch (err: unknown) {
@@ -125,111 +126,107 @@ export function DeployApprovalWidget({
     }
   };
 
-  return (
-    <div className="mt-4 rounded-2xl border border-border bg-card/60 p-4 shadow-sm backdrop-blur">
-      <div className="flex items-center justify-between pb-3 border-b border-border/60">
-        <div className="flex items-center gap-2">
-          <span className="text-xl">🚀</span>
-          <div>
-            <h4 className="text-sm font-semibold text-foreground">
-              تأییدیه نهایی و اجرای دپلوی روی لیارا
-            </h4>
-            <p className="text-xs text-muted-foreground font-mono" dir="ltr">
-              Target App: <span className="text-primary font-semibold">{targetApp}</span> | Platform: {platform} | Port: {port}
-            </p>
-          </div>
-        </div>
-        <span
-          className={`text-xs rounded-full px-2.5 py-0.5 font-medium border ${
-            status === "success"
-              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-              : status === "failed"
-              ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
-              : status === "deploying"
-              ? "bg-amber-500/10 text-amber-400 border-amber-500/20 animate-pulse"
-              : "bg-primary/10 text-primary border-primary/20"
-          }`}
-        >
-          {phaseBadge}
-        </span>
-      </div>
-
-      <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground">
-        <div>
-          شناسه یکتای ران: <code className="font-mono text-primary font-semibold">{runId.substring(0, 12)}...</code>
-        </div>
-        <div className="font-mono text-[10px]" dir="ltr">
-          Digest: {planDigest ? planDigest.substring(0, 16) : ""}...
-        </div>
-      </div>
-
-      {error && (
-        <div className="mt-3 rounded-lg bg-rose-500/10 border border-rose-500/20 p-2.5 text-xs text-rose-400">
-          {error}
-        </div>
-      )}
-
-      <div className="mt-4 pt-3 border-t border-border/60 flex items-center justify-between">
-        <span className="text-[11px] text-muted-foreground">
-          لاگ‌های استقرار به صورت زنده در ترمینال سایدبار استریم می‌شوند.
-        </span>
-
-        {status === "idle" && (
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleReject}
-              disabled={disabled}
-              className="rounded-xl border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted transition-all cursor-pointer"
+  if (status === "success") {
+    return (
+      <article className="relative overflow-hidden rounded-2xl border border-emerald-400/30 bg-emerald-400/[.04] p-5 shadow-lg">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/assets/state-success.webp"
+          alt=""
+          className="absolute inset-y-0 left-0 h-full w-1/2 object-cover opacity-80 [mask-image:linear-gradient(to_right,#000_30%,transparent)] pointer-events-none"
+        />
+        <div className="relative p-2 sm:w-3/5 mr-auto space-y-1">
+          <h3 className="font-bold text-emerald-300 text-base">دپلوی با موفقیت انجام شد</h3>
+          <p className="t">
+            برنامه شما روی{" "}
+            <a
+              href={`https://${targetApp}.liara.run`}
+              target="_blank"
+              rel="noreferrer"
+              dir="ltr"
+              className="text-liara font-mono text-xs underline underline-offset-2 hover:brightness-125 font-bold"
             >
-              رد / انصراف
-            </button>
+              {targetApp}.liara.run
+            </a>{" "}
+            در دسترس است.
+          </p>
+        </div>
+      </article>
+    );
+  }
+
+  return (
+    <article className="card !border-amber-400/40 !bg-amber-400/[.05] relative w-full overflow-hidden">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/assets/bg-mint.webp" alt="" className="bgimg pointer-events-none" />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/assets/icon-deploy.webp" alt="" className="ico fl relative" />
+      <div className="body">
+        <div className="flex items-center justify-between">
+          <h3 className="font-bold text-amber-300 text-base">تأیید دپلوی</h3>
+          <span className="pill bg-amber-400/15 text-amber-300 border border-amber-400/30">
+            {phaseBadge}
+          </span>
+        </div>
+
+        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm pt-1">
+          <dt className="text-zinc-400">شناسه اجرا</dt>
+          <dd dir="ltr" className="text-left font-mono text-xs text-zinc-200">
+            {runId.substring(0, 16)}...
+          </dd>
+          <dt className="text-zinc-400">سرویس مقصد</dt>
+          <dd dir="ltr" className="text-left font-mono text-xs text-zinc-200">
+            {targetApp} ({platform} · پورت {port})
+          </dd>
+          <dt className="text-zinc-400">خلاصه طرح</dt>
+          <dd dir="ltr" className="break-all text-left font-mono text-xs text-zinc-300">
+            sha256:{planDigest}
+          </dd>
+          <dt className="text-zinc-400">اقدام‌ها</dt>
+          <dd className="text-zinc-300">ارسال بسته سورس، ساخت ابری کانتینر، اجرای سرویس</dd>
+        </dl>
+
+        {error && (
+          <p className="text-xs text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-lg p-2">
+            {error}
+          </p>
+        )}
+
+        {(status === "idle" || status === "approving") && (
+          <div className="flex gap-2 pt-2">
             <button
               type="button"
               onClick={handleApproveAndDeploy}
-              disabled={disabled}
-              className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-50 cursor-pointer shadow"
+              disabled={disabled || status === "approving"}
+              className="btn bg-emerald-400 text-zinc-950 font-bold hover:brightness-110 cursor-pointer flex items-center gap-1.5"
             >
-              <span>⚡</span>
-              <span>تأیید و اجرای دپلوی خودکار</span>
+              {status === "approving" && <Loader2 className="h-4 w-4 animate-spin" />}
+              <span>تأیید و آغاز دپلوی</span>
             </button>
+            <button
+              type="button"
+              onClick={handleReject}
+              disabled={disabled || status === "approving"}
+              className="rounded-xl border border-rose-400/40 px-5 py-2 text-sm text-rose-300 hover:bg-rose-400/10 cursor-pointer transition-colors"
+            >
+              رد عملیات
+            </button>
+          </div>
+        )}
+
+        {status === "deploying" && (
+          <div className="flex items-center gap-2 text-xs text-amber-300 pt-2 font-medium">
+            <Loader2 className="h-4 w-4 animate-spin text-amber-400" />
+            <span>در حال ارتباط با لیارا و دریافت لاگ‌های دپلوی در کنسول جانبی...</span>
           </div>
         )}
 
         {status === "rejected" && (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span>✖</span>
-            <span>دپلوی توسط اپراتور لغو شد.</span>
-          </div>
-        )}
-
-        {(status === "approving" || status === "deploying") && (
-          <div className="flex items-center gap-2 text-xs text-amber-400 font-medium">
-            <span className="h-4 w-4 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
-            <span>در حال اجرای عملیات دپلوی...</span>
-          </div>
-        )}
-
-        {status === "success" && (
-          <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-bold">
-            <span>✔</span>
-            <span>دپلوی کامل شد. در حال اعتبارسنجی سلامت سرویس...</span>
-          </div>
-        )}
-
-        {status === "failed" && (
-          <button
-            type="button"
-            onClick={handleApproveAndDeploy}
-            disabled={disabled}
-            className="flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2 text-xs font-medium text-white hover:bg-rose-700 transition-all cursor-pointer shadow"
-          >
-            <span>🔄</span>
-            <span>تلاش مجدد برای دپلوی</span>
-          </button>
+          <p className="text-xs text-rose-300 pt-2 font-medium">
+            این عملیات دپلوی توسط اپراتور رد شد.
+          </p>
         )}
       </div>
-    </div>
+    </article>
   );
 }
-

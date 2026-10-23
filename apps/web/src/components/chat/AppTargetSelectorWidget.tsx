@@ -180,18 +180,18 @@ export function AppTargetSelectorWidget({
   };
 
   return (
-    <div className="w-full max-w-xl rounded-2xl border border-zinc-800 bg-zinc-900/90 p-5 shadow-xl flex flex-col gap-4 text-zinc-200">
+    <div className="w-full max-w-xl rounded-2xl border border-white/10 bg-white/[.04] backdrop-blur p-5 shadow-xl flex flex-col gap-4 text-zinc-200">
       {/* Widget Header */}
-      <div className="flex items-center justify-between border-b border-zinc-800/80 pb-3">
-        <div className="flex items-center gap-2.5">
-          <div className="h-8 w-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
-            <Globe className="h-4 w-4" />
+      <div className="flex items-center justify-between border-b border-white/10 pb-3">
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-xl bg-liara/10 border border-liara/20 flex items-center justify-center text-liara">
+            <Globe className="h-4.5 w-4.5" />
           </div>
           <div>
             <h4 className="text-sm font-semibold text-zinc-100">تعیین سرویس مقصد در لیارا</h4>
-            <p className="text-[11px] text-zinc-400">
+            <p className="text-xs text-zinc-400">
               پلتفرم شناسایی‌شده:{" "}
-              <span className="font-mono text-zinc-300 font-semibold">{detectedPlatform}</span>
+              <span className="font-mono text-liara font-semibold">{detectedPlatform}</span>
             </p>
           </div>
         </div>
@@ -204,7 +204,7 @@ export function AppTargetSelectorWidget({
               setErrorMessage(null);
             }}
             disabled={isSubmitting || disabled}
-            className="flex items-center gap-1 text-[11px] text-zinc-400 hover:text-zinc-200 transition-colors py-1 px-2 rounded-md hover:bg-zinc-800"
+            className="flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-200 transition-colors py-1 px-2.5 rounded-lg border border-white/10 hover:bg-white/5 cursor-pointer"
           >
             <span>بازگشت</span>
             <ArrowRight className="h-3 w-3" />

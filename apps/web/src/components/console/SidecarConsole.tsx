@@ -5,22 +5,13 @@ import {
   Terminal as TerminalIcon,
   Server,
   Activity,
-  Copy,
-  Trash2,
-  ChevronLeft,
-  ChevronRight,
-  Database,
-  Globe,
-  ExternalLink,
-  ShieldCheck,
-  CheckCircle2,
-  AlertTriangle,
-  RefreshCw,
   KeyRound,
-  Users,
   Eye,
   EyeOff,
-  Save,
+  ChevronRight,
+  RefreshCw,
+  Loader2,
+  ExternalLink,
 } from "lucide-react";
 
 export interface CloudService {
@@ -118,12 +109,65 @@ export function SidecarConsole({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleRunTestConnection = async () => {
+    if (!onTestConnection) return;
+    setIsTestingConn(true);
+    setTestResult(null);
+    try {
+      const res = await onTestConnection({
+        api_token: newTokenInput.trim() || undefined,
+        team_id: teamIdInput.trim() || undefined,
+      });
+      if (res.ok) {
+        setTestResult({ ok: true, message: "اتصال به حساب و پلتفرم لیارا با موفقیت برقرار شد." });
+        if (res.teams && res.teams.length > 0) {
+          setFetchedTeams(res.teams);
+        }
+      } else {
+        setTestResult({ ok: false, message: res.error || "خطا در برقراری ارتباط با لیارا" });
+      }
+    } catch (err: unknown) {
+      setTestResult({ ok: false, message: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setIsTestingConn(false);
+    }
+  };
+
+  const handleSaveAccountSettings = async () => {
+    if (!onUpdateAccountSettings) return;
+    setIsSavingSettings(true);
+    setSaveResult(null);
+    try {
+      const payload: { token?: string; teamId?: string } = {};
+      if (newTokenInput.trim()) payload.token = newTokenInput.trim();
+      payload.teamId = teamIdInput.trim();
+
+      const res = await onUpdateAccountSettings(payload);
+      if (res.ok) {
+        setSaveResult({ ok: true, message: "تنظیمات حساب کاربری و تیم فعال با موفقیت به‌روزرسانی شد." });
+        setNewTokenInput("");
+      } else {
+        setSaveResult({ ok: false, message: res.error || "خطا در به‌روزرسانی تنظیمات" });
+      }
+    } catch (err: unknown) {
+      setSaveResult({ ok: false, message: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
+  const getServiceIcon = (type: string) => {
+    if (type.includes("postgres")) return "/assets/svc-postgres.webp";
+    if (type.includes("redis")) return "/assets/svc-redis.webp";
+    return "/assets/svc-node.webp";
+  };
+
   if (isCollapsed) {
     return (
-      <aside className="w-full lg:w-12 h-12 lg:h-full bg-zinc-900 border-t lg:border-t-0 lg:border-r border-zinc-800 flex lg:flex-col items-center justify-between px-3 py-2 lg:py-4 lg:gap-4 shrink-0 transition-all select-none">
+      <aside className="w-full lg:w-14 h-12 lg:h-full bg-black/40 border-t lg:border-t-0 lg:border-r border-white/10 flex lg:flex-col items-center justify-between px-3 py-2 lg:py-4 lg:gap-4 shrink-0 transition-all select-none">
         <button
           onClick={() => setIsCollapsed(false)}
-          className="p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors"
+          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 transition-colors cursor-pointer"
           title="باز کردن کنسول جانبی"
         >
           <ChevronRight className="h-4 w-4" />
@@ -134,48 +178,52 @@ export function SidecarConsole({
               setIsCollapsed(false);
               setActiveTab("terminal");
             }}
-            className={`p-2 rounded-lg transition-colors ${
-              activeTab === "terminal" ? "bg-blue-600 text-white" : "text-zinc-400 hover:bg-zinc-800"
+            className={`p-2 rounded-xl transition-colors cursor-pointer ${
+              activeTab === "terminal" ? "bg-liara/20 text-liara border border-liara/30" : "text-zinc-400 hover:bg-white/5"
             }`}
-            title="ترمینال"
+            title="کنسول و لاگ‌ها"
           >
-            <TerminalIcon className="h-4 w-4" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/assets/icon-terminal.webp" alt="" className="ico !w-6 !h-6" />
           </button>
           <button
             onClick={() => {
               setIsCollapsed(false);
               setActiveTab("services");
             }}
-            className={`p-2 rounded-lg transition-colors ${
-              activeTab === "services" ? "bg-blue-600 text-white" : "text-zinc-400 hover:bg-zinc-800"
+            className={`p-2 rounded-xl transition-colors cursor-pointer ${
+              activeTab === "services" ? "bg-liara/20 text-liara border border-liara/30" : "text-zinc-400 hover:bg-white/5"
             }`}
             title="سرویس‌های ابری"
           >
-            <Server className="h-4 w-4" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/assets/icon-services.webp" alt="" className="ico !w-6 !h-6" />
           </button>
           <button
             onClick={() => {
               setIsCollapsed(false);
               setActiveTab("health");
             }}
-            className={`p-2 rounded-lg transition-colors ${
-              activeTab === "health" ? "bg-blue-600 text-white" : "text-zinc-400 hover:bg-zinc-800"
+            className={`p-2 rounded-xl transition-colors cursor-pointer ${
+              activeTab === "health" ? "bg-liara/20 text-liara border border-liara/30" : "text-zinc-400 hover:bg-white/5"
             }`}
             title="سلامت سیستم"
           >
-            <Activity className="h-4 w-4" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/assets/icon-health.webp" alt="" className="ico !w-6 !h-6" />
           </button>
           <button
             onClick={() => {
               setIsCollapsed(false);
               setActiveTab("settings");
             }}
-            className={`p-2 rounded-lg transition-colors ${
-              activeTab === "settings" ? "bg-blue-600 text-white" : "text-zinc-400 hover:bg-zinc-800"
+            className={`p-2 rounded-xl transition-colors cursor-pointer ${
+              activeTab === "settings" ? "bg-liara/20 text-liara border border-liara/30" : "text-zinc-400 hover:bg-white/5"
             }`}
-            title="تنظیمات اکانت و تیم لیارا"
+            title="تنظیمات اکانت"
           >
-            <KeyRound className="h-4 w-4" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/assets/icon-key.webp" alt="" className="ico !w-6 !h-6" />
           </button>
         </div>
       </aside>
@@ -183,234 +231,224 @@ export function SidecarConsole({
   }
 
   return (
-    <aside className="w-full lg:w-[40%] lg:max-w-xl lg:min-w-[340px] h-[45vh] lg:h-full bg-zinc-900/95 border-t lg:border-t-0 lg:border-r border-zinc-800 flex flex-col shrink-0 transition-all overflow-hidden">
-      {/* Top Bar with Tabs */}
-      <div className="flex items-center justify-between border-b border-zinc-800 bg-zinc-950/40 px-3 py-2 shrink-0">
-        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+    <aside
+      dir="ltr"
+      className="h-[38vh] shrink-0 border-t border-white/10 bg-black/40 lg:h-auto lg:w-[40%] lg:max-w-[500px] lg:border-r lg:border-t-0 flex flex-col overflow-hidden"
+    >
+      {/* Tab Navigation Header */}
+      <div className="flex items-center justify-between gap-2 border-b border-white/10 px-3 py-2 bg-white/[.02] shrink-0">
+        <div className="flex items-center gap-1 text-xs" dir="rtl">
           <button
+            type="button"
             onClick={() => setActiveTab("terminal")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 ${
+            className={`flex cursor-pointer items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs transition-all ${
               activeTab === "terminal"
-                ? "bg-zinc-800 text-zinc-100 shadow-sm"
-                : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40"
+                ? "bg-liara/15 text-liara shadow-inner border border-liara/30 font-medium"
+                : "text-zinc-400 hover:text-zinc-200 hover:bg-white/5 border border-transparent"
             }`}
           >
-            <TerminalIcon className="h-3.5 w-3.5" />
-            <span>کنسول و لاگ‌ها</span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/assets/icon-terminal.webp" alt="" className="ico !h-7 !w-7" />
+            <span>لاگ‌ها</span>
             {isStreaming && (
               <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
             )}
           </button>
+
           <button
+            type="button"
             onClick={() => setActiveTab("services")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 ${
+            className={`flex cursor-pointer items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs transition-all ${
               activeTab === "services"
-                ? "bg-zinc-800 text-zinc-100 shadow-sm"
-                : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40"
+                ? "bg-liara/15 text-liara shadow-inner border border-liara/30 font-medium"
+                : "text-zinc-400 hover:text-zinc-200 hover:bg-white/5 border border-transparent"
             }`}
           >
-            <Server className="h-3.5 w-3.5" />
-            <span>سرویس‌های ابری</span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/assets/icon-services.webp" alt="" className="ico !h-7 !w-7" />
+            <span>سرویس‌ها</span>
             {services.length > 0 && (
-              <span className="rounded-full bg-zinc-700 text-zinc-300 text-[10px] px-1.5 py-0.2">
+              <span className="rounded-full bg-white/10 text-zinc-300 text-[10px] px-1.5 py-0.2 font-mono">
                 {services.length}
               </span>
             )}
           </button>
+
           <button
+            type="button"
             onClick={() => setActiveTab("health")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 ${
+            className={`flex cursor-pointer items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs transition-all ${
               activeTab === "health"
-                ? "bg-zinc-800 text-zinc-100 shadow-sm"
-                : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40"
+                ? "bg-liara/15 text-liara shadow-inner border border-liara/30 font-medium"
+                : "text-zinc-400 hover:text-zinc-200 hover:bg-white/5 border border-transparent"
             }`}
           >
-            <Activity className="h-3.5 w-3.5" />
-            <span>سلامت سیستم</span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/assets/icon-health.webp" alt="" className="ico !h-7 !w-7" />
+            <span>سلامت</span>
           </button>
+
           <button
+            type="button"
             onClick={() => setActiveTab("settings")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 ${
+            className={`flex cursor-pointer items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs transition-all ${
               activeTab === "settings"
-                ? "bg-zinc-800 text-zinc-100 shadow-sm"
-                : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40"
+                ? "bg-liara/15 text-liara shadow-inner border border-liara/30 font-medium"
+                : "text-zinc-400 hover:text-zinc-200 hover:bg-white/5 border border-transparent"
             }`}
           >
-            <KeyRound className="h-3.5 w-3.5" />
-            <span>تنظیمات اکانت</span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/assets/icon-key.webp" alt="" className="ico !h-7 !w-7" />
+            <span>تنظیمات</span>
           </button>
         </div>
 
-        <div className="flex items-center gap-1">
+        {/* Action Controls */}
+        <div className="flex items-center gap-1 text-xs text-zinc-400">
           {activeTab === "terminal" && (
             <>
               <button
+                type="button"
                 onClick={handleCopyLogs}
                 disabled={logs.length === 0}
-                className="p-1.5 text-zinc-400 hover:text-zinc-200 rounded hover:bg-zinc-800 transition-colors disabled:opacity-40"
+                className="rounded-lg border border-white/10 px-2 py-1 hover:text-liara cursor-pointer disabled:opacity-40 transition-colors"
                 title="کپی لاگ‌ها"
               >
-                <Copy className="h-3.5 w-3.5" />
+                {copied ? "Copied" : "Copy"}
               </button>
               {onClearLogs && (
                 <button
+                  type="button"
                   onClick={onClearLogs}
                   disabled={logs.length === 0}
-                  className="p-1.5 text-zinc-400 hover:text-rose-400 rounded hover:bg-zinc-800 transition-colors disabled:opacity-40"
-                  title="پاک کردن ترمینال"
+                  className="rounded-lg border border-white/10 px-2 py-1 hover:text-rose-300 cursor-pointer disabled:opacity-40 transition-colors"
+                  title="پاک کردن لاگ‌ها"
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
+                  Clear
                 </button>
               )}
             </>
           )}
+
+          {activeTab === "services" && onRefreshServices && (
+            <button
+              type="button"
+              onClick={onRefreshServices}
+              disabled={isRefreshingServices}
+              className="rounded-lg border border-white/10 px-2 py-1 hover:text-liara cursor-pointer disabled:opacity-40 transition-colors flex items-center gap-1"
+              title="به‌روزرسانی سرویس‌ها"
+            >
+              <RefreshCw className={`h-3 w-3 ${isRefreshingServices ? "animate-spin" : ""}`} />
+            </button>
+          )}
+
+          {activeTab === "health" && onRefreshHealth && (
+            <button
+              type="button"
+              onClick={onRefreshHealth}
+              disabled={isRefreshingHealth}
+              className="rounded-lg border border-white/10 px-2 py-1 hover:text-liara cursor-pointer disabled:opacity-40 transition-colors flex items-center gap-1"
+              title="بررسی دوباره سلامت"
+            >
+              <RefreshCw className={`h-3 w-3 ${isRefreshingHealth ? "animate-spin" : ""}`} />
+            </button>
+          )}
+
           <button
+            type="button"
             onClick={() => setIsCollapsed(true)}
-            className="p-1.5 text-zinc-400 hover:text-zinc-200 rounded hover:bg-zinc-800 transition-colors mr-1"
+            aria-label="Collapse"
+            className="rounded-lg border border-white/10 px-2 py-1 hover:text-liara cursor-pointer transition-colors"
             title="بستن پنل"
           >
-            <ChevronLeft className="h-3.5 w-3.5" />
+            —
           </button>
         </div>
       </div>
 
-      {/* Tab Contents */}
-      <div className="flex-1 overflow-hidden relative">
+      {/* Panels */}
+      <div className="min-h-0 flex-1 overflow-hidden relative">
+        {/* Terminal Panel */}
         {activeTab === "terminal" && (
-          <div
-            dir="ltr"
-            className="h-full w-full bg-zinc-950 p-4 font-mono text-[12px] leading-relaxed text-zinc-300 overflow-y-auto selection:bg-blue-600 selection:text-white"
-          >
+          <div className="scroll h-full overflow-y-auto bg-[#0c0c0e] p-4 font-mono text-xs leading-6 select-text">
             {logs.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-zinc-600 gap-2 select-none">
-                <TerminalIcon className="h-8 w-8 stroke-1 opacity-50" />
-                <p>در انتظار شروع استریم لاگ‌های دپلوی یا رانتایم...</p>
-              </div>
+              <p className="text-zinc-600 select-none">
+                $ liara ready. در انتظار استریم لاگ‌های دپلوی...
+              </p>
             ) : (
               logs.map((line, idx) => {
-                const isError =
-                  line.includes("[ERROR]") ||
-                  line.includes("Error:") ||
-                  line.includes("non-zero");
-                const isSuccess =
-                  line.includes("✔") ||
-                  line.includes("successfully") ||
-                  line.includes("exit code 0");
-                const isAgent = line.startsWith("[AGENT]");
-
+                const lower = line.toLowerCase();
+                let colorClass = "text-zinc-400";
+                if (lower.includes("error") || lower.includes("fail") || lower.includes("خطا")) {
+                  colorClass = "text-rose-400";
+                } else if (lower.includes("warn") || lower.includes("هشدار")) {
+                  colorClass = "text-amber-300";
+                } else if (lower.includes("ready") || lower.includes("✔") || lower.includes("postgres ready")) {
+                  colorClass = "text-emerald-400";
+                } else if (lower.includes("liara") || lower.includes("step") || lower.includes("build") || lower.includes("inspect")) {
+                  colorClass = "text-liara";
+                }
                 return (
-                  <div
-                    key={idx}
-                    className={`whitespace-pre-wrap break-all ${
-                      isError
-                        ? "text-rose-400"
-                        : isSuccess
-                        ? "text-emerald-400 font-semibold"
-                        : isAgent
-                        ? "text-blue-400 font-medium"
-                        : "text-zinc-300"
-                    }`}
-                  >
+                  <p key={idx} className={colorClass}>
                     {line}
-                  </div>
+                  </p>
                 );
               })
             )}
+            <p className="text-liara font-bold animate-pulse">▌</p>
             <div ref={terminalEndRef} />
           </div>
         )}
 
+        {/* Services Panel */}
         {activeTab === "services" && (
-          <div className="h-full p-4 overflow-y-auto flex flex-col gap-3">
-            <div className="flex items-center justify-between mb-1">
-              <div className="text-xs font-semibold text-zinc-400">
-                سرویس‌های ابری در لیارا ({services.length})
-              </div>
-              {onRefreshServices && (
-                <button
-                  onClick={onRefreshServices}
-                  disabled={isRefreshingServices}
-                  className="flex items-center gap-1 text-[11px] text-zinc-400 hover:text-zinc-200 transition-colors p-1 rounded hover:bg-zinc-800/60"
-                  title="بروزرسانی وضعیت سرویس‌ها از لیارا"
-                >
-                  <RefreshCw
-                    className={`h-3 w-3 ${
-                      isRefreshingServices ? "animate-spin text-blue-400" : ""
-                    }`}
-                  />
-                  <span>بروزرسانی</span>
-                </button>
-              )}
-            </div>
+          <div className="scroll h-full space-y-3 overflow-y-auto p-4" dir="rtl">
             {services.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-zinc-800 p-6 text-center text-xs text-zinc-500">
-                هنوز سرویسی در اکانت لیارا ایجاد نشده است یا توکن تنظیم نشده است. با ارسال سورس پروژه در چت، ایجنت دیتابیس و اپلیکیشن شما را خواهد ساخت.
+              <div className="text-center py-8 text-zinc-500 text-xs space-y-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/assets/icon-services.webp" alt="" className="ico !w-12 !h-12 mx-auto opacity-50" />
+                <p>هیچ سرویسی در این اکانت شناسایی نشد.</p>
               </div>
             ) : (
-              services.map((svc, i) => {
-                const isSelected = svc.type === "app" && svc.name === selectedServiceName;
+              services.map((svc) => {
+                const isSelected = selectedServiceName === svc.name;
+                const statusLower = svc.status.toLowerCase();
+                const isRunning = statusLower === "running" || statusLower === "active";
+                const isFailed = statusLower === "failed" || statusLower === "error";
+
                 return (
                   <div
-                    key={`${svc.type}-${svc.name}-${i}`}
-                    onClick={() => {
-                      if (svc.type === "app" && onSelectService) {
-                        onSelectService(svc.name);
-                      }
-                    }}
-                    className={`rounded-xl border p-3.5 flex flex-col gap-2 transition-all ${
-                      isSelected
-                        ? "border-blue-500/60 bg-blue-950/20 shadow-sm"
-                        : "border-zinc-800 bg-zinc-950/60 hover:border-zinc-700"
-                    } ${svc.type === "app" ? "cursor-pointer" : ""}`}
+                    key={svc.name}
+                    onClick={() => onSelectService?.(svc.name)}
+                    className={`svc cursor-pointer transition-all ${
+                      isSelected ? "border-liara bg-liara/10 shadow-[0_0_20px_-5px_#2cc4f4]" : "hover:border-white/20"
+                    }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {svc.type === "app" ? (
-                          <Globe className="h-4 w-4 text-blue-400" />
-                        ) : (
-                          <Database className="h-4 w-4 text-emerald-400" />
-                        )}
-                        <span className="text-sm font-semibold text-zinc-200">{svc.name}</span>
-                        {isSelected && (
-                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-300 font-medium border border-blue-500/30">
-                            مقصد دپلوی
-                          </span>
-                        )}
-                      </div>
-                      <span
-                        className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                          svc.status === "running"
-                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                            : svc.status === "failed"
-                            ? "bg-rose-500/10 text-rose-400 border border-rose-500/20"
-                            : "bg-zinc-500/10 text-zinc-400 border border-zinc-500/20"
-                        }`}
-                      >
-                        {svc.status === "running"
-                          ? "فعال و آنلاین"
-                          : svc.status === "failed"
-                          ? "خطا در اجرا"
-                          : svc.status === "stopped"
-                          ? "متوقف شده"
-                          : "در حال دپلوی"}
-                      </span>
-                    </div>
-                    {svc.endpoint && (
-                      <div className="flex items-center justify-between text-xs text-zinc-400 pt-1 border-t border-zinc-800/80">
-                        <span className="text-[11px] text-zinc-500">دامنه دسترسی:</span>
-                        <a
-                          href={svc.endpoint.startsWith("http") ? svc.endpoint : `https://${svc.endpoint}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="flex items-center gap-1 text-blue-400 hover:underline"
-                          dir="ltr"
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={getServiceIcon(svc.type)}
+                      alt=""
+                      className="ico !h-12 !w-12 shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-center">
+                        <b className="text-sm font-bold text-zinc-100 truncate">{svc.name}</b>
+                        <span
+                          className={`pill text-[10px] font-medium ${
+                            isRunning
+                              ? "bg-emerald-400/15 text-emerald-300 border border-emerald-400/30"
+                              : isFailed
+                              ? "bg-rose-500/15 text-rose-300 border border-rose-500/30"
+                              : "bg-liara/15 text-liara border border-liara/30"
+                          }`}
                         >
-                          {svc.endpoint}
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
+                          {isRunning ? "Running" : isFailed ? "Failed" : svc.status}
+                        </span>
                       </div>
-                    )}
+                      <p dir="ltr" className="mt-1 text-left font-mono text-xs text-zinc-400 truncate">
+                        {svc.port ? `port ${svc.port}` : ""} {svc.endpoint ? `· ${svc.endpoint}` : ""}
+                      </p>
+                    </div>
                   </div>
                 );
               })
@@ -418,289 +456,182 @@ export function SidecarConsole({
           </div>
         )}
 
+        {/* Health Panel */}
         {activeTab === "health" && (
-          <div className="h-full p-4 overflow-y-auto flex flex-col gap-3">
-            <div className="flex items-center justify-between mb-1">
-              <div className="text-xs font-semibold text-zinc-400">وضعیت زیرساخت ایجنت</div>
-              {onRefreshHealth && (
-                <button
-                  onClick={onRefreshHealth}
-                  disabled={isRefreshingHealth}
-                  className="flex items-center gap-1 text-[11px] text-zinc-400 hover:text-zinc-200 transition-colors p-1 rounded hover:bg-zinc-800/60"
-                  title="بررسی مجدد سلامت سیستم"
-                >
-                  <RefreshCw className={`h-3 w-3 ${isRefreshingHealth ? "animate-spin text-blue-400" : ""}`} />
-                  <span>بررسی مجدد</span>
-                </button>
-              )}
+          <div className="scroll h-full space-y-3 overflow-y-auto p-4" dir="rtl">
+            <div className="svc justify-between text-sm">
+              <span className="font-medium text-zinc-200">پایگاه‌داده داخلی (PostgreSQL)</span>
+              <span
+                className={`flex items-center gap-2 font-medium ${
+                  systemHealth.database ? "text-emerald-300" : "text-rose-400"
+                }`}
+              >
+                <i
+                  className={`h-2 w-2 rounded-full ${
+                    systemHealth.database ? "bg-emerald-400 pulse" : "bg-rose-500"
+                  }`}
+                />
+                {systemHealth.database ? "سالم" : "قطع ارتباط"}
+              </span>
             </div>
 
-            <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3.5 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <Database className={`h-4 w-4 ${systemHealth.database ? "text-emerald-400" : "text-rose-400"}`} />
-                <div>
-                  <div className="text-xs font-medium text-zinc-200">دیتابیس PostgreSQL (Prisma)</div>
-                  <div className="text-[11px] text-zinc-500">ذخیره گزارش‌ها، تاییدها و نشست‌ها</div>
-                </div>
-              </div>
-              {systemHealth.database ? (
-                <span className="flex items-center gap-1 text-xs text-emerald-400 font-medium">
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  متصل
-                </span>
-              ) : (
-                <span className="flex items-center gap-1 text-xs text-rose-400 font-medium">
-                  <AlertTriangle className="h-3.5 w-3.5" />
-                  قطع ارتباط / خطا
-                </span>
-              )}
+            <div className="svc justify-between text-sm">
+              <span className="font-medium text-zinc-200">موتور تحلیلی پایتون (Agent Engine)</span>
+              <span
+                className={`flex items-center gap-2 font-medium ${
+                  systemHealth.engine ? "text-emerald-300" : "text-rose-400"
+                }`}
+              >
+                <i
+                  className={`h-2 w-2 rounded-full ${
+                    systemHealth.engine ? "bg-emerald-400 pulse" : "bg-rose-500"
+                  }`}
+                />
+                {systemHealth.engine ? "سالم" : "قطع ارتباط با موتور"}
+              </span>
             </div>
 
-            <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3.5 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <Server className={`h-4 w-4 ${systemHealth.engine ? "text-emerald-400" : "text-rose-400"}`} />
-                <div>
-                  <div className="text-xs font-medium text-zinc-200">موتور هوش مصنوعی (FastAPI & LangChain)</div>
-                  <div className="text-[11px] text-zinc-500">تحلیل کدبیس و هماهنگ‌کننده دپلوی</div>
-                </div>
-              </div>
-              {systemHealth.engine ? (
-                <span className="flex items-center gap-1 text-xs text-emerald-400 font-medium">
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  متصل
-                </span>
-              ) : (
-                <span className="flex items-center gap-1 text-xs text-rose-400 font-medium">
-                  <AlertTriangle className="h-3.5 w-3.5" />
-                  قطع ارتباط با موتور
-                </span>
-              )}
+            <div className="svc justify-between text-sm">
+              <span className="font-medium text-zinc-200">دسترسی به API لیارا</span>
+              <span className="flex items-center gap-2 text-emerald-300 font-medium">
+                <i className="h-2 w-2 rounded-full bg-emerald-400 pulse" />
+                عملیاتی
+              </span>
             </div>
           </div>
         )}
 
+        {/* Settings Panel */}
         {activeTab === "settings" && (
-          <div className="h-full p-4 overflow-y-auto flex flex-col gap-4">
-            {/* Header */}
-            <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
-              <div className="flex items-center gap-2">
-                <KeyRound className="h-4 w-4 text-amber-400" />
-                <span className="text-xs font-semibold text-zinc-200">تنظیمات و دسترسی‌های لیارا</span>
+          <div className="scroll h-full space-y-4 overflow-y-auto p-4 text-xs" dir="rtl">
+            {/* Status card */}
+            <div className="svc justify-between">
+              <div>
+                <b className="text-zinc-200 text-sm">وضعیت اتصال:</b>
+                <p className="text-zinc-400 mt-0.5">
+                  {accountSettings?.configured && accountSettings?.maskedToken
+                    ? "متصل به لیارا"
+                    : "توکن تنظیم نشده"}
+                </p>
               </div>
               <span
-                className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                className={`pill ${
                   accountSettings?.configured
-                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                    : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                    ? "bg-emerald-400/15 text-emerald-300 border border-emerald-400/30"
+                    : "bg-amber-400/15 text-amber-300 border border-amber-400/30"
                 }`}
               >
-                {accountSettings?.configured ? "توکن فعال" : "توکن تنظیم نشده"}
+                {accountSettings?.configured ? "فعال" : "نیازمند تنظیم"}
               </span>
             </div>
 
-            {/* API Token Section */}
-            <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3.5 flex flex-col gap-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-zinc-300">کلید دسترسی لیارا (API Token)</span>
-                <a
-                  href="https://console.liara.ir/API"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-1 text-[11px] text-blue-400 hover:underline"
-                >
-                  دریافت کلید دسترسی
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              </div>
-
-              <div className="text-[11px] text-zinc-500">
-                توکن فعلی ذخیره‌شده در سیستم:
-              </div>
-              <div
-                dir="ltr"
-                className="text-xs font-mono bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-lg text-zinc-300 select-all"
-              >
-                {accountSettings?.maskedToken || "هنوز توکنی تنظیم نشده است"}
-              </div>
-
-              <div className="flex flex-col gap-1.5 pt-1">
-                <label className="text-[11px] text-zinc-400">
-                  ورود یا تغییر توکن جدید:
-                </label>
-                <div className="relative">
-                  <input
-                    type={showTokenText ? "text" : "password"}
-                    value={newTokenInput}
-                    onChange={(e) => setNewTokenInput(e.target.value)}
-                    placeholder="مثال: lia_xxxxxxxxxxxx"
-                    dir="ltr"
-                    className="w-full bg-zinc-900 border border-zinc-700/80 rounded-lg px-3 py-2 pl-9 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-blue-500 transition-colors font-mono"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowTokenText(!showTokenText)}
-                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-200 transition-colors"
-                    title={showTokenText ? "پنهان کردن" : "نمایش توکن"}
-                  >
-                    {showTokenText ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Team / Workspace Section */}
-            <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3.5 flex flex-col gap-2.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-blue-400" />
-                  <span className="text-xs font-medium text-zinc-300">فضای کاری و تیم لیارا</span>
-                </div>
-                <span className="text-[10px] text-zinc-500">
-                  {teamIdInput ? `تیم انتخابی: ${teamIdInput}` : "حساب شخصی"}
-                </span>
-              </div>
-
-              {fetchedTeams.length > 0 && (
-                <div className="flex flex-col gap-1">
-                  <label className="text-[11px] text-zinc-400">انتخاب از تیم‌های اکانت:</label>
-                  <select
-                    value={teamIdInput}
-                    onChange={(e) => setTeamIdInput(e.target.value)}
-                    className="w-full bg-zinc-900 border border-zinc-700/80 rounded-lg px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-blue-500 transition-colors"
-                  >
-                    <option value="">حساب شخصی (بدون تیم)</option>
-                    {fetchedTeams.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name} ({t.id})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div className="flex flex-col gap-1">
-                <label className="text-[11px] text-zinc-400">شناسه تیم (Team ID):</label>
+            {/* Current token display */}
+            {accountSettings?.maskedToken && (
+              <div className="space-y-1">
+                <label className="text-zinc-400">توکن فعلی (ماسک‌شده):</label>
                 <input
                   type="text"
-                  value={teamIdInput}
-                  onChange={(e) => setTeamIdInput(e.target.value)}
-                  placeholder="اختیاری - برای حساب شخصی خالی بگذارید"
+                  readOnly
                   dir="ltr"
-                  className="w-full bg-zinc-900 border border-zinc-700/80 rounded-lg px-3 py-2 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-blue-500 transition-colors font-mono"
+                  value={accountSettings.maskedToken}
+                  className="inp opacity-80 cursor-default"
                 />
+              </div>
+            )}
+
+            {/* New token input */}
+            <div className="space-y-1.5">
+              <label className="text-zinc-300 font-medium">کلید دسترسی جدید لیارا:</label>
+              <div className="relative">
+                <input
+                  type={showTokenText ? "text" : "password"}
+                  dir="ltr"
+                  value={newTokenInput}
+                  onChange={(e) => setNewTokenInput(e.target.value)}
+                  placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  className="inp pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowTokenText(!showTokenText)}
+                  className="absolute right-3 top-3 text-zinc-400 hover:text-zinc-200 cursor-pointer"
+                >
+                  {showTokenText ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
             </div>
 
-            {/* Test & Save Status Messages */}
+            {/* Team selection */}
+            <div className="space-y-1.5">
+              <label className="text-zinc-300 font-medium">تیم کاری فعال در لیارا:</label>
+              {fetchedTeams.length > 0 ? (
+                <select
+                  value={teamIdInput}
+                  onChange={(e) => setTeamIdInput(e.target.value)}
+                  className="inp"
+                >
+                  <option value="">حساب شخصی (بدون تیم)</option>
+                  {fetchedTeams.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name} ({t.id})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  dir="ltr"
+                  value={teamIdInput}
+                  onChange={(e) => setTeamIdInput(e.target.value)}
+                  placeholder="شناسه تیم (اختیاری)"
+                  className="inp"
+                />
+              )}
+            </div>
+
             {testResult && (
-              <div
-                className={`p-3 rounded-xl text-xs flex items-center gap-2 border ${
+              <p
+                className={`p-2.5 rounded-xl border text-xs ${
                   testResult.ok
-                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-                    : "bg-rose-500/10 border-rose-500/20 text-rose-400"
+                    ? "bg-emerald-400/10 border-emerald-400/30 text-emerald-300"
+                    : "bg-rose-500/10 border-rose-500/30 text-rose-300"
                 }`}
               >
-                {testResult.ok ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <AlertTriangle className="h-4 w-4 shrink-0" />}
-                <span>{testResult.message}</span>
-              </div>
+                {testResult.message}
+              </p>
             )}
 
             {saveResult && (
-              <div
-                className={`p-3 rounded-xl text-xs flex items-center gap-2 border ${
+              <p
+                className={`p-2.5 rounded-xl border text-xs ${
                   saveResult.ok
-                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-                    : "bg-rose-500/10 border-rose-500/20 text-rose-400"
+                    ? "bg-emerald-400/10 border-emerald-400/30 text-emerald-300"
+                    : "bg-rose-500/10 border-rose-500/30 text-rose-300"
                 }`}
               >
-                {saveResult.ok ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <AlertTriangle className="h-4 w-4 shrink-0" />}
-                <span>{saveResult.message}</span>
-              </div>
+                {saveResult.message}
+              </p>
             )}
 
-            {/* Action Buttons */}
-            <div className="flex items-center gap-2 pt-2">
+            {/* Action buttons */}
+            <div className="flex gap-2 pt-2">
               <button
                 type="button"
-                onClick={async () => {
-                  if (!onTestConnection) return;
-                  setIsTestingConn(true);
-                  setTestResult(null);
-                  try {
-                    const res = await onTestConnection({
-                      api_token: newTokenInput.trim() || undefined,
-                      team_id: teamIdInput.trim() || undefined,
-                    });
-                    if (res.ok) {
-                      setTestResult({
-                        ok: true,
-                        message: `اتصال به لیارا موفق بود. (${res.teams?.length || 0} تیم در دسترس)`,
-                      });
-                      if (res.teams) {
-                        setFetchedTeams(res.teams);
-                      }
-                    } else {
-                      setTestResult({
-                        ok: false,
-                        message: res.error || "خطا در برقراری اتصال به لیارا",
-                      });
-                    }
-                  } catch (err: unknown) {
-                    setTestResult({
-                      ok: false,
-                      message: err instanceof Error ? err.message : "خطای غیرمنتظره در تست اتصال",
-                    });
-                  } finally {
-                    setIsTestingConn(false);
-                  }
-                }}
-                disabled={isTestingConn || isSavingSettings}
-                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors disabled:opacity-50"
+                onClick={handleRunTestConnection}
+                disabled={isTestingConn}
+                className="b0 flex-1 flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                <RefreshCw className={`h-3.5 w-3.5 ${isTestingConn ? "animate-spin text-blue-400" : ""}`} />
-                <span>{isTestingConn ? "در حال تست..." : "بررسی اتصال"}</span>
+                {isTestingConn && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                <span>تست اتصال</span>
               </button>
-
               <button
                 type="button"
-                onClick={async () => {
-                  if (!onUpdateAccountSettings) return;
-                  setIsSavingSettings(true);
-                  setSaveResult(null);
-                  try {
-                    const payload: { token?: string; teamId?: string } = {
-                      teamId: teamIdInput.trim(),
-                    };
-                    if (newTokenInput.trim()) {
-                      payload.token = newTokenInput.trim();
-                    }
-                    const res = await onUpdateAccountSettings(payload);
-                    if (res.ok) {
-                      setSaveResult({
-                        ok: true,
-                        message: "تنظیمات اکانت با موفقیت ذخیره شد.",
-                      });
-                      setNewTokenInput("");
-                    } else {
-                      setSaveResult({
-                        ok: false,
-                        message: res.error || "خطا در ذخیره‌سازی تنظیمات",
-                      });
-                    }
-                  } catch (err: unknown) {
-                    setSaveResult({
-                      ok: false,
-                      message: err instanceof Error ? err.message : "خطای ناشناخته در ذخیره‌سازی",
-                    });
-                  } finally {
-                    setIsSavingSettings(false);
-                  }
-                }}
-                disabled={isSavingSettings || isTestingConn}
-                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50 shadow-sm shadow-blue-900/30"
+                onClick={handleSaveAccountSettings}
+                disabled={isSavingSettings}
+                className="b2 flex-1 flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                <Save className="h-3.5 w-3.5" />
-                <span>{isSavingSettings ? "در حال ذخیره..." : "ذخیره تغییرات"}</span>
+                {isSavingSettings && <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-950" />}
+                <span>ذخیره تنظیمات</span>
               </button>
             </div>
           </div>

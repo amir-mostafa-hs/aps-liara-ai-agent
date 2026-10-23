@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { Loader2 } from "lucide-react";
 
 interface DiffPreviewWidgetProps {
   sourcePath: string;
@@ -74,7 +75,6 @@ export function DiffPreviewWidget({
     setError(null);
 
     try {
-      // 1. Apply file changes (liara.json and optional local .env)
       const resConfig = await fetch("/api/project/config/apply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -110,7 +110,7 @@ export function DiffPreviewWidget({
   const renderDiffLines = (rawDiff: string) => {
     if (!rawDiff || !rawDiff.trim()) {
       return (
-        <div className="p-4 text-center text-xs text-muted-foreground">
+        <div className="p-4 text-center text-xs text-zinc-500">
           تغییری برای نمایش وجود ندارد.
         </div>
       );
@@ -118,137 +118,147 @@ export function DiffPreviewWidget({
 
     const lines = rawDiff.split("\n");
     return (
-      <div className="font-mono text-[11px] leading-relaxed p-3 overflow-x-auto space-y-0.5" dir="ltr">
-        {lines.map((line, idx) => {
-          let lineClass = "text-muted-foreground";
-          if (line.startsWith("+") && !line.startsWith("+++")) {
-            lineClass = "bg-emerald-500/15 text-emerald-400 font-semibold px-1 rounded-sm";
-          } else if (line.startsWith("-") && !line.startsWith("---")) {
-            lineClass = "bg-rose-500/15 text-rose-400 line-through px-1 rounded-sm";
-          } else if (line.startsWith("@@")) {
-            lineClass = "text-cyan-400 text-[10px]";
-          }
-          return (
-            <div key={idx} className={lineClass}>
-              {line || " "}
-            </div>
-          );
-        })}
-      </div>
+      <pre dir="ltr" className="scroll overflow-x-auto py-2 font-mono text-xs leading-6">
+        <code className="block">
+          {lines.map((line, idx) => {
+            if (line.startsWith("+") && !line.startsWith("+++")) {
+              return (
+                <span key={idx} className="block bg-emerald-500/10 px-4 text-emerald-300">
+                  {line}
+                </span>
+              );
+            }
+            if (line.startsWith("-") && !line.startsWith("---")) {
+              return (
+                <span key={idx} className="block bg-rose-500/10 px-4 text-rose-300">
+                  {line}
+                </span>
+              );
+            }
+            return (
+              <span key={idx} className="block px-4 text-zinc-400">
+                {line || " "}
+              </span>
+            );
+          })}
+        </code>
+      </pre>
     );
   };
 
   if (applied) {
     return (
-      <div className="mt-3 rounded-xl border border-emerald-500/40 bg-emerald-950/20 p-4 text-emerald-300">
-        <div className="flex items-center gap-2 font-bold text-sm">
-          <span>✔</span>
-          <span>فایل‌های تنظیمات به‌روز شدند و متغیرها در لیارا تزریق گردیدند.</span>
+      <article className="relative overflow-hidden rounded-2xl border border-emerald-400/30 bg-emerald-400/[.04] p-5 shadow-lg">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/assets/state-success.webp"
+          alt=""
+          className="absolute inset-y-0 left-0 h-full w-1/2 object-cover opacity-80 [mask-image:linear-gradient(to_right,#000_30%,transparent)] pointer-events-none"
+        />
+        <div className="relative sm:w-3/5 mr-auto space-y-1">
+          <h3 className="font-bold text-emerald-300 text-base">تغییرات اعمال شد</h3>
+          <p className="t">
+            فایل تنظیمات <code className="text-emerald-200 font-mono">liara.json</code> ساخته شد و متغیرها تنظیم گردیدند.
+          </p>
         </div>
-        <p className="mt-1 text-xs text-emerald-400/80">
-          پلن دپلوی آماده شد و می‌توانید فرآیند استقرار را آغاز کنید.
-        </p>
-      </div>
+      </article>
     );
   }
 
   return (
-    <div className="mt-4 rounded-2xl border border-border bg-card/60 p-4 shadow-sm backdrop-blur">
-      <div className="flex items-center justify-between pb-3 border-b border-border/60">
-        <div className="flex items-center gap-2">
-          <span className="text-xl">📝</span>
-          <div>
-            <h4 className="text-sm font-semibold text-foreground">
-              پیش‌نمایش تغییرات فایل‌های پروژه (Diff)
-            </h4>
-            <p className="text-xs text-muted-foreground">
-              پیش از اعمال، خطوط اضافه یا حذف‌شده را بررسی کنید. هیچ تغییری بدون تأیید شما ثبت نمی‌شود.
-            </p>
+    <article className="card w-full">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/assets/icon-diff.webp" alt="" className="ico fl" />
+      <div className="body">
+        <div className="flex items-center justify-between">
+          <h3 className="font-bold text-zinc-100 text-base">بازبینی تغییرات فایل‌ها</h3>
+          <span className="pill border border-liara/30 bg-liara/10 text-liara">
+            {appName}
+          </span>
+        </div>
+
+        <p className="t">
+          پیش از اقدام به دپلوی، تغییرات ایجاد شده در فایل‌های پیکربندی را بررسی نمایید:
+        </p>
+
+        {loadingDiff ? (
+          <div className="flex items-center justify-center p-6 text-zinc-400 text-xs gap-2">
+            <Loader2 className="h-4 w-4 animate-spin text-liara" />
+            <span>در حال ایجاد پیش‌نمایش تغییرات...</span>
           </div>
+        ) : (
+          <div className="overflow-hidden rounded-xl border border-white/10 bg-black/40">
+            {/* Diff header */}
+            <div className="flex items-center justify-between border-b border-white/10 bg-white/[.04] px-4 py-2 text-xs">
+              <div className="flex gap-2">
+                {diffData?.liara_json && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("liara.json")}
+                    className={`font-mono text-xs px-2.5 py-1 rounded-lg transition-all ${
+                      activeTab === "liara.json"
+                        ? "bg-liara/20 text-liara border border-liara/30 font-bold"
+                        : "text-zinc-400 hover:text-zinc-200"
+                    }`}
+                  >
+                    liara.json
+                  </button>
+                )}
+                {diffData?.env_file && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab(".env")}
+                    className={`font-mono text-xs px-2.5 py-1 rounded-lg transition-all ${
+                      activeTab === ".env"
+                        ? "bg-liara/20 text-liara border border-liara/30 font-bold"
+                        : "text-zinc-400 hover:text-zinc-200"
+                    }`}
+                  >
+                    .env
+                  </button>
+                )}
+              </div>
+              <span dir="ltr" className="font-mono text-xs text-zinc-400">
+                {activeTab}
+              </span>
+            </div>
+
+            {/* Diff content */}
+            {activeTab === "liara.json" && renderDiffLines(diffData?.liara_json?.diff || "")}
+            {activeTab === ".env" && renderDiffLines(diffData?.env_file?.diff || "")}
+          </div>
+        )}
+
+        {/* Local .env toggle */}
+        <label className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer pt-1">
+          <input
+            type="checkbox"
+            checked={applyLocalEnv}
+            onChange={(e) => setApplyLocalEnv(e.target.checked)}
+            disabled={applying || disabled}
+            className="rounded border-white/20 bg-black/40 text-liara focus:ring-liara/30"
+          />
+          <span>متغیرهای جدید در فایل محلی <code className="text-zinc-300 font-mono">.env</code> نیز ذخیره شوند</span>
+        </label>
+
+        {error && (
+          <p className="text-xs text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-lg p-2">
+            {error}
+          </p>
+        )}
+
+        <div className="flex gap-2 pt-2">
+          <button
+            type="button"
+            onClick={handleApply}
+            disabled={applying || loadingDiff || disabled}
+            className="b2 flex items-center justify-center gap-2"
+          >
+            {applying && <Loader2 className="h-4 w-4 animate-spin text-zinc-950" />}
+            <span>اعمال تغییرات</span>
+          </button>
         </div>
       </div>
-
-      {loadingDiff ? (
-        <div className="py-6 flex flex-col items-center justify-center gap-2 text-xs text-muted-foreground">
-          <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          <span>در حال تولید پیش‌نمایش تغییرات...</span>
-        </div>
-      ) : (
-        <>
-          {/* File Tabs */}
-          <div className="mt-3 flex items-center gap-2 border-b border-border/40 pb-2">
-            {diffData &&
-              Object.keys(diffData).map((fileName) => (
-                <button
-                  key={fileName}
-                  type="button"
-                  onClick={() => setActiveTab(fileName)}
-                  className={`px-3 py-1 text-xs rounded-lg font-mono transition-colors cursor-pointer ${
-                    activeTab === fileName
-                      ? "bg-primary text-primary-foreground font-semibold shadow-sm"
-                      : "text-muted-foreground hover:bg-muted"
-                  }`}
-                >
-                  {fileName}
-                </button>
-              ))}
-          </div>
-
-          {/* Diff Viewer Box */}
-          <div className="mt-2 rounded-xl border border-border/80 bg-neutral-950/80 max-h-56 overflow-y-auto">
-            {diffData && diffData[activeTab]
-              ? renderDiffLines(diffData[activeTab].diff)
-              : null}
-          </div>
-
-          {/* Local .env toggle */}
-          <div className="mt-3 flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="applyLocalEnv"
-              checked={applyLocalEnv}
-              onChange={(e) => setApplyLocalEnv(e.target.checked)}
-              disabled={applying || disabled}
-              className="rounded border-border text-primary focus:ring-primary cursor-pointer"
-            />
-            <label
-              htmlFor="applyLocalEnv"
-              className="text-xs text-foreground cursor-pointer select-none"
-            >
-              متغیرهای اتصال پایگاه‌داده در فایل محلی <code className="text-primary font-mono">.env</code> نیز ذخیره شوند
-            </label>
-          </div>
-
-          {error && (
-            <div className="mt-3 rounded-lg bg-rose-500/10 border border-rose-500/20 p-2.5 text-xs text-rose-400">
-              {error}
-            </div>
-          )}
-
-          {/* Actions */}
-          <div className="mt-4 pt-3 border-t border-border/60 flex items-center justify-end">
-            <button
-              type="button"
-              onClick={handleApply}
-              disabled={applying || disabled}
-              className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-50 cursor-pointer shadow"
-            >
-              {applying ? (
-                <>
-                  <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                  <span>در حال ذخیره و تزریق متغیرها...</span>
-                </>
-              ) : (
-                <>
-                  <span>✔</span>
-                  <span>اعمال خودکار تغییرات و ساخت پلن دپلوی</span>
-                </>
-              )}
-            </button>
-          </div>
-        </>
-      )}
-    </div>
+    </article>
   );
 }
-

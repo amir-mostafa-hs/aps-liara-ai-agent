@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Header } from "@/components/layout/Header";
+import { Header, PipelineStage } from "@/components/layout/Header";
 import { SidecarConsole, CloudService } from "@/components/console/SidecarConsole";
 import { ChatMessageList, ChatMessage } from "@/components/chat/ChatMessageList";
 import { ChatInput } from "@/components/chat/ChatInput";
@@ -43,6 +43,9 @@ export default function HomePage() {
     teamId: "",
     teams: [],
   });
+
+  // Pipeline stage tracker for header nav
+  const [currentStage, setCurrentStage] = useState<PipelineStage>("source");
 
   // Chat State
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -215,6 +218,7 @@ export default function HomePage() {
   }, [router, checkSystemHealth, fetchLiveServices, fetchAccountSettings]);
 
   const continueToDiffPreview = (targetApp: string, sourcePath: string, analysis: any) => {
+    setCurrentStage("diff");
     setMessages((prev) => [
       ...prev,
       {
@@ -228,6 +232,7 @@ export default function HomePage() {
   };
 
   const startEnvironmentPreflight = (targetApp: string, sourcePath: string, analysis: any) => {
+    setCurrentStage("diff");
     const inspectedRequirements = analysis?.env_requirements || (analysis?.required_env_names || []).map((name: string) => ({
       name,
       evidence: [],
@@ -268,6 +273,7 @@ export default function HomePage() {
     analysis: any
   ) => {
     if (analysis?.detected_databases && analysis.detected_databases.length > 0) {
+      setCurrentStage("database");
       setMessages((prev) => [
         ...prev,
         {
@@ -615,6 +621,7 @@ export default function HomePage() {
               }
 
               const run = runData.run;
+              setCurrentStage("deploy");
               setMessages((prev) => [
                 ...prev,
                 {
@@ -912,6 +919,7 @@ export default function HomePage() {
       if (text.includes("sample-apps/nodejs-demo") || text.includes("پروژه نمونه")) {
         await handleSourceIngested("sample-apps/nodejs-demo", "path");
       } else if (text.includes("توکن") || text.includes("token")) {
+        setCurrentStage("credentials");
         setTimeout(() => {
           setMessages((prev) => [
             ...prev,
@@ -966,18 +974,36 @@ export default function HomePage() {
   };
 
   return (
-    <div className="flex flex-col h-full w-full bg-zinc-950 text-zinc-100 overflow-hidden">
+    <div className="flex flex-col h-full w-full bg-bg text-zinc-200 overflow-hidden">
       {/* Top Header */}
       <Header
         username={user.username}
         activeTeam={activeTeam}
         onLogout={handleLogout}
         systemConnected={systemConnected}
+        currentStage={currentStage}
+        onSelectStage={setCurrentStage}
       />
 
       {/* Main Dual Workspace Area */}
-      <div className="flex-1 flex flex-col-reverse lg:flex-row overflow-hidden relative">
-        {/* Left Sidecar Console (Terminal, Services & Status) */}
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden relative">
+        {/* Chat Space */}
+        <section className="flex-1 min-h-0 min-w-0 flex flex-col relative overflow-hidden">
+          <ChatMessageList
+            messages={messages}
+            isStreaming={isStreaming}
+            renderWidget={renderWidget}
+            onStartDeploy={() => handleSendMessage("می‌خواهم پروژه sample-apps/nodejs-demo را روی لیارا دیپلوی کنم.")}
+            onShowGuide={() => handleSendMessage("راهنمای گام‌به‌گام دپلوی و قابلیت‌های ایجنت هوشمند را توضیح بده.")}
+          />
+          <ChatInput
+            onSendMessage={handleSendMessage}
+            isLoading={isStreaming}
+            onQuickPreset={handleSendMessage}
+          />
+        </section>
+
+        {/* Sidecar Console (Terminal, Services & Health) */}
         <SidecarConsole
           logs={terminalLogs}
           services={services}
@@ -994,19 +1020,6 @@ export default function HomePage() {
           onUpdateAccountSettings={handleUpdateAccountSettings}
           onTestConnection={handleTestConnection}
         />
-
-        {/* Right Chat Space */}
-        <main className="flex-1 flex flex-col bg-zinc-950/40 relative overflow-hidden">
-          <ChatMessageList
-            messages={messages}
-            isStreaming={isStreaming}
-            renderWidget={renderWidget}
-          />
-          <ChatInput
-            onSendMessage={handleSendMessage}
-            isLoading={isStreaming}
-          />
-        </main>
       </div>
     </div>
   );

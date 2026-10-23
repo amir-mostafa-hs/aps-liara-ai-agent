@@ -5,14 +5,99 @@
 @tailwind utilities;
 
 :root {
-  --background: #09090b;
-  --foreground: #fafafa;
+  --background: #121214;
+  --foreground: #f4f4f5;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
   font-family: Vazirmatn, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+@layer components {
+  .card {
+    @apply relative overflow-hidden rounded-2xl border border-white/10 bg-white/[.04] backdrop-blur p-4 sm:p-5 flex gap-4 items-start;
+  }
+  .card > .body {
+    @apply relative flex-1 min-w-0 space-y-3;
+  }
+  .ico {
+    @apply shrink-0 w-14 h-14 sm:w-20 sm:h-20 drop-shadow-[0_0_16px_rgba(44,196,244,.45)];
+    mix-blend-mode: screen;
+    -webkit-mask-image: radial-gradient(circle, #000 55%, transparent 72%);
+    mask-image: radial-gradient(circle, #000 55%, transparent 72%);
+  }
+  .bgimg {
+    @apply absolute inset-0 w-full h-full object-cover opacity-25 pointer-events-none;
+  }
+  .inp {
+    @apply w-full rounded-xl bg-black/40 border border-white/10 px-4 py-2.5 font-mono text-sm focus:outline-none focus:border-liara focus:ring-2 focus:ring-liara/30 transition-colors;
+  }
+  .btn {
+    @apply rounded-xl px-5 py-2 text-sm font-bold text-zinc-950 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-white/40 transition-all cursor-pointer;
+  }
+  .b1 {
+    @apply btn;
+    background-color: #2cc4f4;
+    color: #09090b;
+  }
+  .b2 {
+    @apply btn;
+    background-color: #6ee7b7;
+    color: #09090b;
+  }
+  .b3 {
+    @apply btn;
+    background-image: linear-gradient(to left, #2cc4f4, #6ee7b7);
+    color: #09090b;
+    box-shadow: 0 10px 15px -3px rgba(44, 196, 244, 0.2);
+  }
+  .b0 {
+    @apply rounded-xl border border-white/15 px-4 py-2 text-sm text-zinc-300 hover:border-liara/50 hover:text-liara transition-colors cursor-pointer;
+  }
+  .t {
+    @apply text-sm leading-7 text-zinc-300;
+  }
+  .pill {
+    @apply rounded-full px-3 py-0.5 text-xs;
+  }
+  .plan {
+    @apply h-full rounded-2xl border border-white/10 bg-white/[.04] p-4 cursor-pointer transition-all;
+  }
+  .row {
+    @apply flex justify-between text-xs text-zinc-400;
+  }
+  .svc {
+    @apply relative overflow-hidden rounded-2xl border border-white/10 bg-white/[.04] p-3 flex items-center gap-3 transition-colors;
+  }
+}
+
+@keyframes p2 {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+}
+.pulse {
+  animation: p2 2s infinite;
+}
+
+@keyframes fl {
+  50% {
+    transform: translateY(-6px);
+  }
+}
+.fl {
+  animation: fl 5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse, .fl {
+    animation: none;
+  }
 }
 
 /* Custom scrollbars for chat and terminal */

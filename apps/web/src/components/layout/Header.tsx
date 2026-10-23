@@ -1,66 +1,121 @@
 "use client";
 
 import React from "react";
-import { LogOut, Users, Sparkles } from "lucide-react";
+
+export type PipelineStage = "source" | "credentials" | "database" | "diff" | "deploy" | "heal";
 
 interface HeaderProps {
   username?: string;
   activeTeam?: { id: string; name: string } | null;
   onLogout?: () => void;
   systemConnected?: boolean;
+  currentStage?: PipelineStage;
+  onSelectStage?: (stage: PipelineStage) => void;
 }
+
+const STAGES: Array<{ id: PipelineStage; label: string; icon: string }> = [
+  { id: "source", label: "سورس", icon: "/assets/icon-source.webp" },
+  { id: "credentials", label: "دسترسی", icon: "/assets/icon-key.webp" },
+  { id: "database", label: "دیتابیس", icon: "/assets/icon-db.webp" },
+  { id: "diff", label: "تغییرات", icon: "/assets/icon-diff.webp" },
+  { id: "deploy", label: "دپلوی", icon: "/assets/icon-deploy.webp" },
+  { id: "heal", label: "خودترمیمی", icon: "/assets/icon-heal.webp" },
+];
 
 export function Header({
   username = "admin",
   activeTeam,
   onLogout,
   systemConnected = true,
+  currentStage = "source",
+  onSelectStage,
 }: HeaderProps) {
   return (
-    <header className="border-b border-zinc-800 bg-zinc-900/60 backdrop-blur px-6 py-3 shrink-0 flex items-center justify-between z-10">
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 font-bold text-white shadow-lg shadow-blue-500/20">
-          <Sparkles className="h-5 w-5" />
-        </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-base font-bold text-zinc-100">ایجنت هوشمند لیارا</h1>
-            <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[11px] font-medium text-blue-400 border border-blue-500/20">
-              دستیار مکالمه‌ای
-            </span>
-          </div>
-          <p className="text-xs text-zinc-400">دپلوی خودکار، ساخت پایگاه داده و عیب‌یابی هوشمند SRE</p>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-4 text-xs">
-        {activeTeam && (
-          <div className="flex items-center gap-1.5 rounded-lg bg-zinc-800/80 px-3 py-1.5 border border-zinc-700/60 text-zinc-300">
-            <Users className="h-3.5 w-3.5 text-blue-400" />
-            <span className="text-zinc-400">تیم:</span>
-            <span className="font-semibold text-zinc-200">{activeTeam.name || activeTeam.id}</span>
-          </div>
-        )}
-
-        <div className="flex items-center gap-2 rounded-lg bg-zinc-800/40 px-3 py-1.5 border border-zinc-800 text-zinc-300">
-          <span
-            className={`h-2 w-2 rounded-full ${
-              systemConnected ? "bg-emerald-500 animate-pulse" : "bg-rose-500"
-            }`}
+    <header className="shrink-0 border-b border-white/10 bg-white/[.03] backdrop-blur-xl z-20">
+      {/* Row 1: Brand & User bar */}
+      <div className="h-16 flex items-center justify-between gap-3 px-4 lg:px-6">
+        <div className="flex items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/assets/logo.webp"
+            alt="لوگوی ایجنت هوشمند لیارا"
+            className="ico !w-12 !h-12 sm:!w-14 sm:!h-14"
           />
-          <span className="text-zinc-400">اپراتور:</span>
-          <span className="font-medium text-zinc-200">{username}</span>
+          <h1 className="font-bold text-zinc-100 text-base sm:text-lg">ایجنت هوشمند لیارا</h1>
+          <span className="pill hidden sm:inline border border-liara/30 bg-liara/10 text-liara font-medium">
+            دستیار مکالمه‌ای SRE
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 sm:gap-3 text-sm">
+          {activeTeam && (
+            <span className="hidden md:flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-zinc-300">
+              <span className="text-zinc-400">تیم:</span>
+              <span dir="ltr" className="font-mono text-xs text-zinc-200">
+                {activeTeam.name || activeTeam.id}
+              </span>
+            </span>
+          )}
+
+          <span
+            className={`pill flex items-center gap-2 border py-1 text-xs font-medium ${
+              systemConnected
+                ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
+                : "border-rose-400/30 bg-rose-400/10 text-rose-300"
+            }`}
+          >
+            <i
+              className={`h-2 w-2 rounded-full ${
+                systemConnected ? "bg-emerald-400 pulse" : "bg-rose-400"
+              }`}
+            />
+            {systemConnected ? "عملیاتی" : "قطع ارتباط"}
+          </span>
+
+          <span className="hidden sm:flex items-center gap-2 rounded-xl border border-white/10 px-3 py-1.5 text-zinc-300">
+            <span className="h-6 w-6 rounded-full bg-gradient-to-br from-liara to-mint shrink-0 shadow-sm shadow-liara/20" />
+            <span dir="ltr" className="font-mono text-xs text-zinc-200">
+              {username}
+            </span>
+          </span>
+
           {onLogout && (
             <button
               onClick={onLogout}
-              className="mr-2 text-zinc-500 hover:text-rose-400 transition-colors"
-              title="خروج"
+              className="rounded-xl border border-white/10 px-3 py-1.5 text-xs text-zinc-300 hover:border-rose-400/50 hover:text-rose-300 focus:outline-none focus:ring-2 focus:ring-rose-400/40 transition-colors cursor-pointer"
             >
-              <LogOut className="h-3.5 w-3.5" />
+              خروج
             </button>
           )}
         </div>
       </div>
+
+      {/* Row 2: Stage navigation bar */}
+      <nav className="flex gap-2 overflow-x-auto border-t border-white/10 bg-white/[.02] px-4 lg:px-6 py-1.5 text-sm no-scrollbar">
+        {STAGES.map((stage) => {
+          const isActive = currentStage === stage.id;
+          return (
+            <button
+              key={stage.id}
+              type="button"
+              onClick={() => onSelectStage?.(stage.id)}
+              className={`flex items-center gap-2 whitespace-nowrap rounded-xl px-3 py-1 transition-all cursor-pointer ${
+                isActive
+                  ? "bg-liara/10 text-liara border border-liara/30 font-medium shadow-sm shadow-liara/10"
+                  : "text-zinc-300 hover:bg-white/5 border border-transparent"
+              }`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={stage.icon}
+                alt=""
+                className="ico !w-8 !h-8 sm:!w-9 sm:!h-9"
+              />
+              <span>{stage.label}</span>
+            </button>
+          );
+        })}
+      </nav>
     </header>
   );
 }
