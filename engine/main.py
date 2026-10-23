@@ -1,8 +1,10 @@
 import json
+import os
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from engine.domain.models import (
+    CreateProjectRequest,
     DeployRequest,
     DiagnoseRequest,
     InspectRequest,
@@ -192,6 +194,31 @@ async def test_liara_connection(payload: TestConnectionRequest):
         api_token=payload.api_token, team_id=payload.team_id
     )
     return result
+
+
+@app.post("/liara/projects", dependencies=[Depends(verify_internal_secret)])
+async def create_liara_project(payload: CreateProjectRequest):
+    token = payload.api_token or os.getenv("LIARA_API_TOKEN", "")
+    team = payload.team_id or os.getenv("LIARA_TEAM_ID", "")
+    try:
+        result = await liara_adapter.create_project(
+            project_id=payload.project_id,
+            platform=payload.platform,
+            plan_id=payload.plan_id,
+            api_token=token,
+            team_id=team,
+        )
+        if not result.get("ok"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=result.get("error", "Failed to create project in Liara"),
+            )
+        return result
+    except ValueError as err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(err),
+        )
 
 
 @app.post("/agent/inspect", dependencies=[Depends(verify_internal_secret)])

@@ -160,4 +160,32 @@ async def test_inspect_detects_prisma_postgresql_schema(tmp_path):
     assert "DATABASE_URL" in pg_db.suggested_env_vars
 
 
+@pytest.mark.anyio
+async def test_inspect_detects_has_liara_json_and_existing_app(tmp_path):
+    from engine.services.inspector import ProjectInspector
+
+    # Case 1: No liara.json
+    (tmp_path / "package.json").write_text('{"name": "my-app"}', encoding="utf-8")
+    (tmp_path / "index.js").write_text("console.log('test');", encoding="utf-8")
+
+    inspector = ProjectInspector(allowed_roots=[str(tmp_path)])
+    analysis = inspector.inspect(str(tmp_path))
+
+    assert analysis.has_liara_json is False
+    assert analysis.existing_app_name is None
+    assert analysis.suggested_app_name is not None
+    assert len(analysis.suggested_app_name) > 0
+
+    # Case 2: liara.json present with app field
+    (tmp_path / "liara.json").write_text(
+        '{"app": "pre-existing-cloud-app", "platform": "node", "port": 3000}',
+        encoding="utf-8",
+    )
+    analysis2 = inspector.inspect(str(tmp_path))
+    assert analysis2.has_liara_json is True
+    assert analysis2.existing_app_name == "pre-existing-cloud-app"
+    assert analysis2.port == 3000
+
+
+
 

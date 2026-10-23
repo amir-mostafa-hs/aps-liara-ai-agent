@@ -1,4 +1,5 @@
 import logging
+import re
 import httpx
 from engine.security.redaction import redact_text
 
@@ -174,6 +175,86 @@ class LiaraAdapter:
             return {
                 "ok": False,
                 "error": f"Connection error: {safe_error}",
+            }
+
+    async def create_project(
+        self,
+        project_id: str,
+        platform: str,
+        plan_id: str,
+        api_token: str,
+        team_id: str | None = None,
+    ) -> dict:
+        if not project_id or not re.match(r"^[a-zA-Z0-9-]{3,64}$", project_id.strip()):
+            raise ValueError(
+                "Invalid project name. Must be 3-64 characters and contain only letters, numbers, or hyphens."
+            )
+
+        if not api_token or not api_token.strip():
+            raise ValueError("Liara API token cannot be empty.")
+
+        clean_project = project_id.strip().lower()
+        clean_platform = platform.strip().lower()
+        if clean_platform in ["nodejs", "javascript"]:
+            clean_platform = "node"
+        clean_plan = plan_id.strip()
+
+        headers = {
+            "Authorization": f"Bearer {api_token.strip()}",
+            "User-Agent": "LiaraAgent/0.1.0",
+            "Content-Type": "application/json",
+        }
+        clean_team_id = team_id.strip() if team_id and team_id.strip() else None
+        params = {"teamID": clean_team_id} if clean_team_id else None
+
+        body = {
+            "project_id": clean_project,
+            "type": clean_platform,
+            "plan": clean_plan,
+        }
+
+        logger.info("Creating Liara project: %s (type: %s, plan: %s)", clean_project, clean_platform, clean_plan)
+
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                res = await client.post(
+                    f"{self.base_url}/v1/projects",
+                    headers=headers,
+                    params=params,
+                    json=body,
+                )
+
+                if res.status_code in [200, 201]:
+                    return {
+                        "ok": True,
+                        "project_id": clean_project,
+                        "platform": clean_platform,
+                        "plan_id": clean_plan,
+                        "endpoint": f"https://{clean_project}.liara.run",
+                        "status": "created",
+                    }
+                elif res.status_code == 409:
+                    return {
+                        "ok": False,
+                        "error": f"برنامه‌ای با نام '{clean_project}' قبلاً در لیارا ثبت شده است. لطفاً نام دیگری انتخاب کنید.",
+                    }
+                elif res.status_code == 401:
+                    return {
+                        "ok": False,
+                        "error": "احراز هویت در لیارا ناموفق بود. کلید دسترسی (API Token) را بررسی کنید.",
+                    }
+                else:
+                    safe_msg = redact_text(res.text, api_token)
+                    return {
+                        "ok": False,
+                        "error": f"خطا در ساخت سرویس در لیارا (کد {res.status_code}): {safe_msg}",
+                    }
+        except Exception as e:
+            safe_err = redact_text(str(e), api_token)
+            logger.error("Failed to create Liara project: %s", safe_err)
+            return {
+                "ok": False,
+                "error": f"خطای ارتباط با سرور لیارا: {safe_err}",
             }
 
 

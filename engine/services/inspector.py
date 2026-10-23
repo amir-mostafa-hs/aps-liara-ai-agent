@@ -228,14 +228,23 @@ class ProjectInspector:
         port = 3000
         pkg_data: dict | None = None
         requirements_text: str | None = None
+        has_liara_json = False
+        existing_app_name: str | None = None
+
+        # Clean folder-based suggested app name (e.g. nodejs-demo)
+        clean_slug = re.sub(r"[^a-zA-Z0-9-]", "-", root.name.lower()).strip("-")
+        suggested_app_name = clean_slug if clean_slug else "my-app"
 
         # 1. Check liara.json if present
         liara_json_path = root / "liara.json"
         if liara_json_path.is_file():
+            has_liara_json = True
             evidence_files.append("liara.json")
             try:
                 with open(liara_json_path, "r", encoding="utf-8") as f:
                     liara_data = json.load(f)
+                    if "app" in liara_data and isinstance(liara_data["app"], str) and liara_data["app"].strip():
+                        existing_app_name = liara_data["app"].strip()
                     if "port" in liara_data:
                         port = int(liara_data["port"])
                     if "platform" in liara_data:
@@ -350,6 +359,9 @@ class ProjectInspector:
             missing_configurations=missing_configs,
             detected_databases=detected_databases,
             persian_summary=persian_summary,
+            has_liara_json=has_liara_json,
+            existing_app_name=existing_app_name,
+            suggested_app_name=suggested_app_name,
         )
 
 

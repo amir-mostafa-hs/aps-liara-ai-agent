@@ -66,7 +66,7 @@ def test_diagnoser_detects_app_not_found_on_liara():
     assert isinstance(result, DiagnosisResult)
     assert result.missing_variable is None
     lower_cause = result.root_cause.lower()
-    assert "یافت نشد" in result.root_cause or "not find" in lower_cause or "not be found" in lower_cause or "not found" in lower_cause
+    assert "پیدا نشد" in result.root_cause or "یافت نشد" in result.root_cause or "not find" in lower_cause or "not be found" in lower_cause or "not found" in lower_cause
     assert "Could not find the app" in result.error_evidence or "could not find" in result.error_evidence.lower()
     assert result.verify_digest() is True
 

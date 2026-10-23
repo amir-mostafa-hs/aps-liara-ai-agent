@@ -31,10 +31,21 @@ class ProjectAnalysis(BaseModel):
     missing_configurations: list[str] = Field(default_factory=list)
     detected_databases: list[DetectedDatabase] = Field(default_factory=list)
     persian_summary: str | None = None
+    has_liara_json: bool = False
+    existing_app_name: str | None = None
+    suggested_app_name: str | None = None
 
 
 class InspectRequest(BaseModel):
     path: str
+
+
+class CreateProjectRequest(BaseModel):
+    project_id: str
+    platform: str
+    plan_id: str
+    api_token: str | None = None
+    team_id: str | None = None
 
 
 class ProposedAction(BaseModel):

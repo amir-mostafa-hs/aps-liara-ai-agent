@@ -167,3 +167,65 @@ async def test_liara_get_services_returns_apps_and_databases():
             assert db_svc["port"] == 5432
 
 
+@pytest.mark.anyio
+async def test_create_project_success():
+    from engine.providers.liara_adapter import LiaraAdapter
+    from httpx import Response
+
+    adapter = LiaraAdapter()
+
+    captured_requests = []
+
+    async def mock_post(self, url, *args, **kwargs):
+        captured_requests.append({"url": str(url), "kwargs": kwargs})
+        return Response(status_code=201, json={"status": "created"})
+
+    with patch.object(AsyncClient, "post", new=mock_post):
+        result = await adapter.create_project(
+            project_id="my-brand-new-app",
+            platform="node",
+            plan_id="ir-standard-1",
+            api_token="valid-token-123",
+            team_id="team-xyz",
+        )
+        assert result["ok"] is True
+        assert result["project_id"] == "my-brand-new-app"
+        assert result["endpoint"] == "https://my-brand-new-app.liara.run"
+        assert len(captured_requests) == 1
+        assert "v1/projects" in captured_requests[0]["url"]
+        assert captured_requests[0]["kwargs"]["params"] == {"teamID": "team-xyz"}
+        assert captured_requests[0]["kwargs"]["json"]["project_id"] == "my-brand-new-app"
+
+
+@pytest.mark.anyio
+async def test_create_project_invalid_name():
+    from engine.providers.liara_adapter import LiaraAdapter
+
+    adapter = LiaraAdapter()
+    with pytest.raises(ValueError, match="Invalid project name"):
+        await adapter.create_project(
+            project_id="bad name with spaces!!",
+            platform="node",
+            plan_id="ir-standard-1",
+            api_token="valid-token-123",
+        )
+
+
+@pytest.mark.anyio
+async def test_create_project_endpoint_requires_auth():
+    from engine.main import app
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        res = await client.post(
+            "/liara/projects",
+            json={
+                "project_id": "test-app",
+                "platform": "node",
+                "plan_id": "ir-standard-1",
+            },
+        )
+        assert res.status_code == 403
+
+
+
