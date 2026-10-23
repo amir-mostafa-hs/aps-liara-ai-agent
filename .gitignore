@@ -38,3 +38,7 @@ htmlcov/
 # Prisma generated engines (local binary cache if any)
 apps/web/prisma/*.db
 apps/web/prisma/*.db-journal
+
+
+# temp folder for local development
+temp/

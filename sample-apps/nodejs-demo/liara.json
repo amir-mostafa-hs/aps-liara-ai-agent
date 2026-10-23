@@ -1,6 +1,0 @@
-{
-  "platform": "node",
-  "app": "nodejs-demo",
-  "port": 3000,
-  "command": "node server.js"
-}
