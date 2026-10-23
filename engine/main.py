@@ -88,6 +88,27 @@ async def list_liara_plans(api_token: str | None = None):
     }
 
 
+@app.get("/liara/services", dependencies=[Depends(verify_internal_secret)])
+async def list_liara_services(
+    api_token: str | None = None, team_id: str | None = None
+):
+    if not api_token or not api_token.strip():
+        return {
+            "ok": False,
+            "error": "Liara API token is required to list services.",
+            "services": [],
+            "count": 0,
+        }
+    services = await liara_adapter.get_services(
+        api_token=api_token, team_id=team_id
+    )
+    return {
+        "ok": True,
+        "services": services,
+        "count": len(services),
+    }
+
+
 @app.post("/agent/database/create", dependencies=[Depends(verify_internal_secret)])
 async def create_database(payload: CreateDatabaseRequest):
     try:

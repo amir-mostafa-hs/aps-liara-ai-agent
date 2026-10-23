@@ -95,7 +95,7 @@ async def test_liara_test_connection_with_team_id():
             return Response(status_code=200, json={"projects": mock_team_apps})
         return Response(status_code=404)
 
-    with patch("httpx.AsyncClient.get", new=mock_get):
+    with patch("engine.providers.liara_adapter.httpx.AsyncClient.get", new=mock_get):
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             response = await client.post(
                 "/liara/test-connection",
@@ -113,5 +113,57 @@ async def test_liara_test_connection_with_team_id():
             assert data.get("team_id") == "6ace4ec3ec13fe0c3c19c4db"
             assert len(data.get("teams", [])) == 1
             assert data["teams"][0]["id"] == "6ace4ec3ec13fe0c3c19c4db"
+
+
+@pytest.mark.anyio
+async def test_liara_get_services_requires_internal_secret():
+    from engine.main import app
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get(
+            "/liara/services?api_token=mock-token-123"
+        )
+        assert response.status_code == 403
+
+
+@pytest.mark.anyio
+async def test_liara_get_services_returns_apps_and_databases():
+    from engine.main import app
+
+    transport = ASGITransport(app=app)
+    mock_projects = [
+        {"project_id": "my-web-app", "type": "node", "status": "running", "port": 3000},
+    ]
+    mock_databases = [
+        {"hostname": "my-pg-db", "type": "postgres", "status": "running", "port": 5432},
+    ]
+
+    orig_get = AsyncClient.get
+
+    async def mock_get(self, url, *args, **kwargs):
+        url_str = str(url)
+        if "v1/projects" in url_str:
+            return Response(status_code=200, json={"projects": mock_projects})
+        if "v1/databases" in url_str:
+            return Response(status_code=200, json={"databases": mock_databases})
+        return await orig_get(self, url, *args, **kwargs)
+
+    with patch.object(AsyncClient, "get", new=mock_get):
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get(
+                "/liara/services?api_token=valid-token-123",
+                headers={"X-Internal-Secret": TEST_SECRET},
+            )
+            assert response.status_code == 200
+            data = response.json()
+            assert data["ok"] is True
+            assert len(data["services"]) == 2
+            app_svc = next(s for s in data["services"] if s["type"] == "app")
+            assert app_svc["name"] == "my-web-app"
+            assert app_svc["endpoint"] == "https://my-web-app.liara.run"
+            db_svc = next(s for s in data["services"] if s["type"] == "postgres")
+            assert db_svc["name"] == "my-pg-db"
+            assert db_svc["port"] == 5432
 
 

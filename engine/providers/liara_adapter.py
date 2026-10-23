@@ -39,6 +39,80 @@ class LiaraAdapter:
             logger.warning("Failed to fetch teams: %s", redact_text(str(e), api_token))
         return []
 
+    async def get_services(
+        self, api_token: str, team_id: str | None = None
+    ) -> list[dict]:
+        """Fetches both applications (projects) and databases from Liara."""
+        if not api_token or not api_token.strip():
+            return []
+
+        headers = {
+            "Authorization": f"Bearer {api_token.strip()}",
+            "User-Agent": "LiaraAgent/0.1.0",
+        }
+        clean_team_id = team_id.strip() if team_id and team_id.strip() else None
+        params = {"teamID": clean_team_id} if clean_team_id else None
+
+        services = []
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                # 1. Fetch projects (apps)
+                try:
+                    p_res = await client.get(
+                        f"{self.base_url}/v1/projects", headers=headers, params=params
+                    )
+                    if p_res.status_code == 200:
+                        projects = p_res.json().get("projects", [])
+                        for p in projects:
+                            name = p.get("project_id", p.get("_id", ""))
+                            raw_status = str(p.get("status", "")).lower()
+                            status = (
+                                "running"
+                                if raw_status in ["running", "ready", "active", "created"]
+                                else "stopped"
+                            )
+                            services.append({
+                                "name": name,
+                                "type": "app",
+                                "status": status,
+                                "endpoint": f"https://{name}.liara.run" if name else "",
+                                "port": p.get("port", 3000),
+                            })
+                except Exception as e:
+                    logger.warning("Failed to fetch projects in get_services: %s", redact_text(str(e), api_token))
+
+                # 2. Fetch databases
+                try:
+                    d_res = await client.get(
+                        f"{self.base_url}/v1/databases", headers=headers, params=params
+                    )
+                    if d_res.status_code == 200:
+                        databases = d_res.json().get("databases", [])
+                        for d in databases:
+                            name = d.get("hostname", d.get("name", d.get("_id", "")))
+                            db_type = d.get("type", "postgres").lower()
+                            raw_status = str(d.get("status", "")).lower()
+                            status = (
+                                "running"
+                                if raw_status in ["running", "ready", "active"]
+                                else "stopped"
+                            )
+                            services.append({
+                                "name": name,
+                                "type": db_type,
+                                "status": status,
+                                "endpoint": d.get("public_network") or d.get("hostname", ""),
+                                "port": d.get("port", 5432),
+                            })
+                except Exception as e:
+                    logger.warning("Failed to fetch databases in get_services: %s", redact_text(str(e), api_token))
+
+        except Exception as e:
+            logger.warning("get_services encountered error: %s", redact_text(str(e), api_token))
+
+        return services
+
     async def test_connection(
         self, api_token: str, team_id: str | None = None
     ) -> dict:
