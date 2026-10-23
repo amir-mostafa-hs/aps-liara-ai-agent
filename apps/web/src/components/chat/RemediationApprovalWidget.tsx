@@ -22,7 +22,7 @@ export function RemediationApprovalWidget({
   targetApp,
   rootCause,
   errorEvidence,
-  missingVariable = "SERVICE_SECRET",
+  missingVariable,
   suggestedValue = "",
   onRemediated,
   onReject,
@@ -140,7 +140,7 @@ export function RemediationApprovalWidget({
       )}
 
       {/* Suggested Remediation */}
-      {missingVariable && (
+      {missingVariable ? (
         <div className="mt-3 bg-card/40 rounded-xl p-3 border border-border">
           <label className="block text-xs font-medium text-foreground mb-1">
             مقدار متغیر محیطی پیشنهادی جهت تزریق به سرویس (
@@ -156,6 +156,15 @@ export function RemediationApprovalWidget({
             className="w-full text-left font-mono rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
+      ) : (
+        <div className="mt-3 bg-card/40 rounded-xl p-3 border border-border">
+          <p className="text-xs text-foreground font-medium mb-1">
+            راهکار پیشنهادی ایجنت SRE:
+          </p>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            لطفاً از وجود داشتن اپلیکیشن با نام فوق در حساب یا تیم لیارا اطمینان حاصل کرده و در صورت نیاز نام اپلیکیشن را تغییر داده یا از لیست سرویس‌ها انتخاب کنید.
+          </p>
+        </div>
       )}
 
       {error && (
@@ -167,7 +176,9 @@ export function RemediationApprovalWidget({
       {/* Action CTA */}
       <div className="mt-4 pt-3 border-t border-amber-500/20 flex items-center justify-between">
         <span className="text-[11px] text-muted-foreground">
-          پس از اعمال، سلامت سرویس به طور خودکار مجدداً بررسی می‌شود.
+          {missingVariable
+            ? "پس از اعمال، سلامت سرویس به طور خودکار مجدداً بررسی می‌شود."
+            : "می‌توانید پس از اصلاح تنظیمات یا ساخت سرویس، دپلوی را تکرار کنید."}
         </span>
         {rejected ? (
           <span className="text-xs text-muted-foreground">عملیات لغو گردید.</span>
@@ -195,7 +206,7 @@ export function RemediationApprovalWidget({
               ) : (
                 <>
                   <span>🩹</span>
-                  <span>اعمال راهکار رفع مشکل و اعتبارسنجی مجدد</span>
+                  <span>{missingVariable ? "اعمال متغیر محیطی و بررسی مجدد" : "تلاش مجدد و بررسی سلامت"}</span>
                 </>
               )}
             </button>

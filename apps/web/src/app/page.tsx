@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { SidecarConsole, CloudService } from "@/components/console/SidecarConsole";
@@ -12,6 +12,12 @@ import { PlanSelectorCard } from "@/components/chat/PlanSelectorCard";
 import { DiffPreviewWidget } from "@/components/chat/DiffPreviewWidget";
 import { DeployApprovalWidget } from "@/components/chat/DeployApprovalWidget";
 import { RemediationApprovalWidget } from "@/components/chat/RemediationApprovalWidget";
+
+let messageSequence = 0;
+function createMsgId(prefix: string): string {
+  messageSequence += 1;
+  return `${prefix}-${Date.now()}-${messageSequence}-${Math.random().toString(36).substring(2, 6)}`;
+}
 
 export default function HomePage() {
   const router = useRouter();
@@ -131,7 +137,7 @@ export default function HomePage() {
   // Handle Source Ingestion from Widget
   const handleSourceIngested = async (sourcePath: string, type: string) => {
     const userMsg: ChatMessage = {
-      id: "usr-" + Date.now(),
+      id: createMsgId("usr"),
       role: "user",
       content: `پروژه از طریق ${
         type === "zip" ? "فایل ZIP" : type === "git" ? "ریپازیتوری Git" : "مسیر محلی"
@@ -182,7 +188,7 @@ export default function HomePage() {
       setMessages((prev) => [
         ...prev,
         {
-          id: "ast-" + Date.now(),
+          id: createMsgId("ast"),
           role: "assistant",
           content: `${
             analysis.persian_summary ||
@@ -217,7 +223,7 @@ export default function HomePage() {
       setMessages((prev) => [
         ...prev,
         {
-          id: "err-" + Date.now(),
+          id: createMsgId("err"),
           role: "assistant",
           content: `خطا در تحلیل پروژه: ${err.message}`,
           timestamp: new Date().toISOString(),
@@ -248,7 +254,7 @@ export default function HomePage() {
             setMessages((prev) => [
               ...prev,
               {
-                id: "ast-" + Date.now(),
+                id: createMsgId("ast"),
                 role: "assistant",
                 content: `توکن شما با موفقیت ذخیره و اعتبارسنجی شد (${maskedToken}). اکنون می‌توانید سورس پروژه خود را برای دپلوی ارسال نمایید.`,
                 timestamp: new Date().toISOString(),
@@ -282,7 +288,7 @@ export default function HomePage() {
             setMessages((prev) => [
               ...prev,
               {
-                id: "ast-" + Date.now(),
+                id: createMsgId("ast"),
                 role: "assistant",
                 content: `پایگاه‌داده **${dbInfo.db_name}** (${dbInfo.db_type}) با موفقیت روی لیارا ایجاد شد! 🎉\n\nمتغیرهای محیطی اتصال:\n\`\`\`bash\n${Object.entries(
                   dbInfo.suggested_env_vars
@@ -351,7 +357,7 @@ export default function HomePage() {
               setMessages((prev) => [
                 ...prev,
                 {
-                  id: "ast-" + Date.now(),
+                  id: createMsgId("ast"),
                   role: "assistant",
                   content: `فایل تنظیمات \`liara.json\` آماده شد و پلن دپلوی با شناسه \`${run.id.substring(
                     0,
@@ -377,7 +383,7 @@ export default function HomePage() {
               setMessages((prev) => [
                 ...prev,
                 {
-                  id: "err-" + Date.now(),
+                  id: createMsgId("err"),
                   role: "assistant",
                   content: `خطا در ایجاد پلن دپلوی: ${msg}`,
                   timestamp: new Date().toISOString(),
@@ -440,7 +446,7 @@ export default function HomePage() {
                   setMessages((prev) => [
                     ...prev,
                     {
-                      id: "ast-" + Date.now(),
+                      id: createMsgId("ast"),
                       role: "assistant",
                       content: `🎉 **دپلوی با موفقیت کامل شد و برنامه در دسترس است!**\n\n• کد وضعیت HTTP: **${verification.http_status_code}**\n• آدرس عمومی سرویس: [${verification.endpoint_url}](${verification.endpoint_url})\n• وضعیت کلود: **سالم و فعال (Running)**`,
                       timestamp: new Date().toISOString(),
@@ -466,7 +472,7 @@ export default function HomePage() {
                   setMessages((prev) => [
                     ...prev,
                     {
-                      id: "ast-" + Date.now(),
+                      id: createMsgId("ast"),
                       role: "assistant",
                       content: `⚠️ برنامه دپلوی شد، اما هنگام آزمایش سلامت پاسخ خطای ران‌تایم (کد ${
                         verification?.http_status_code || "503"
@@ -509,7 +515,7 @@ export default function HomePage() {
                 setMessages((prev) => [
                   ...prev,
                   {
-                    id: "ast-" + Date.now(),
+                    id: createMsgId("ast"),
                     role: "assistant",
                     content: `⚠️ فرآیند استقرار با خطا متوقف شد.\n\nتحلیل هوشمند ریشه خطا:\n\n**${
                       diagnosis?.root_cause || "خطای بیلد یا کامپایل در حین دپلوی"
@@ -538,7 +544,7 @@ export default function HomePage() {
             setMessages((prev) => [
               ...prev,
               {
-                id: "ast-" + Date.now(),
+                id: createMsgId("ast"),
                 role: "assistant",
                 content: `اجرای دپلوی با تصمیم اپراتور لغو گردید. در صورت تمایل می‌توانید تغییرات پروژه را اصلاح کرده یا سورس دیگری را وارد نمایید.`,
                 timestamp: new Date().toISOString(),
@@ -569,7 +575,7 @@ export default function HomePage() {
               setMessages((prev) => [
                 ...prev,
                 {
-                  id: "ast-" + Date.now(),
+                  id: createMsgId("ast"),
                   role: "assistant",
                   content: `🎉 **خودترمیمی کامل شد!**\n\nمتغیر محیطی تزریق گردید و سرویس پس از راه‌اندازی مجدد، به وضعیت کاملاً سالم (Healthy) رسید.\n\nآدرس سرویس: [${res.verification?.endpoint_url}](${res.verification?.endpoint_url})`,
                   timestamp: new Date().toISOString(),
@@ -586,7 +592,7 @@ export default function HomePage() {
 
   // Handle User Message in Chat
   const handleSendMessage = async (text: string) => {
-    const userMessageId = "usr-" + Date.now();
+    const userMessageId = createMsgId("usr");
     const userMsg: ChatMessage = {
       id: userMessageId,
       role: "user",
@@ -613,7 +619,7 @@ export default function HomePage() {
           setMessages((prev) => [
             ...prev,
             {
-              id: "ast-" + Date.now(),
+              id: createMsgId("ast"),
               role: "assistant",
               content:
                 "برای اتصال به حساب لیارا، لطفاً کلید دسترسی (API Token) خود را در فرم امن زیر وارد کنید:",
@@ -628,7 +634,7 @@ export default function HomePage() {
           setMessages((prev) => [
             ...prev,
             {
-              id: "ast-" + Date.now(),
+              id: createMsgId("ast"),
               role: "assistant",
               content: `درخواست شما دریافت شد: «${text}».\n\nمن سورس‌کد و زیرساخت را طبق خواستهٔ شما پردازش می‌کنم. در صورتی که نیاز به ایجاد دیتابیس یا تنظیم مشخصات پلتفرم باشد، گزینه‌های لازم را به شما نشان خواهم داد.`,
               timestamp: new Date().toISOString(),
@@ -641,7 +647,7 @@ export default function HomePage() {
       setMessages((prev) => [
         ...prev,
         {
-          id: "err-" + Date.now(),
+          id: createMsgId("err"),
           role: "assistant",
           content: `خطا در برقراری ارتباط با موتور: ${err.message}`,
           timestamp: new Date().toISOString(),

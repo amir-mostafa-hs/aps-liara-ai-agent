@@ -65,9 +65,10 @@ class SREDiagnoser:
                     f"Analyze the following application runtime logs for Liara app '{app_id}'.\n"
                     f"Provider Status: {provider_status}\n"
                     f"Logs:\n{clean_logs[-2000:]}\n\n"
-                    f"Extract the exact root cause and the specific error line as error_evidence.\n"
+                    f"Extract the exact root cause in Persian (فارسی) or English and the specific error line as error_evidence.\n"
                     f"If a missing environment variable is detected, specify missing_variable and create a RemediationAction "
-                    f"with operation 'set_env', target '{app_id}', and a suitable default env_value."
+                    f"with operation 'set_env', target '{app_id}', and a suitable default env_value.\n"
+                    f"If the app does not exist or was deleted, state that clearly and set missing_variable=null."
                 )
 
                 result: DiagnosisResult = structured_llm.invoke(prompt)
@@ -86,10 +87,54 @@ class SREDiagnoser:
                 )
 
         # Deterministic / rule-based SRE diagnosis
-        missing_var = "SERVICE_SECRET"
-        evidence_line = "[FATAL] Missing required environment variable: SERVICE_SECRET"
+        lower_logs = clean_logs.lower()
 
-        # Search for exact missing variable pattern
+        # 1. App not found on Liara
+        if "could not find the app" in lower_logs or "app not found" in lower_logs:
+            evidence_line = next(
+                (l.strip() for l in clean_logs.splitlines() if "could not find the app" in l.lower()),
+                "Error: Could not find the app."
+            )
+            remediation = RemediationAction(
+                action_id=f"rem-{uuid.uuid4().hex[:8]}",
+                operation="create_app",
+                target=app_id,
+                description=f"ایجاد اپلیکیشن '{app_id}' در حساب لیارا",
+                requires_approval=True,
+            )
+            diagnosis = DiagnosisResult(
+                diagnosis_id=f"diag-{uuid.uuid4().hex[:8]}",
+                root_cause=f"اپلیکیشن '{app_id}' در حساب یا تیم فعلی لیارا یافت نشد. ممکن است برنامه در لیارا حذف شده باشد یا هنوز ایجاد نشده باشد.",
+                error_evidence=evidence_line,
+                missing_variable=None,
+                remediation=remediation,
+                confidence=0.99,
+                requires_approval=True,
+                digest="",
+            )
+            diagnosis.digest = diagnosis.compute_digest()
+            return diagnosis
+
+        # 2. Port collision (EADDRINUSE)
+        if "eaddrinuse" in lower_logs or "address already in use" in lower_logs:
+            evidence_line = next(
+                (l.strip() for l in clean_logs.splitlines() if "eaddrinuse" in l.lower() or "address already in use" in l.lower()),
+                "Error: listen EADDRINUSE: address already in use"
+            )
+            diagnosis = DiagnosisResult(
+                diagnosis_id=f"diag-{uuid.uuid4().hex[:8]}",
+                root_cause=f"تداخل پورت در هنگام اجرای اپلیکیشن '{app_id}'. پورت تنظیم‌شده در حال استفاده است.",
+                error_evidence=evidence_line,
+                missing_variable=None,
+                remediation=None,
+                confidence=0.95,
+                requires_approval=True,
+                digest="",
+            )
+            diagnosis.digest = diagnosis.compute_digest()
+            return diagnosis
+
+        # 3. Missing environment variable
         var_match = re.search(
             r"Missing required environment variable:\s*([A-Za-z0-9_]+)",
             clean_logs,
@@ -97,29 +142,63 @@ class SREDiagnoser:
         )
         if var_match:
             missing_var = var_match.group(1).strip()
-            # Find the actual line in logs
-            for line in clean_logs.splitlines():
-                if missing_var in line:
-                    evidence_line = line.strip()
-                    break
+            evidence_line = next(
+                (l.strip() for l in clean_logs.splitlines() if missing_var in l),
+                f"[FATAL] Missing required environment variable: {missing_var}"
+            )
+            remediation = RemediationAction(
+                action_id=f"rem-{uuid.uuid4().hex[:8]}",
+                operation="set_env",
+                target=app_id,
+                env_variable=missing_var,
+                env_value="sre-recovery-secret-key-123",
+                description=f"Set missing environment variable '{missing_var}' on Liara app '{app_id}' via 'liara env set'",
+                requires_approval=True,
+            )
+            diagnosis = DiagnosisResult(
+                diagnosis_id=f"diag-{uuid.uuid4().hex[:8]}",
+                root_cause=f"Application crashed during startup due to missing mandatory configuration '{missing_var}'.",
+                error_evidence=evidence_line,
+                missing_variable=missing_var,
+                remediation=remediation,
+                confidence=0.98,
+                requires_approval=True,
+                digest="",
+            )
+            diagnosis.digest = diagnosis.compute_digest()
+            return diagnosis
 
-        remediation = RemediationAction(
-            action_id=f"rem-{uuid.uuid4().hex[:8]}",
-            operation="set_env",
-            target=app_id,
-            env_variable=missing_var,
-            env_value="sre-recovery-secret-key-123",
-            description=f"Set missing environment variable '{missing_var}' on Liara app '{app_id}' via 'liara env set'",
-            requires_approval=True,
+        # 4. Build or package installation error
+        if "npm err!" in lower_logs or "yarn error" in lower_logs or "build failed" in lower_logs:
+            evidence_line = next(
+                (l.strip() for l in clean_logs.splitlines() if "npm err" in l.lower() or "error" in l.lower()),
+                "Build or packaging process failed"
+            )
+            diagnosis = DiagnosisResult(
+                diagnosis_id=f"diag-{uuid.uuid4().hex[:8]}",
+                root_cause=f"فرآیند بیلد یا نصب بسته‌های پروژه با خطا متوقف شد.",
+                error_evidence=evidence_line,
+                missing_variable=None,
+                remediation=None,
+                confidence=0.92,
+                requires_approval=True,
+                digest="",
+            )
+            diagnosis.digest = diagnosis.compute_digest()
+            return diagnosis
+
+        # 5. Generic execution failure
+        evidence_line = next(
+            (l.strip() for l in clean_logs.splitlines() if "error" in l.lower() or "exit" in l.lower()),
+            "Process exited with non-zero status"
         )
-
         diagnosis = DiagnosisResult(
             diagnosis_id=f"diag-{uuid.uuid4().hex[:8]}",
-            root_cause=f"Application crashed during startup due to missing mandatory configuration '{missing_var}'.",
+            root_cause=f"فرآیند اجرای اپلیکیشن با خطا متوقف شد.",
             error_evidence=evidence_line,
-            missing_variable=missing_var,
-            remediation=remediation,
-            confidence=0.98,
+            missing_variable=None,
+            remediation=None,
+            confidence=0.85,
             requires_approval=True,
             digest="",
         )

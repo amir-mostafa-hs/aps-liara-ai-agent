@@ -35,8 +35,13 @@ export async function POST(
     const apiToken = dbUser?.liaraToken || process.env.LIARA_API_TOKEN || "";
     const teamId = run.teamId || dbUser?.liaraTeamId || process.env.LIARA_TEAM_ID || "";
 
-    // Send deployment logs if available; otherwise pass empty string to let engine fetch bounded runtime logs via CLI
-    const logs = run.redactedLogs?.trim() || "";
+    const body = await req.json().catch(() => ({}));
+    const reqLogs = typeof body.logs === "string" ? body.logs.trim() : "";
+    const reqStatus = typeof body.provider_status === "string" ? body.provider_status.trim() : "";
+
+    // Prefer client streamed logs if provided; fallback to persisted run logs
+    const logs = reqLogs || run.redactedLogs?.trim() || "";
+    const providerStatus = reqStatus || run.providerStatus || "failed";
 
     const res = await fetch(`${engineUrl}/agent/diagnose`, {
       method: "POST",
@@ -47,7 +52,7 @@ export async function POST(
       body: JSON.stringify({
         app_id: run.targetApp || "demo-app",
         logs,
-        provider_status: run.providerStatus || "success",
+        provider_status: providerStatus,
         api_token: apiToken,
         team_id: teamId || undefined,
       }),

@@ -48,6 +48,47 @@ def test_diagnoser_handles_empty_logs_without_fabrication():
     assert "No runtime logs" in result.root_cause
 
 
+def test_diagnoser_detects_app_not_found_on_liara():
+    diagnoser = SREDiagnoser()
+    logs = """
+    [AGENT] Initiating deployment for app 'test-app-missing'...
+    Error: Could not find the app.
+    Please review the following checklist:
+      1. If you're deploying to a team, select it via 'liara team:use' or include the --team-id flag.
+      2. Make sure you're logged into the correct account.
+      3. Confirm that the app has been created.
+    """
+    result = diagnoser.diagnose_logs(
+        logs=logs,
+        app_id="test-app-missing",
+        provider_status="failed",
+    )
+    assert isinstance(result, DiagnosisResult)
+    assert result.missing_variable is None
+    lower_cause = result.root_cause.lower()
+    assert "یافت نشد" in result.root_cause or "not find" in lower_cause or "not be found" in lower_cause or "not found" in lower_cause
+    assert "Could not find the app" in result.error_evidence or "could not find" in result.error_evidence.lower()
+    assert result.verify_digest() is True
+
+
+def test_diagnoser_detects_port_collision():
+    diagnoser = SREDiagnoser()
+    logs = """
+    Server starting on port 3000...
+    Error: listen EADDRINUSE: address already in use :::3000
+    Process exited with code 1
+    """
+    result = diagnoser.diagnose_logs(
+        logs=logs,
+        app_id="port-app",
+        provider_status="failed",
+    )
+    assert isinstance(result, DiagnosisResult)
+    assert result.missing_variable is None
+    assert "پورت" in result.root_cause or "port" in result.root_cause.lower()
+    assert result.verify_digest() is True
+
+
 @pytest.mark.anyio
 async def test_apply_remediation_rejects_without_approval():
     diagnoser = SREDiagnoser()
