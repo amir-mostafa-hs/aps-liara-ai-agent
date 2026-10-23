@@ -22,7 +22,7 @@ Liara supports collaboration workspaces (Teams). The agent enables switching bet
 
 1. **Testing Connection & Discovering Teams:**
    - Click **«بررسی اتصال»**.
-   - The agent connects to `https://api.iran.liara.ir/v2/teams` and populates the **«انتخاب از تیم‌های اکانت»** dropdown.
+   - The agent connects to `https://api.liara.ir/v2/teams` and populates the **«انتخاب از تیم‌های اکانت»** dropdown.
 2. **Selecting a Team:**
    - Choose a team from the dropdown (e.g. `لیارا (6ace4ec3ec13fe0c3c19c4db)`), or enter a custom `Team ID` manually.
    - To return to your personal account, choose **«حساب شخصی (بدون تیم)»** or leave the field blank.

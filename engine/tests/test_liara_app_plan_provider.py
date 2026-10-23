@@ -80,22 +80,36 @@ async def test_app_plans_endpoint_protects_and_returns_account_scoped_plans():
         unauthorized = await client.post("/liara/app-plans", json={"api_token": "fake-token"})
         assert unauthorized.status_code == 403
 
-        class Process:
-            returncode = 0
+        async def mock_get(self, url, headers=None, params=None):
+            assert headers["Authorization"] == "Bearer fake-token"
+            assert params == {"teamID": "team-42"}
+            if str(url).endswith("/v1/me"):
+                return __import__("httpx").Response(status_code=200, request=__import__("httpx").Request("GET", str(url)), json={"plans": {
+                    "projects": {"medium-g2": {
+                        "available": True, "region": "iran", "RAM": {"amount": 1},
+                        "CPU": {"amount": 1}, "volume": 10, "displayPrice": "824,997.6",
+                    }},
+                    "projectBundlePlans": {"medium-g2": {
+                        "basic": {"available": True, "displayPrice": 475000},
+                        "free": {"available": False, "displayPrice": 0},
+                    }},
+                }})
+            return __import__("httpx").Response(status_code=200, request=__import__("httpx").Request("GET", str(url)), json={"networks": [
+                {"_id": "network-id", "name": "my-network"}
+            ]})
 
-            async def communicate(self):
-                return b'[{"Plan":"app-small","RAM":1,"CPU":0.5,"Disk":10}]', b""
-
-        async def fake_exec(*args, **kwargs):
-            assert "fake-token" in args
-            assert args[args.index("--team-id") + 1] == "team-42"
-            return Process()
-
-        with patch("asyncio.create_subprocess_exec", new=fake_exec):
+        with patch("engine.providers.liara_app_plan_provider.httpx.AsyncClient.get", new=mock_get):
             response = await client.post(
                 "/liara/app-plans",
                 headers={"X-Internal-Secret": TEST_SECRET},
                 json={"api_token": "fake-token", "team_id": "team-42"},
             )
     assert response.status_code == 200
-    assert response.json()["plans"][0]["plan_id"] == "app-small"
+    data = response.json()
+    assert data["plans"][0]["plan_id"] == "medium-g2"
+    assert data["plans"][0]["price_monthly"] == 824997.6
+    assert data["feature_plans"] == [{
+        "plan_id": "medium-g2", "bundle_plan_id": "basic", "name_fa": "پلن basic",
+        "price_monthly": 475000, "is_recommended": True,
+    }]
+    assert data["networks"] == [{"id": "network-id", "name": "my-network", "is_recommended": False}]

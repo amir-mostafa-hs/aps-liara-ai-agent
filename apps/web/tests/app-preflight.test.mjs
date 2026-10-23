@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { checkAppNameAvailability, formatPlanPrice, loadAppPlans, recommendAppPlan } from "../src/lib/app-preflight.ts";
+import { checkAppNameAvailability, formatPlanPrice, loadAppCreationCatalog, loadAppPlans, recommendAppPlan, recommendFeaturePlan } from "../src/lib/app-preflight.ts";
 
 test("new-service preflight shows provider plans and checks the name in Liara inventory", async () => {
   const calls = [];
@@ -32,6 +32,35 @@ test("new-service preflight blocks creation and gives Persian guidance when prov
   assert.equal(result.ok, false);
   assert.match(result.error, /دریافت پلن‌های معتبر از لیارا ممکن نشد/);
   assert.doesNotMatch(result.error, /fake-liara-token/);
+});
+
+test("new-service catalog requires a verified feature bundle and network and recommends cheapest available options", async () => {
+  const result = await loadAppCreationCatalog(async () => ({
+    ok: true,
+    json: async () => ({ ok: true,
+      plans: [{ plan_id: "medium-g2", name_fa: "medium-g2", ram: "1 GB", cpu: "1 هسته", disk: "10 GB", price_monthly: 825000 }],
+      feature_plans: [
+        { plan_id: "medium-g2", bundle_plan_id: "standard", name_fa: "استاندارد", price_monthly: 825000 },
+        { plan_id: "medium-g2", bundle_plan_id: "basic", name_fa: "پایه", price_monthly: 475000 },
+      ],
+      networks: [{ id: "network-42", name: "my-network", is_recommended: true }],
+    }),
+  }));
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(recommendFeaturePlan(result.catalog.feature_plans, "medium-g2")?.bundle_plan_id, "basic");
+  assert.equal(result.catalog.networks[0].id, "network-42");
+});
+
+test("new-service catalog fails closed when Liara has no network", async () => {
+  const result = await loadAppCreationCatalog(async () => ({
+    ok: true,
+    json: async () => ({ ok: true, plans: [{ plan_id: "g2-small" }], feature_plans: [{ plan_id: "g2-small", bundle_plan_id: "basic" }], networks: [] }),
+  }));
+
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.match(result.error, /شبکه/);
 });
 
 test("new-service preflight explains a name conflict in Persian", async () => {

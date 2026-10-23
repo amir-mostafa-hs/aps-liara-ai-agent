@@ -1,6 +1,6 @@
 # Reliable Liara Service Creation and Deployment Spec
 
-**Status:** implemented; manual Liara smoke test pending
+**Status:** implementation complete; mocked E2E and automated suites pass; Agent live smoke test pending
 
 ## Problem Statement
 
@@ -10,7 +10,7 @@ As a result, a user can choose a name and plan but still fail to create the serv
 
 ## Solution
 
-Make the new-service path a reliable, beginner-friendly part of the deployment workflow. The agent checks the connected Liara account, presents plans obtained through a verified Liara operation with a clearly identified recommendation, validates the proposed app name against Liara, and creates the service through the Liara Adapter using the provider's verified contract. It confirms creation from provider evidence before continuing to the existing deployment flow. Conflicts, invalid names, unavailable plans, authentication errors, and network failures are shown as actionable Persian guidance; they do not produce a false success state.
+Make the new-service path a reliable, beginner-friendly part of the deployment workflow. The agent checks the connected Liara account, presents account-scoped hardware plans, available feature bundles, and networks, and preselects an explained hardware and lowest-priced available bundle recommendation. The user can change the options, validate the proposed app name, and approve the exact creation settings. The Liara Adapter sends the verified CLI-compatible request and confirms the returned service settings before continuing deployment. Conflicts, invalid names, unavailable options, authentication errors, and network failures are actionable in Persian and never produce a false success state.
 
 The workflow remains conversational and uses the existing Approval Gate for billable app creation. Provider status and application health remain distinct signals. Testing is centered on one end-to-end boundary from the chat's new-service choice through the Liara Adapter and back into deployment continuation, with Liara responses simulated. A real-account smoke test is a separate manual verification and must use a designated test account.
 
@@ -38,20 +38,26 @@ The workflow remains conversational and uses the existing Approval Gate for bill
 20. As a user, I want my Liara token and any sensitive provider output to remain redacted throughout plan lookup, name validation, creation, and deployment, so that troubleshooting does not expose credentials.
 21. As a user, I want provider deployment status and application health to be reported separately, so that I can tell whether Liara accepted a deployment and whether my app is actually healthy.
 22. As a user deploying an app made with a no-code or AI-assisted coding service, I want the inspection and setup questions to state what is unknown and ask only for required decisions, so that I can proceed without needing to understand the generated project internals.
+23. As a beginner, I want available feature bundles and networks to be shown with a reasonable default, so that I do not have to guess provider identifiers.
+24. As a user, I want deployment logs and application runtime logs treated as separate evidence, so that health failures are diagnosed from the application's own output.
+25. As a user, I want runtime-log retrieval failures reported honestly, so missing evidence is not presented as a successful check.
 
 ## Implementation Decisions
 
 - Keep the existing hybrid architecture: the Application Tier owns the Persian chat, user interaction, and credential retrieval; the Agent Engine owns the Liara Adapter and provider-facing operations. This follows ADR-0003.
 - Continue the single Shared Core workflow through the existing chat orchestration; do not create a separate service-creation workflow for another interface. This follows ADR-0001's P0 interface prioritization.
-- Treat app creation as a consequential operation and retain the Approval Gate. Approval must be tied to the exact app name, platform, plan, and team scope.
+- Treat app creation as consequential and retain the Approval Gate. Bind approval to the exact app name, platform, hardware plan, feature bundle, network, displayed prices, and team scope.
 - Use a typed Liara Adapter contract for plan lookup, name check, and app creation. The adapter must normalize responses and preserve safe actionable errors.
-- Align the create payload with the currently documented Liara PaaS contract (`name`, `planID`, and `platform`) after contract validation. The current code's `project_id`/`plan` payload is incompatible with that published schema.
-- Retrieve plan options from an authenticated, verified Liara source. Do not silently present local defaults as if they were current Liara plans. If the provider lookup fails, explain that verified plans are unavailable and stop before billable creation unless a safe fallback has been explicitly approved in product behavior.
-- Show a recommended plan and a concise reason, but require the user to select or confirm the plan and cost before creation. Do not invent exact price data when Liara does not provide it through a verified source.
+- Retrieve hardware and bundle options from authenticated `GET /v1/me` and networks from authenticated `GET /v1/networks`, scoped to the active team. Only use provider-returned available choices.
+- Parse decimal provider prices and display hardware and bundle prices separately; never invent missing prices or infer a combined charge.
+- Send the CLI-compatible create fields (`name`, `platform`, `planID`, `bundlePlanID`, and network ID). Verify Liara reports the selected hardware plan, bundle, and network before continuing.
+- Recommend a hardware plan with a concise reason and the lowest-priced available bundle when prices are known. Preselect an available network without labeling an arbitrary network as recommended. Require explicit review and approval before creation.
 - Check app name availability in the selected account/team scope using a verified provider operation. Treat the create response as authoritative because a name can become unavailable after pre-check.
 - Use the official Liara API where its request/response behavior has been verified; use the official CLI only for operations whose command flags and output have been verified. Do not add an unverified fallback path.
 - Represent app creation as pending until provider evidence confirms the app exists. Do not infer `running` from an HTTP success response to a create request.
 - Continue the existing deployment flow only after the target app is resolved and service creation is confirmed. Keep provider deployment state separate from endpoint health.
+- Determine deployment success only from the explicit final server event, not from matching words in streamed logs. On a healthy deploy, fetch and show bounded runtime logs; on a health failure, fetch runtime logs independently for diagnosis and identify the source or retrieval warning.
+- Offer automatic remediation only for supported environment-setting operations; reject unsupported remediation operations without making changes.
 - Localized errors should distinguish recoverable input problems from authentication, permission, provider conflict, and transient network failures.
 - Do not change unrelated Liara services, database provisioning, DNS, or broad project-inspection behavior as part of this spec. Adjacent problems found during the broader review should be tracked separately after triage.
 
@@ -61,8 +67,9 @@ The workflow remains conversational and uses the existing Approval Gate for bill
 - The end-to-end test must cover the success path and representative failure paths: name conflict, invalid plan/name, authentication or permission failure, plan lookup failure, and transient provider failure. A failed creation must never continue to deployment or display a running service.
 - Test that a stale availability result followed by a provider conflict is handled without duplicate creation or false success.
 - Test that the plan displayed and approved is the plan passed to the provider, and that the account/team scope is consistent across lookup and creation.
+- Test hardware/bundle/network catalog parsing, decimal prices, exact approval binding, provider create payloads and verification, runtime log preference/failure reporting, and chunked/missing deployment completion events.
 - Test redaction at user-visible errors and logs using fake credentials.
-- Keep a separate manual smoke-test procedure for a designated Liara test account. It should confirm actual plan lookup, name validation, app creation, and a deployment attempt; do not run mutations against production.
+- Keep a separate manual smoke-test procedure for a designated Liara test account. Use the existing test app for runtime log and health checks. Mark the creation path live-verified only after an approved disposable app is created through the Agent.
 - Prior art includes chat and workflow behavior tests, the app target selector tests, Liara project proxy tests, and engine Liara Adapter tests. Existing proxy tests that require binding a local TCP port are not a suitable substitute for the agreed high-level behavioral seam.
 - Tests must be deterministic, fast, independent of a real Liara account, and capable of failing on a provider contract mismatch.
 
@@ -79,6 +86,6 @@ The workflow remains conversational and uses the existing Approval Gate for bill
 
 - The existing app-discovery spec and tickets already cover an earlier version of app selection and creation. This spec focuses on closing the observed reliability gap and should be linked by context in implementation planning rather than duplicating the earlier intent.
 - The local repository contains a Node.js sample app, but no fixture explicitly named “Simple App.” The user's target project may need to be supplied or mapped to a supported sample before a live deployment smoke test.
-- Static analysis found additional concerns in adjacent code: plan lookup currently falls back to hardcoded tiers, the app selector renders local default plans, and the UI marks a newly created app `running` without provider evidence. These are included here because they directly affect this workflow.
-- The engine's focused Liara Adapter and plan tests passed (13 tests). Relevant web proxy tests could not run in this sandbox because they bind a local socket and received `EPERM`; this is an environment limitation, not evidence of a product failure. No real Liara mutation was attempted.
-- The current official PaaS OpenAPI lists `POST /v1/projects` with app fields `name`, `planID`, and `platform`, and documents `409 Conflict`. The official CLI documents `liara app create` with `--app`, `--platform`, and `--plan`. Provider behavior still requires validation with the team's Liara test account.
+- Implementation now includes the missing bundle/network selections and approval fields, decimal-price parsing, and runtime-log source handling.
+- The direct Liara/CLI contract and live deployment evidence are recorded in [`docs/operations/liara-direct-deployment-e2e-2026-10-23.md`](../../docs/operations/liara-direct-deployment-e2e-2026-10-23.md).
+- Mocked E2E and complete automated test suites pass. The Agent's real-account service-creation path has not yet been run; mocked tests are not live verification.

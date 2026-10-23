@@ -2,8 +2,11 @@ export interface AppCreationAction {
   appName: string;
   platform: string;
   planId: string;
+  bundlePlanId: string;
+  networkId: string;
   teamId: string | null;
   priceMonthly: number | null;
+  bundlePriceMonthly: number | null;
 }
 
 export interface AppCreationApproval extends AppCreationAction {
@@ -24,6 +27,9 @@ export function matchesApprovedAppCreation(
     && approved.appName === action.appName
     && approved.platform === action.platform
     && approved.planId === action.planId
+    && approved.bundlePlanId === action.bundlePlanId
+    && approved.networkId === action.networkId
     && approved.teamId === action.teamId
-    && approved.priceMonthly === action.priceMonthly;
+    && approved.priceMonthly === action.priceMonthly
+    && approved.bundlePriceMonthly === action.bundlePriceMonthly;
 }

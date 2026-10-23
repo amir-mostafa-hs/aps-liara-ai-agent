@@ -10,6 +10,7 @@ from engine.domain.models import (
     InspectRequest,
     PlanRequest,
     RemediateRequest,
+    RuntimeLogsRequest,
     VerifyRequest,
 )
 from engine.providers.liara_adapter import liara_adapter
@@ -102,10 +103,10 @@ async def list_liara_plans(api_token: str | None = None):
 @app.post("/liara/app-plans", dependencies=[Depends(verify_internal_secret)])
 async def list_liara_app_plans(payload: PlanLookupRequest):
     try:
-        plans = await liara_app_plan_provider.list_plans(
+        catalog = await liara_app_plan_provider.list_catalog(
             api_token=payload.api_token, team_id=payload.team_id
         )
-        return {"ok": True, "plans": plans}
+        return {"ok": True, **catalog}
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
 
@@ -243,6 +244,8 @@ async def create_liara_project(payload: CreateProjectRequest):
             project_id=payload.project_id,
             platform=payload.platform,
             plan_id=payload.plan_id,
+            bundle_plan_id=payload.bundle_plan_id,
+            network_id=payload.network_id,
             api_token=token,
             team_id=team,
         )
@@ -335,22 +338,43 @@ async def verify_deployment_endpoint(payload: VerifyRequest):
 @app.post("/agent/diagnose", dependencies=[Depends(verify_internal_secret)])
 async def diagnose_failure(payload: DiagnoseRequest):
     logs = payload.logs
-    if not logs or not logs.strip():
-        logs = await sre_diagnoser.fetch_runtime_logs(
+    log_source = "deployment" if logs and logs.strip() else "runtime"
+    logs_warning = None
+    if payload.fetch_runtime_logs or not logs or not logs.strip():
+        runtime_result = await sre_diagnoser.fetch_runtime_logs_result(
             app_id=payload.app_id,
             api_token=payload.api_token,
             team_id=payload.team_id,
         )
+        if runtime_result["ok"]:
+            logs = runtime_result["logs"]
+            log_source = "runtime"
+        else:
+            logs_warning = runtime_result["error"]
 
     diagnosis = sre_diagnoser.diagnose_logs(
         logs=logs,
         app_id=payload.app_id,
         provider_status=payload.provider_status,
     )
+    diagnosis_data = diagnosis.model_dump()
+    diagnosis_data["log_source"] = log_source
+    diagnosis_data["logs_warning"] = logs_warning
     return {
         "ok": True,
-        "diagnosis": diagnosis.model_dump(),
+        "diagnosis": diagnosis_data,
     }
+
+
+@app.post("/agent/runtime-logs", dependencies=[Depends(verify_internal_secret)])
+async def get_runtime_logs(payload: RuntimeLogsRequest):
+    result = await sre_diagnoser.fetch_runtime_logs_result(
+        app_id=payload.app_id,
+        lines=payload.lines,
+        api_token=payload.api_token,
+        team_id=payload.team_id,
+    )
+    return {"ok": result["ok"], "log_source": "runtime", **result}
 
 
 @app.post("/agent/remediate", dependencies=[Depends(verify_internal_secret)])

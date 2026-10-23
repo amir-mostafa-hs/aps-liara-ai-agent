@@ -13,7 +13,7 @@ The agent interacts with third-party cloud infrastructure on behalf of the devel
 - **Implementation:** The utility function `maskToken` in `apps/web/src/lib/auth.ts` reveals only the final 4 characters (e.g. `••••••••C9VI`). In the Sidecar Console, password visibility toggles exist for editing, but initial server loads always deliver masked representations.
 
 ### C. Automatic Subprocess Redaction
-- **Rule:** When calling the `liara` CLI or receiving HTTP error strings from `https://api.iran.liara.ir`, stdout and stderr streams can contain command line flags or authorization headers.
+- **Rule:** When calling the `liara` CLI or receiving HTTP error strings from Liara API hosts such as `https://api.liara.ir`, stdout and stderr streams can contain command line flags or authorization headers.
 - **Implementation:** The Python engine's `engine/security/redaction.py` intercepts all raw process and network strings and runs `redact_text(text, api_token)`. Any token occurrence is replaced with `[REDACTED_LIARA_TOKEN]`.
 
 ### D. Path Traversal & Command Injection Prevention

@@ -153,12 +153,8 @@ export async function POST(
             controller.enqueue(value);
           }
         } finally {
-          controller.close();
-
           // After stream completes, determine final status and persist logs
-          const isSuccess =
-            accumulatedLogs.includes("exit code 0") ||
-            accumulatedLogs.includes("successfully pushed");
+          const isSuccess = accumulatedLogs.includes("[EXIT] Process completed successfully (exit code 0).");
           const finalStatus = isSuccess ? "verifying" : "failed";
           const providerStatus = isSuccess ? "success" : "failed";
 
@@ -173,6 +169,11 @@ export async function POST(
               },
             })
             .catch(console.error);
+
+          controller.enqueue(new TextEncoder().encode(
+            `data: ${JSON.stringify({ event: "completed", ok: isSuccess, provider_status: providerStatus })}\n\n`,
+          ));
+          controller.close();
 
           await prisma.auditLog
             .create({

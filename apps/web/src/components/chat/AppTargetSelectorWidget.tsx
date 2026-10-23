@@ -12,7 +12,7 @@ import {
   Layers,
   ChevronLeft,
 } from "lucide-react";
-import { AppPlan, checkAppNameAvailability, formatPlanPrice, loadAppPlans, recommendAppPlan } from "@/lib/app-preflight";
+import { AppPlan, AppFeaturePlan, AppNetwork, checkAppNameAvailability, formatPlanPrice, loadAppCreationCatalog, recommendAppPlan, recommendFeaturePlan } from "@/lib/app-preflight";
 import type { ExistingAppCandidate } from "@/lib/app-creation-workflow";
 import { findExistingApp } from "@/lib/app-creation-workflow";
 
@@ -23,7 +23,7 @@ export interface AppTargetSelectorWidgetProps {
   detectedDatabaseCount?: number;
   existingApps?: Array<{ name: string; status: string; endpoint?: string }>;
   onSelectExistingApp: (appName: string) => void;
-  onCreateNewApp: (appName: string, planId: string, teamId: string | null, priceMonthly: number | null) => Promise<{ ok: boolean; error?: string; recovery?: { service: ExistingAppCandidate } }>;
+  onCreateNewApp: (input: { appName: string; platform: string; planId: string; bundlePlanId: string; networkId: string; teamId: string | null; priceMonthly: number | null; bundlePriceMonthly: number | null }) => Promise<{ ok: boolean; error?: string; recovery?: { service: ExistingAppCandidate } }>;
   disabled?: boolean;
 }
 
@@ -49,6 +49,10 @@ export function AppTargetSelectorWidget({
   const [newAppName, setNewAppName] = useState<string>(suggestedAppName);
   const [selectedPlanId, setSelectedPlanId] = useState<string>("");
   const [plans, setPlans] = useState<AppPlan[]>([]);
+  const [featurePlans, setFeaturePlans] = useState<AppFeaturePlan[]>([]);
+  const [networks, setNetworks] = useState<AppNetwork[]>([]);
+  const [selectedBundlePlanId, setSelectedBundlePlanId] = useState<string>("");
+  const [selectedNetworkId, setSelectedNetworkId] = useState<string>("");
   const [plansLoading, setPlansLoading] = useState<boolean>(false);
   const [nameCheckLoading, setNameCheckLoading] = useState<boolean>(false);
   const [availableName, setAvailableName] = useState<string | null>(null);
@@ -58,26 +62,38 @@ export function AppTargetSelectorWidget({
   const [recommendedPlanReason, setRecommendedPlanReason] = useState<string | null>(null);
   const [recoveryService, setRecoveryService] = useState<ExistingAppCandidate | null>(null);
   const selectedPlan = plans.find((plan) => plan.plan_id === selectedPlanId);
+  const availableBundlePlans = featurePlans.filter((plan) => plan.plan_id === selectedPlanId);
+  const selectedBundlePlan = availableBundlePlans.find((plan) => plan.bundle_plan_id === selectedBundlePlanId);
+  const selectedNetwork = networks.find((network) => network.id === selectedNetworkId);
 
   useEffect(() => {
     if (mode !== "new") return;
     let active = true;
     setPlansLoading(true);
     setPlans([]);
+    setFeaturePlans([]);
+    setNetworks([]);
     setSelectedPlanId("");
+    setSelectedBundlePlanId("");
+    setSelectedNetworkId("");
     setAvailableName(null);
     setPreflightMessage(null);
-    loadAppPlans()
+    loadAppCreationCatalog()
       .then((result) => {
         if (!active) return;
         if (!result.ok) {
           setPreflightMessage(result.error);
           return;
         }
-        const recommendation = recommendAppPlan(result.plans, { platform: detectedPlatform, databaseCount: detectedDatabaseCount });
-        setPlans(result.plans.map((plan) => ({ ...plan, is_recommended: plan.plan_id === recommendation.plan.plan_id })));
+        const recommendation = recommendAppPlan(result.catalog.plans, { platform: detectedPlatform, databaseCount: detectedDatabaseCount });
+        const recommendedBundle = recommendFeaturePlan(result.catalog.feature_plans, recommendation.plan.plan_id);
+        setPlans(result.catalog.plans.map((plan) => ({ ...plan, is_recommended: plan.plan_id === recommendation.plan.plan_id })));
+        setFeaturePlans(result.catalog.feature_plans);
+        setNetworks(result.catalog.networks);
         setRecommendedPlanReason(recommendation.reason);
         setSelectedPlanId(recommendation.plan.plan_id);
+        setSelectedBundlePlanId(recommendedBundle?.bundle_plan_id || "");
+        setSelectedNetworkId(result.catalog.networks.find((network) => network.is_recommended)?.id || result.catalog.networks[0]?.id || "");
       })
       .finally(() => {
         if (active) setPlansLoading(false);
@@ -85,7 +101,7 @@ export function AppTargetSelectorWidget({
     return () => {
       active = false;
     };
-  }, [mode, detectedPlatform, detectedDatabaseCount]);
+  }, [mode, detectedPlatform, detectedDatabaseCount, teamScope?.id]);
 
   const cleanSlug = (str: string) =>
     str
@@ -115,6 +131,10 @@ export function AppTargetSelectorWidget({
       setErrorMessage("ابتدا یک پلن معتبر از فهرست لیارا انتخاب کنید.");
       return;
     }
+    if (!selectedBundlePlan || !selectedNetwork) {
+      setErrorMessage("یک پلن بسته و شبکهٔ معتبر از گزینه‌های در دسترس لیارا انتخاب کنید.");
+      return;
+    }
     if (availableName !== slug) {
       setErrorMessage("پیش از ساخت، آزاد بودن نام را در لیارا بررسی کنید.");
       return;
@@ -122,7 +142,16 @@ export function AppTargetSelectorWidget({
     setErrorMessage(null);
     setIsSubmitting(true);
     try {
-      const res = await onCreateNewApp(slug, selectedPlanId, teamScope?.id || null, selectedPlan?.price_monthly ?? null);
+      const res = await onCreateNewApp({
+        appName: slug,
+        platform: detectedPlatform,
+        planId: selectedPlanId,
+        bundlePlanId: selectedBundlePlan.bundle_plan_id,
+        networkId: selectedNetwork.id,
+        teamId: teamScope?.id || null,
+        priceMonthly: selectedPlan?.price_monthly ?? null,
+        bundlePriceMonthly: selectedBundlePlan.price_monthly ?? null,
+      });
       setRecoveryService(res.recovery?.service || null);
       if (!res.ok) {
         setErrorMessage(res.error || "خطا در ساخت سرویس در لیارا");
@@ -361,7 +390,11 @@ export function AppTargetSelectorWidget({
                 return (
                   <div
                     key={plan.plan_id}
-                    onClick={() => !isSubmitting && setSelectedPlanId(plan.plan_id)}
+                    onClick={() => {
+                      if (isSubmitting) return;
+                      setSelectedPlanId(plan.plan_id);
+                      setSelectedBundlePlanId(recommendFeaturePlan(featurePlans, plan.plan_id)?.bundle_plan_id || "");
+                    }}
                     className={`cursor-pointer rounded-xl border p-2.5 flex flex-col gap-1.5 transition-all relative ${
                       isSelected
                         ? "border-emerald-500 bg-emerald-950/20 shadow-sm"
@@ -396,14 +429,49 @@ export function AppTargetSelectorWidget({
             )}
           </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label className="flex flex-col gap-1.5 text-[11px] text-zinc-300">
+              <span>امکانات سرویس (پلن بسته):</span>
+              <select
+                value={selectedBundlePlanId}
+                onChange={(event) => setSelectedBundlePlanId(event.target.value)}
+                disabled={isSubmitting || plansLoading || availableBundlePlans.length === 0}
+                className="w-full bg-zinc-950 border border-zinc-700/80 rounded-xl px-3 py-2 text-xs text-zinc-200"
+              >
+                {availableBundlePlans.map((bundle) => (
+                  <option key={bundle.bundle_plan_id} value={bundle.bundle_plan_id}>
+                    {bundle.name_fa} — {formatPlanPrice(bundle.price_monthly)}{bundle.is_recommended ? " (پیشنهادی)" : ""}
+                  </option>
+                ))}
+              </select>
+              <span className="text-[10px] text-zinc-500">پیشنهاد، کم‌هزینه‌ترین گزینهٔ قابل‌استفاده برای این پلن است.</span>
+            </label>
+            <label className="flex flex-col gap-1.5 text-[11px] text-zinc-300">
+              <span>شبکهٔ لیارا:</span>
+              <select
+                value={selectedNetworkId}
+                onChange={(event) => setSelectedNetworkId(event.target.value)}
+                disabled={isSubmitting || plansLoading || networks.length === 0}
+                className="w-full bg-zinc-950 border border-zinc-700/80 rounded-xl px-3 py-2 text-xs text-zinc-200"
+              >
+                {networks.map((network) => (
+                  <option key={network.id} value={network.id}>
+                    {network.name}{network.is_recommended ? " (پیشنهادی)" : ""}
+                  </option>
+                ))}
+              </select>
+              <span className="text-[10px] text-zinc-500">اگر شبکه‌ای ندارید، ابتدا یک شبکه در کنسول لیارا بسازید.</span>
+            </label>
+          </div>
+
           <p className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-2.5 text-[10px] leading-relaxed text-amber-200">
-            با انتخاب «تأیید و ساخت سرویس»، ایجاد سرویس با نام <span dir="ltr" className="font-mono">{cleanSlug(newAppName) || "—"}</span>، پلتفرم {detectedPlatform}، پلن «{selectedPlan?.name_fa || selectedPlanId || "—"}» ({formatPlanPrice(selectedPlan?.price_monthly)}) و محدوده {teamScope ? `تیم ${teamScope.name} (${teamScope.id})` : "حساب شخصی"} را تأیید می‌کنید. این عملیات ممکن است هزینه داشته باشد.
+            با انتخاب «تأیید و ساخت سرویس»، نام <span dir="ltr" className="font-mono">{cleanSlug(newAppName) || "—"}</span>، پلتفرم {detectedPlatform}، پلن سخت‌افزاری «{selectedPlan?.name_fa || selectedPlanId || "—"}» ({formatPlanPrice(selectedPlan?.price_monthly)})، امکانات «{selectedBundlePlan?.name_fa || "—"}» ({formatPlanPrice(selectedBundlePlan?.price_monthly)})، شبکهٔ «{selectedNetwork?.name || "—"}» و محدوده {teamScope ? `تیم ${teamScope.name} (${teamScope.id})` : "حساب شخصی"} را تأیید می‌کنید. قیمت‌ها جداگانه مطابق اطلاعات لیارا نمایش داده شده‌اند؛ این عملیات ممکن است هزینه داشته باشد.
           </p>
 
           <button
             type="button"
             onClick={handleCreateNew}
-            disabled={isSubmitting || disabled || plansLoading || plans.length === 0 || !selectedPlanId || availableName !== cleanSlug(newAppName)}
+            disabled={isSubmitting || disabled || plansLoading || plans.length === 0 || !selectedPlanId || !selectedBundlePlan || !selectedNetwork || availableName !== cleanSlug(newAppName)}
             className="mt-2 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors disabled:opacity-50 shadow-md shadow-emerald-900/30"
           >
             {isSubmitting ? (

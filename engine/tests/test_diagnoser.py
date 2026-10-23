@@ -48,6 +48,32 @@ def test_diagnoser_handles_empty_logs_without_fabrication():
     assert "No runtime logs" in result.root_cause
 
 
+@pytest.mark.anyio
+async def test_runtime_log_fetch_reports_provider_failure_and_redacts_token(monkeypatch):
+    import asyncio
+    captured = []
+
+    class FailedProcess:
+        returncode = 1
+
+        async def communicate(self):
+            return b"invalid token mock-liara-secret", b""
+
+    async def fake_subprocess(*args, **kwargs):
+        captured.extend(args)
+        return FailedProcess()
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_subprocess)
+    result = await SREDiagnoser().fetch_runtime_logs_result(
+        "simple-app", api_token="mock-liara-secret", lines=9999,
+    )
+    assert result["ok"] is False
+    assert "mock-liara-secret" not in result["error"]
+    assert "--last-lines" in captured
+    assert "--timestamps" in captured
+    assert captured[captured.index("--since") + 1] == "30 minutes ago"
+
+
 def test_diagnoser_detects_app_not_found_on_liara():
     diagnoser = SREDiagnoser()
     logs = """
@@ -216,6 +242,8 @@ async def test_sre_diagnoser_includes_team_id_in_commands(monkeypatch):
     assert len(captured_cmds) == 1
     cmd = captured_cmds[0]
     assert "--team-id" in cmd
+    assert "--last-lines" in cmd
+    assert "--timestamps" in cmd
     idx = cmd.index("--team-id")
     assert cmd[idx + 1] == "6ace4ec3ec13fe0c3c19c4db"
 
@@ -279,6 +307,7 @@ def test_diagnose_and_remediate_api_endpoints():
     assert "SERVICE_SECRET" in diagnosis["root_cause"]
     assert diagnosis["remediation"] is not None
     assert diagnosis["remediation"]["env_variable"] == "SERVICE_SECRET"
+    assert diagnosis["log_source"] == "deployment"
     assert "digest" in diagnosis and len(diagnosis["digest"]) == 64
 
     # 3. Reject remediate without approval
@@ -300,3 +329,46 @@ def test_diagnose_and_remediate_api_endpoints():
     )
     assert res_bad_rem.status_code == 400
 
+
+def test_diagnose_prefers_runtime_logs_for_post_deploy_health_failure(monkeypatch):
+    from fastapi.testclient import TestClient
+    from engine.main import app, sre_diagnoser
+    from engine.config import settings
+
+    captured = {}
+    async def runtime_logs(**kwargs):
+        captured["runtime_request"] = kwargs
+        return {"ok": True, "logs": "Server listening on port 3000", "error": None}
+
+    def diagnose_logs(logs, app_id, provider_status):
+        captured["diagnosed_logs"] = logs
+        return SREDiagnoser().diagnose_logs(logs, app_id, provider_status)
+
+    monkeypatch.setattr(sre_diagnoser, "fetch_runtime_logs_result", runtime_logs)
+    monkeypatch.setattr(sre_diagnoser, "diagnose_logs", diagnose_logs)
+    response = TestClient(app).post(
+        "/agent/diagnose",
+        headers={"X-Internal-Secret": settings.internal_agent_secret},
+        json={"app_id": "simple-app", "logs": "Release created", "provider_status": "success", "fetch_runtime_logs": True},
+    )
+    assert response.status_code == 200
+    assert captured["diagnosed_logs"] == "Server listening on port 3000"
+    assert response.json()["diagnosis"]["log_source"] == "runtime"
+
+
+def test_runtime_logs_endpoint_returns_source_and_failure_details(monkeypatch):
+    from fastapi.testclient import TestClient
+    from engine.main import app, sre_diagnoser
+    from engine.config import settings
+
+    async def runtime_logs(**kwargs):
+        return {"ok": False, "logs": "", "error": "لاگ‌ها در دسترس نیستند"}
+
+    monkeypatch.setattr(sre_diagnoser, "fetch_runtime_logs_result", runtime_logs)
+    response = TestClient(app).post(
+        "/agent/runtime-logs",
+        headers={"X-Internal-Secret": settings.internal_agent_secret},
+        json={"app_id": "simple-app", "lines": 100},
+    )
+    assert response.status_code == 200
+    assert response.json() == {"ok": False, "log_source": "runtime", "logs": "", "error": "لاگ‌ها در دسترس نیستند"}

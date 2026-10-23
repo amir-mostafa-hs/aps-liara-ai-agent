@@ -99,6 +99,8 @@ class SREDiagnoser:
                 action_id=f"rem-{uuid.uuid4().hex[:8]}",
                 operation="create_app",
                 target=app_id,
+                env_variable="",
+                env_value="",
                 description=f"ایجاد اپلیکیشن '{app_id}' در حساب لیارا",
                 requires_approval=True,
             )
@@ -213,7 +215,25 @@ class SREDiagnoser:
         team_id: str | None = None,
     ) -> str:
         """Fetches bounded runtime logs using liara logs --app <app_id>."""
-        cmd = ["liara", "logs", "--app", app_id, "--lines", str(lines)]
+        result = await self.fetch_runtime_logs_result(app_id, lines, api_token, team_id)
+        return result["logs"]
+
+    async def fetch_runtime_logs_result(
+        self,
+        app_id: str,
+        lines: int = 100,
+        api_token: str | None = None,
+        team_id: str | None = None,
+    ) -> dict:
+        """Fetch bounded runtime logs and keep provider failures distinct from empty output."""
+        clean_app_id = (app_id or "").strip()
+        if not clean_app_id:
+            return {"ok": False, "logs": "", "error": "نام سرویس برای دریافت لاگ‌های اجرا مشخص نیست."}
+        safe_lines = min(max(int(lines), 1), 500)
+        cmd = [
+            "liara", "logs", "--app", clean_app_id,
+            "--since", "30 minutes ago", "--timestamps", "--last-lines",
+        ]
         if api_token and api_token.strip():
             cmd.extend(["--api-token", api_token.strip()])
         if team_id and team_id.strip():
@@ -226,11 +246,19 @@ class SREDiagnoser:
                 stderr=asyncio.subprocess.STDOUT,
             )
             stdout, _ = await asyncio.wait_for(process.communicate(), timeout=15.0)
-            raw = stdout.decode("utf-8", errors="replace")
-            return redact_text(raw, api_token)
+            raw_lines = stdout.decode("utf-8", errors="replace").splitlines()
+            raw = "\n".join(raw_lines[-safe_lines:])
+            clean_logs = redact_text(raw, api_token)
+            if process.returncode != 0:
+                safe_error = clean_logs.strip() or "فرمان دریافت لاگ‌های لیارا با خطا پایان یافت."
+                return {"ok": False, "logs": clean_logs, "error": safe_error}
+            if not clean_logs.strip():
+                return {"ok": False, "logs": "", "error": "لیارا برای این سرویس لاگ اجرایی برنگرداند."}
+            return {"ok": True, "logs": clean_logs, "error": None}
         except Exception as e:
-            logger.warning(f"Failed to fetch runtime logs via CLI: {e}")
-            return ""
+            safe_error = redact_text(str(e), api_token)
+            logger.warning("Failed to fetch runtime logs via CLI: %s", safe_error)
+            return {"ok": False, "logs": "", "error": f"دریافت لاگ‌های اجرای سرویس ناموفق بود: {safe_error}"}
 
     async def apply_remediation(
         self,
@@ -250,6 +278,9 @@ class SREDiagnoser:
 
         if expected_digest and approval.plan_digest != expected_digest:
             raise PermissionError("Approval mismatch: Cryptographic digest does not match expected remediation plan.")
+
+        if remediation.operation != "set_env":
+            raise PermissionError("این نوع راهکار خودکار پشتیبانی نمی‌شود؛ هیچ تغییری اعمال نشد. سرویس مقصد را بررسی و دپلوی را دوباره اجرا کنید.")
 
         cmd = [
             "liara",

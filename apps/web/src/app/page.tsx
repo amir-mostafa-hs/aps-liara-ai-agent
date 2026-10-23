@@ -14,6 +14,7 @@ import { DiffPreviewWidget } from "@/components/chat/DiffPreviewWidget";
 import { DeployApprovalWidget } from "@/components/chat/DeployApprovalWidget";
 import { RemediationApprovalWidget } from "@/components/chat/RemediationApprovalWidget";
 import { createLiaraApp } from "@/lib/app-creation-workflow";
+import { formatPlanPrice } from "@/lib/app-preflight";
 
 let messageSequence = 0;
 function createMsgId(prefix: string): string {
@@ -445,9 +446,10 @@ export default function HomePage() {
             ]);
             proceedToDatabaseOrDiff(chosenAppName, sourcePath, analysis);
           }}
-          onCreateNewApp={async (appName, planId, teamId, priceMonthly) => {
+          onCreateNewApp={async (creation) => {
+            const { appName, planId, bundlePlanId, networkId, priceMonthly, bundlePriceMonthly } = creation;
             return createLiaraApp(
-              { appName, platform: data.detectedPlatform || "node", planId, teamId, priceMonthly },
+              { ...creation, platform: data.detectedPlatform || "node" },
               {
                 onConfirmed: (service) => {
                   setSelectedApp(appName);
@@ -463,14 +465,14 @@ export default function HomePage() {
                   ]);
                   setTerminalLogs((prev) => [
                     ...prev,
-                    `✔ سرویس ابری «${appName}» با پلن ${planId} در لیارا ایجاد و تأیید شد.`,
+                      `✔ سرویس ابری «${appName}» با پلن ${planId}، امکانات ${bundlePlanId} و شبکهٔ انتخاب‌شده در لیارا ایجاد و تأیید شد.`,
                   ]);
                   setMessages((prev) => [
                     ...prev,
                     {
                       id: createMsgId("ast"),
                       role: "assistant",
-                      content: `سرویس **${appName}** با پلتفرم **${data.detectedPlatform}** و پلن **${planId}** در لیارا ساخته و تأیید شد. حالا آماده‌ی ادامه‌ی دپلوی هستیم.`,
+                      content: `سرویس **${appName}** با پلتفرم **${creation.platform}**، پلن **${planId}**، امکانات **${bundlePlanId}** و شبکهٔ انتخاب‌شده در لیارا ساخته و تأیید شد. قیمت‌های تأییدشده: پلن سخت‌افزاری ${formatPlanPrice(priceMonthly)} و امکانات ${formatPlanPrice(bundlePriceMonthly)}. حالا آمادهٔ ادامهٔ دپلوی هستیم.`,
                       timestamp: new Date().toISOString(),
                     },
                   ]);
@@ -662,14 +664,30 @@ export default function HomePage() {
                 });
                 const verifyData = await verifyRes.json();
                 const verification = verifyData.verification;
+                if (!verifyRes.ok || !verifyData.ok || !verification) {
+                  throw new Error(verifyData.error || "نتیجهٔ بررسی سلامت از لیارا دریافت نشد.");
+                }
 
                 if (verification?.application_health === "healthy") {
+                  const runtimeRes = await fetch(`/api/runs/${runId}/runtime-logs`, { method: "POST" });
+                  const runtimeData = await runtimeRes.json();
+                  let runtimeSummary = "";
+                  if (runtimeRes.ok && runtimeData.ok && typeof runtimeData.logs === "string") {
+                    const runtimeLines = runtimeData.logs.split("\n").filter(Boolean);
+                    const highlights = runtimeLines.filter((line: string) => /listen|started|healthy|error|warning/i.test(line)).slice(-5);
+                    setTerminalLogs((prev) => [...prev, "[RUNTIME LOGS]", ...runtimeLines]);
+                    runtimeSummary = `\n• لاگ runtime: از لیارا دریافت شد (${runtimeLines.length} خط)${highlights.length ? `\n• نکته‌ها: ${highlights.join(" | ")}` : ""}`;
+                  } else {
+                    const runtimeError = runtimeData.error || "لاگ runtime در دسترس نبود.";
+                    setTerminalLogs((prev) => [...prev, `[RUNTIME LOGS] ${runtimeError}`]);
+                    runtimeSummary = `\n• بررسی لاگ runtime: ${runtimeError}`;
+                  }
                   setMessages((prev) => [
                     ...prev,
                     {
                       id: createMsgId("ast"),
                       role: "assistant",
-                      content: `🎉 **دپلوی با موفقیت کامل شد و برنامه در دسترس است!**\n\n• کد وضعیت HTTP: **${verification.http_status_code}**\n• آدرس عمومی سرویس: [${verification.endpoint_url}](${verification.endpoint_url})\n• وضعیت کلود: **سالم و فعال (Running)**`,
+                      content: `🎉 **دپلوی با موفقیت کامل شد و برنامه در دسترس است!**\n\n• کد وضعیت HTTP: **${verification.http_status_code}**\n• آدرس عمومی سرویس: [${verification.endpoint_url}](${verification.endpoint_url})\n• وضعیت سلامت برنامه: **سالم**${runtimeSummary}`,
                       timestamp: new Date().toISOString(),
                     },
                   ]);
@@ -685,9 +703,13 @@ export default function HomePage() {
                     body: JSON.stringify({
                       logs: logs || "",
                       provider_status: "success",
+                      fetch_runtime_logs: true,
                     }),
                   });
                   const diagData = await diagRes.json();
+                  if (!diagRes.ok || !diagData.ok || !diagData.diagnosis) {
+                    throw new Error(diagData.error || "تحلیل لاگ‌های اجرای برنامه کامل نشد.");
+                  }
                   const diagnosis = diagData.diagnosis;
 
                   setMessages((prev) => [
@@ -699,7 +721,7 @@ export default function HomePage() {
                         verification?.http_status_code || "503"
                       }) برگرداند.\n\nایجنت SRE لاگ‌ها را بررسی کرد و علت را تشخیص داد:\n\n**${
                         diagnosis?.root_cause || "خطای ران‌تایم در هنگام راه‌اندازی"
-                      }**\n\nراهکار خودکار خودترمیمی آماده است:`,
+                      }**\n\nمنبع لاگ: **${diagnosis?.log_source === "runtime" ? "اجرای برنامه" : "فرآیند دپلوی"}**${diagnosis?.logs_warning ? `\n\n⚠️ دریافت لاگ runtime ناموفق بود: ${diagnosis.logs_warning}` : ""}\n\nراهکار خودکار خودترمیمی آماده است:`,
                       timestamp: new Date().toISOString(),
                       widget: {
                         type: "remediation_approval",
@@ -713,7 +735,17 @@ export default function HomePage() {
                   ]);
                 }
               } catch (err: unknown) {
-                console.error("Verification error:", err);
+                const detail = err instanceof Error ? err.message : "خطای ناشناخته";
+                setTerminalLogs((prev) => [...prev, `⚠️ بررسی سلامت یا لاگ‌های برنامه کامل نشد: ${detail}`]);
+                setMessages((prev) => [
+                  ...prev,
+                  {
+                    id: createMsgId("ast"),
+                    role: "assistant",
+                    content: `دپلوی از طرف لیارا موفق گزارش شد، اما بررسی سلامت یا لاگ‌های runtime کامل نشد: ${detail}\n\nآدرس برنامه را می‌توانید جداگانه بررسی کنید.`,
+                    timestamp: new Date().toISOString(),
+                  },
+                ]);
               }
             } else {
               setTerminalLogs((prev) => [
@@ -731,6 +763,9 @@ export default function HomePage() {
                   }),
                 });
                 const diagData = await diagRes.json();
+                if (!diagRes.ok || !diagData.ok || !diagData.diagnosis) {
+                  throw new Error(diagData.error || "تحلیل لاگ‌های دپلوی کامل نشد.");
+                }
                 const diagnosis = diagData.diagnosis;
 
                 setMessages((prev) => [
@@ -753,7 +788,17 @@ export default function HomePage() {
                   },
                 ]);
               } catch (err: unknown) {
-                console.error("Diagnosis on deploy failure error:", err);
+                const detail = err instanceof Error ? err.message : "خطای ناشناخته";
+                setTerminalLogs((prev) => [...prev, `⚠️ دریافت تشخیص SRE کامل نشد: ${detail}`]);
+                setMessages((prev) => [
+                  ...prev,
+                  {
+                    id: createMsgId("ast"),
+                    role: "assistant",
+                    content: `دپلوی ناموفق بود و تحلیل خودکار لاگ‌ها هم کامل نشد: ${detail}\n\nلاگ‌های دپلوی در پنل کنسول باقی مانده‌اند تا بتوانید آن‌ها را بررسی یا برای تلاش دوباره استفاده کنید.`,
+                    timestamp: new Date().toISOString(),
+                  },
+                ]);
               }
             }
           }}
@@ -785,8 +830,8 @@ export default function HomePage() {
           targetApp={targetApp}
           rootCause={diagnosis?.root_cause || ""}
           errorEvidence={diagnosis?.error_evidence || ""}
-          missingVariable={diagnosis?.missing_variable || "SERVICE_SECRET"}
-          suggestedValue={diagnosis?.remediation?.env_value || "default-secret-key-123"}
+          missingVariable={diagnosis?.remediation?.operation === "set_env" ? diagnosis?.missing_variable || undefined : undefined}
+          suggestedValue={diagnosis?.remediation?.operation === "set_env" ? diagnosis?.remediation?.env_value || "" : ""}
           onRemediated={(res) => {
             if (res.isRecovered) {
               setTerminalLogs((prev) => [

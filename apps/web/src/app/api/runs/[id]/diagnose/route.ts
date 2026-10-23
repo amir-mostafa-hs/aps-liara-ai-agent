@@ -38,6 +38,7 @@ export async function POST(
     const body = await req.json().catch(() => ({}));
     const reqLogs = typeof body.logs === "string" ? body.logs.trim() : "";
     const reqStatus = typeof body.provider_status === "string" ? body.provider_status.trim() : "";
+    const fetchRuntimeLogs = body.fetch_runtime_logs === true;
 
     // Prefer client streamed logs if provided; fallback to persisted run logs
     const logs = reqLogs || run.redactedLogs?.trim() || "";
@@ -53,6 +54,7 @@ export async function POST(
         app_id: run.targetApp || "demo-app",
         logs,
         provider_status: providerStatus,
+        fetch_runtime_logs: fetchRuntimeLogs,
         api_token: apiToken,
         team_id: teamId || undefined,
       }),

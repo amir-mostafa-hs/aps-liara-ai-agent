@@ -20,11 +20,13 @@ If `liara.json` is missing or the configured app is not present in your Liara ac
 ### Path B: Create a Brand-New App («ساخت سرویس جدید»)
 - **App ID:** Pre-filled with an intelligent slug derived from your folder or project name (e.g. `nodejs-demo`).
 - **Name preflight:** Check the name in the selected account/team before creation. Availability can change before Liara processes the create request.
-- **Hardware plan selection:** The app loads current hardware plans from Liara and preselects a recommendation. Resource values and prices depend on what Liara returns; a missing price is shown as unavailable rather than estimated.
-- **Approval:** Review the app name, platform, hardware plan, known price, and account/team scope. Creating the service can incur charges.
+- **Plan and network selection:** The app loads account/team-scoped hardware plans, available feature bundles, and networks from Liara. It preselects a hardware recommendation and, when provider prices are known, the lowest-priced bundle. You can change either choice. Hardware and bundle prices are displayed separately.
+- **Approval:** Review the app name, platform, hardware plan, feature bundle, network, separate prices, and account/team scope. Creating the service can incur charges.
 - **Creation status:** The agent reports success only after it confirms the app exists in Liara, then continues to deployment. A provider error stops the flow and is shown to the user.
 
-**Known limitation:** A browser smoke test on 2026-10-23 reached Liara but received `400 g2_plan_unavailable` after selecting `medium-g2`. The current API request sends `name`, `platform`, and `planID`; the official Liara CLI also sends `bundlePlanID`. The missing feature-bundle plan is under investigation, and successful live app creation has not yet been verified. See [Liara app creation diagnostics](../operations/liara-app-creation-diagnostics.md) before retrying against a real account.
+**Verification status:** The Agent workflow now sends and verifies the hardware plan, feature bundle, and network selected by the user. Simulated end-to-end tests cover the path. A live service creation through the Agent is still pending and must not be inferred from the separate successful direct CLI test. See [Liara app creation diagnostics](../operations/liara-app-creation-diagnostics.md) and the [direct deployment test record](../operations/liara-direct-deployment-e2e-2026-10-23.md).
+
+After a successful deployment, the Agent checks HTTP health and retrieves runtime logs separately. If health fails, the SRE diagnosis requests runtime logs even when build/deployment logs are already available.
 
 ## 3. Database Matching & Provisioning
 

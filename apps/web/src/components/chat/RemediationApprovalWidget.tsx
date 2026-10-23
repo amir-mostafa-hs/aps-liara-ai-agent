@@ -178,10 +178,19 @@ export function RemediationApprovalWidget({
         <span className="text-[11px] text-muted-foreground">
           {missingVariable
             ? "پس از اعمال، سلامت سرویس به طور خودکار مجدداً بررسی می‌شود."
-            : "می‌توانید پس از اصلاح تنظیمات یا ساخت سرویس، دپلوی را تکرار کنید."}
+            : "این مشکل با تغییر خودکار تنظیمات حل نمی‌شود؛ سرویس مقصد را انتخاب یا ایجاد کنید و دپلوی را دوباره اجرا کنید."}
         </span>
         {rejected ? (
           <span className="text-xs text-muted-foreground">عملیات لغو گردید.</span>
+        ) : !missingVariable ? (
+          <button
+            type="button"
+            onClick={handleReject}
+            disabled={disabled}
+            className="rounded-xl border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted transition-all cursor-pointer"
+          >
+            متوجه شدم
+          </button>
         ) : (
           <div className="flex items-center gap-2">
             <button

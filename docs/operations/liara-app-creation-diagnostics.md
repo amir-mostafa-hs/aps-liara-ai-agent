@@ -2,7 +2,7 @@
 
 ## Current workflow
 
-The chat asks whether to use an existing Liara application or create one. The new-app path loads hardware plans through the web API and the Liara CLI, checks the app name against the selected account/team, then asks the user to approve the exact app name, platform, hardware plan, price, and team before sending a create request.
+The chat asks whether to use an existing Liara application or create one. The new-app path loads hardware/bundle plans and networks from account/team-scoped Liara endpoints, checks the app name against the same scope, then asks the user to approve the exact app name, platform, hardware plan, bundle, network, separate prices, and team before sending a create request.
 
 Relevant implementation:
 
@@ -25,15 +25,17 @@ The failed request did not advance to deployment. No second create request was s
 
 ## Diagnosis and follow-up
 
-The UI and adapter currently model one selected hardware plan (`planID`). The current official Liara CLI implementation also prompts for a feature bundle plan and sends both `planID` and `bundlePlanID` to `POST v1/projects/`. The agent's create payload currently omits `bundlePlanID`, so its request does not yet match the CLI's complete app-creation flow. This is the leading code-level cause to investigate for `g2_plan_unavailable`; the 400 response alone does not prove the omitted field is the sole cause. Plan availability for the selected team/account and Liara's live API validation also need to be checked.
+The adapter previously sent PaaS requests to `https://api.iran.liara.ir`; it now uses the documented and CLI-used `https://api.liara.ir` host. A follow-up browser attempt with the unique name `aps-liara-hostcheck-20261023-7d4f` confirmed that Liara reported the name available, but the create call still returned HTTP 400 `g2_plan_unavailable`. A read-only availability check after the failure still reported the name as free, so the app was not created. No deployment was started and no second create request was made.
 
-Before another real-account attempt:
+The host mismatch was therefore not sufficient to explain the failure. A later direct CLI run successfully created and deployed `aps-direct-e2e-20261023-a91f` using `medium-g2`, the lowest-priced available feature bundle (`basic`), and the existing network `my-network`. The official CLI submitted `bundlePlanID` and `network` along with `name`, `platform`, and `planID`; the previous Agent request omitted both. This validates the complete CLI contract for this team, although it does not isolate which additional field alone was decisive. The live creation, deployment, runtime log, and health-check evidence is recorded in [Liara direct deployment E2E test](liara-direct-deployment-e2e-2026-10-23.md). Before the Agent workflow is considered fixed, it still needs to load available feature bundles, bind the user's exact bundle choice into approval, and send the selected bundle and network values.
 
-1. Extend plan lookup to preserve the valid feature bundle choices associated with each hardware plan from Liara's authenticated plan catalog.
-2. Present the feature bundle choice or a clearly explained default and bind it into the approval record so the exact approved value is sent.
-3. Send `bundlePlanID` with `name`, `platform`, and `planID`, matching the current official CLI request.
-4. Add simulated-provider tests that verify the approved feature plan reaches the Liara adapter and that an unavailable plan produces an actionable Persian error without continuing to deployment.
-5. Repeat the manual smoke test only with a designated test account/team and disposable app name; record whether the error is resolved before proceeding to deployment.
+## Agent implementation follow-up (2026-10-23)
+
+The Agent now loads `v1/me` and `v1/networks` for current account/team options, parses comma-separated decimal prices, binds bundle/network and both prices into the approval record, and sends the direct CLI-verified fields (`name`, `platform`, `planID`, `bundlePlanID`, `network`). After the create request it confirms that Liara reports the requested app, plan, bundle, and network before deployment can continue. Known plan, network, balance, authorization, and permission errors have actionable Persian responses.
+
+The deployment flow now requires an explicit terminal completion SSE event. On success it fetches bounded runtime logs and reports them separately from HTTP health. When health fails, diagnosis fetches runtime logs even if deployment logs were supplied and reports the source or retrieval warning. Runtime log fetching uses the official CLI's supported `--since`, `--timestamps`, and `--last-lines` flags. Unsupported remediation operations are rejected instead of being sent through `liara env set`.
+
+Verification completed: all 69 Engine tests passed at the last full run; all 53 web tests passed (the first sandbox-only run failed to bind loopback, then passed with local socket access); the web production build completed. Additional provider verification tests were added after that snapshot and the focused suites pass. The Agent's live create flow is still pending; the direct CLI success recorded above is not an Agent live pass.
 
 Liara references:
 

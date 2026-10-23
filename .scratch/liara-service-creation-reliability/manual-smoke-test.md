@@ -1,33 +1,37 @@
-# Manual Smoke Test: New Liara App and Deployment
+# Manual Smoke Test: Liara App Creation, Deployment, and Logs
 
-## Latest observed result (2026-10-23)
+## Current status (2026-10-23)
 
-- The browser loaded Liara-backed hardware plans and confirmed the sample name `nodejs-demo` was available in the selected account/team.
-- The user submitted app creation with `medium-g2`; Liara returned HTTP 400 `g2_plan_unavailable`.
-- The workflow stopped before deployment. Do not count the real-account smoke test as passed. Investigate the missing feature bundle plan and plan availability as recorded in [`Liara app creation diagnostics`](../../docs/operations/liara-app-creation-diagnostics.md) before the next live attempt.
-- No second create attempt was made during diagnosis. See [`docs/operations/liara-app-creation-diagnostics.md`](../../docs/operations/liara-app-creation-diagnostics.md) for the code-level diagnosis and follow-up.
+- Mocked end-to-end tests and automated suites pass.
+- A direct CLI deployment to the designated test app `aps-direct-e2e-20261023-a91f` succeeded; runtime logs and its public health endpoint were verified. Details are in [`docs/operations/liara-direct-deployment-e2e-2026-10-23.md`](../../docs/operations/liara-direct-deployment-e2e-2026-10-23.md).
+- The Agent's real-account app-creation path remains pending live verification. The prior browser failure (`g2_plan_unavailable`) occurred before bundle and network values were included; the later successful direct CLI test is separate and does not count as an Agent live pass.
+- The designated test app remains deployed and may incur ongoing charges. Reuse it for runtime-log and health checks; do not create another service solely for that check.
 
-Run this only with a designated Liara test account/team and a disposable app name. The automated suite simulates Liara; this procedure validates provider behavior with a real account. It creates a billable cloud service.
+## Preconditions
 
-## Prepare
+- [ ] Confirm the Liara token and intended account/team are configured in the app. Never print or record the token.
+- [ ] Use `sample-apps/nodejs-demo` as the “Simple App” fixture unless the user's own source is available locally.
+- [ ] Confirm `aps-direct-e2e-20261023-a91f` remains the intended existing test service before any live deployment or log check.
+- [ ] Before live service creation, use a designated disposable name and explicitly review all provider-returned prices and selected team.
 
-- [ ] Confirm the Liara token is configured for the intended test account and team in the app.
-- [ ] Use the repository's `sample-apps/nodejs-demo` fixture as the “Simple App” unless the user's own Simple App source is available locally.
-- [ ] Choose a unique app name that is not already present in that account/team.
-- [ ] Ensure the account can create apps and has an understood billing limit.
+## Agent new-service flow
 
-## Verify the flow
+- [ ] Start a deployment request and choose to create a new service.
+- [ ] Confirm the UI loads current account/team-scoped hardware plans, feature bundles, and networks from Liara.
+- [ ] Confirm the suggested hardware plan has a short explanation and the lowest-priced available bundle is selected when provider prices are available. Change either option and confirm the selection persists.
+- [ ] Enter a unique app name, verify Liara reports it available, and verify an existing name blocks creation with a clear message.
+- [ ] Review and approve the exact name, platform, hardware plan, bundle, network, separate prices, and account/team.
+- [ ] Confirm the app is created with those exact settings and is not called `running` unless Liara reports that state.
+- [ ] Confirm deployment continues only after provider confirmation. An ambiguous create response must trigger an inventory check before retry.
 
-- [ ] Start a deployment request for the fixture and choose the new-service path.
-- [ ] Confirm the UI loads plans from the connected Liara account and shows the recommended plan, resource details, and any price Liara returns.
-- [ ] Enter the unique app name and verify the UI reports availability. Try an existing name and confirm creation is blocked with a clear explanation.
-- [ ] Select a plan, review the name/platform/plan/cost, and explicitly approve creation.
-- [ ] Confirm the app appears in the same Liara account/team. Confirm the UI reports the provider status without claiming `running` unless Liara reports that state.
-- [ ] Confirm the workflow continues to the existing deployment step using the new app name and selected platform.
-- [ ] Complete the deployment and verify the deployment result and app endpoint separately from app health.
-- [ ] If creation returns an ambiguous result, refresh the service inventory before retrying; confirm the flow does not create a duplicate.
-- [ ] If deployment fails after creation, retry deployment against the already-created app instead of repeating service creation.
+## Deployment, health, and logs
+
+- [ ] Complete a deployment to the approved test app and verify the result uses the explicit final deployment event.
+- [ ] Verify the public endpoint and HTTP health separately from Liara's deployment status.
+- [ ] After a healthy deployment, confirm runtime logs are fetched and summarized separately from the health result.
+- [ ] On an unhealthy endpoint, confirm diagnosis prefers runtime logs even when deployment logs exist, and identifies the log source or explains retrieval failure.
+- [ ] If deployment fails after service creation, retry deployment against the existing app rather than repeating service creation.
 
 ## Record
 
-Record the date, account/team identifier (never the token), selected plan identifier, app name, Liara status, deployment result, and any provider error. Remove the disposable app through Liara's normal controls when it is no longer needed, following the account's retention and billing practices.
+Record date, account/team identifier, hardware and bundle IDs, network name, app name, provider status, deployment result, health result, runtime-log result, and any provider error. Never record credentials. Keep the designated test service; do not delete it as part of this verification.

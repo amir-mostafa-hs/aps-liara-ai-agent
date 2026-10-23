@@ -8,6 +8,26 @@ export interface AppPlan {
   is_recommended: boolean;
 }
 
+export interface AppFeaturePlan {
+  plan_id: string;
+  bundle_plan_id: string;
+  name_fa: string;
+  price_monthly: number | null;
+  is_recommended: boolean;
+}
+
+export interface AppNetwork {
+  id: string;
+  name: string;
+  is_recommended: boolean;
+}
+
+export interface AppCreationCatalog {
+  plans: AppPlan[];
+  feature_plans: AppFeaturePlan[];
+  networks: AppNetwork[];
+}
+
 export function formatPlanPrice(price: number | null | undefined): string {
   if (price == null) return "قیمت توسط لیارا اعلام نشده";
   return `${price.toLocaleString("fa-IR")} تومان/ماه`;
@@ -40,6 +60,33 @@ export async function loadAppPlans(fetcher: Fetcher = fetch): Promise<
       error: "ارتباط با لیارا برقرار نشد؛ پلن‌های معتبر در دسترس نیستند. اتصال را بررسی کنید و دوباره تلاش کنید.",
     };
   }
+}
+
+export async function loadAppCreationCatalog(fetcher: Fetcher = fetch): Promise<
+  { ok: true; catalog: AppCreationCatalog } | { ok: false; error: string }
+> {
+  try {
+    const response = await fetcher("/api/liara/app-plans", { cache: "no-store" });
+    const data = await response.json();
+    if (!response.ok || data?.ok !== true || !Array.isArray(data.plans) || !Array.isArray(data.feature_plans) || !Array.isArray(data.networks)) {
+      return { ok: false, error: "گزینه‌های ساخت سرویس از لیارا کامل دریافت نشدند؛ تا بررسی دوباره، ساخت غیرفعال است." };
+    }
+    const plans = data.plans.filter((plan: any) => typeof plan?.plan_id === "string" && plan.plan_id.length > 0);
+    const featurePlans = data.feature_plans.filter((plan: any) => typeof plan?.plan_id === "string" && typeof plan?.bundle_plan_id === "string");
+    const networks = data.networks.filter((network: any) => typeof network?.id === "string" && typeof network?.name === "string");
+    if (!plans.length || !featurePlans.length || !networks.length) {
+      return { ok: false, error: "لیارا پلن بسته یا شبکهٔ قابل‌استفاده‌ای برای این حساب برنگرداند. ابتدا در کنسول لیارا یک شبکه بسازید یا دسترسی حساب را بررسی کنید." };
+    }
+    return { ok: true, catalog: { plans, feature_plans: featurePlans, networks } };
+  } catch {
+    return { ok: false, error: "ارتباط با لیارا برقرار نشد؛ گزینه‌های معتبر سرویس در دسترس نیستند. اتصال را بررسی کنید و دوباره تلاش کنید." };
+  }
+}
+
+export function recommendFeaturePlan(featurePlans: AppFeaturePlan[], planId: string): AppFeaturePlan | null {
+  return featurePlans
+    .filter((plan) => plan.plan_id === planId)
+    .sort((a, b) => (a.price_monthly ?? Number.MAX_SAFE_INTEGER) - (b.price_monthly ?? Number.MAX_SAFE_INTEGER))[0] || null;
 }
 
 export function recommendAppPlan(

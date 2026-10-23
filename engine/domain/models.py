@@ -44,6 +44,8 @@ class CreateProjectRequest(BaseModel):
     project_id: str
     platform: str
     plan_id: str
+    bundle_plan_id: str
+    network_id: str
     approved: bool = False
     api_token: str | None = None
     team_id: str | None = None
@@ -229,6 +231,14 @@ class DiagnoseRequest(BaseModel):
     app_id: str
     logs: str = ""
     provider_status: str = "success"
+    api_token: str | None = None
+    team_id: str | None = None
+    fetch_runtime_logs: bool = False
+
+
+class RuntimeLogsRequest(BaseModel):
+    app_id: str
+    lines: int = 100
     api_token: str | None = None
     team_id: str | None = None
 

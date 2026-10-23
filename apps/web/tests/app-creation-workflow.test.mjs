@@ -1,23 +1,30 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createLiaraApp } from "../src/lib/app-creation-workflow.ts";
-import { loadAppPlans, recommendAppPlan } from "../src/lib/app-preflight.ts";
+import { loadAppCreationCatalog, recommendAppPlan, recommendFeaturePlan } from "../src/lib/app-preflight.ts";
 
 test("new app continues to deployment only after Liara confirms creation", async () => {
   const requests = [];
   const confirmations = [];
-  const planResult = await loadAppPlans(async (url) => {
+  const catalogResult = await loadAppCreationCatalog(async (url) => {
     requests.push({ url: String(url), init: {} });
     return {
       ok: true,
-      json: async () => ({ ok: true, plans: [
-        { plan_id: "g2-small", name_fa: "پلن کوچک", ram: "1 GB", cpu: "0.5 هسته", disk: "10 GB", price_monthly: 90000, is_recommended: true },
-      ] }),
+      json: async () => ({ ok: true,
+        plans: [{ plan_id: "g2-small", name_fa: "پلن کوچک", ram: "1 GB", cpu: "0.5 هسته", disk: "10 GB", price_monthly: 90000, is_recommended: true }],
+        feature_plans: [{ plan_id: "g2-small", bundle_plan_id: "basic", name_fa: "پلن پایه", price_monthly: 475000, is_recommended: true }],
+        networks: [{ id: "network-42", name: "my-network", is_recommended: true }],
+      }),
     };
   });
-  assert.equal(planResult.ok, true);
-  const selectedPlan = recommendAppPlan(planResult.plans, { platform: "node", databaseCount: 0 }).plan;
+  assert.equal(catalogResult.ok, true);
+  if (!catalogResult.ok) return;
+  const selectedPlan = recommendAppPlan(catalogResult.catalog.plans, { platform: "node", databaseCount: 0 }).plan;
+  const selectedBundle = recommendFeaturePlan(catalogResult.catalog.feature_plans, selectedPlan.plan_id);
+  const selectedNetwork = catalogResult.catalog.networks.find((network) => network.is_recommended);
   assert.equal(selectedPlan.plan_id, "g2-small");
+  assert.equal(selectedBundle?.bundle_plan_id, "basic");
+  assert.equal(selectedNetwork?.id, "network-42");
   const fetcher = async (url, init = {}) => {
     requests.push({ url: String(url), init });
     if (String(url).startsWith("/api/liara/projects/availability")) {
@@ -30,7 +37,7 @@ test("new app continues to deployment only after Liara confirms creation", async
   };
 
   const result = await createLiaraApp(
-    { appName: "simple-app", platform: "node", planId: selectedPlan.plan_id, teamId: "team-42", priceMonthly: selectedPlan.price_monthly },
+    { appName: "simple-app", platform: "node", planId: selectedPlan.plan_id, bundlePlanId: selectedBundle.bundle_plan_id, networkId: selectedNetwork.id, teamId: "team-42", priceMonthly: selectedPlan.price_monthly, bundlePriceMonthly: selectedBundle.price_monthly },
     { fetcher, onConfirmed: (service) => confirmations.push(service) },
   );
 
@@ -44,14 +51,20 @@ test("new app continues to deployment only after Liara confirms creation", async
     projectId: "simple-app",
     platform: "node",
     planId: "g2-small",
+    bundlePlanId: "basic",
+    networkId: "network-42",
     teamId: "team-42",
     priceMonthly: 90000,
+    bundlePriceMonthly: 475000,
     approval: {
       appName: "simple-app",
       platform: "node",
       planId: "g2-small",
+      bundlePlanId: "basic",
+      networkId: "network-42",
       teamId: "team-42",
       priceMonthly: 90000,
+      bundlePriceMonthly: 475000,
       confirmed: true,
     },
   });
@@ -63,7 +76,7 @@ test("unavailable name prevents creation and deployment continuation", async () 
   const requests = [];
   let continued = false;
   const result = await createLiaraApp(
-    { appName: "simple-app", platform: "node", planId: "g2-small", teamId: null, priceMonthly: null },
+    { appName: "simple-app", platform: "node", planId: "g2-small", bundlePlanId: "basic", networkId: "network-42", teamId: null, priceMonthly: null, bundlePriceMonthly: 475000 },
     {
       fetcher: async (url) => {
         requests.push(String(url));
@@ -86,7 +99,7 @@ test("unverified or failed creation never proceeds to deployment", async () => {
   let continued = false;
   let createAttempts = 0;
   const result = await createLiaraApp(
-    { appName: "simple-app", platform: "node", planId: "g2-small", teamId: null, priceMonthly: null },
+    { appName: "simple-app", platform: "node", planId: "g2-small", bundlePlanId: "basic", networkId: "network-42", teamId: null, priceMonthly: null, bundlePriceMonthly: 475000 },
     {
       fetcher: async (url) => {
         if (String(url).startsWith("/api/liara/projects/availability")) {
@@ -108,7 +121,7 @@ test("ambiguous create checks current inventory and offers the found app for exp
   const requests = [];
   let continued = false;
   const result = await createLiaraApp(
-    { appName: "simple-app", platform: "node", planId: "g2-small", teamId: "team-42", priceMonthly: 90000 },
+    { appName: "simple-app", platform: "node", planId: "g2-small", bundlePlanId: "basic", networkId: "network-42", teamId: "team-42", priceMonthly: 90000, bundlePriceMonthly: 475000 },
     {
       fetcher: async (url) => {
         requests.push(String(url));

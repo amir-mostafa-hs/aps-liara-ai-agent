@@ -6,8 +6,11 @@ export interface CreateLiaraAppInput {
   appName: string;
   platform: string;
   planId: string;
+  bundlePlanId: string;
+  networkId: string;
   teamId: string | null;
   priceMonthly: number | null;
+  bundlePriceMonthly: number | null;
 }
 
 export interface ExistingAppCandidate {
@@ -42,9 +45,12 @@ export async function createLiaraApp(
         projectId: input.appName,
         platform: input.platform,
         planId: input.planId,
+        bundlePlanId: input.bundlePlanId,
+        networkId: input.networkId,
         teamId: input.teamId,
         priceMonthly: input.priceMonthly ?? null,
-        approval: buildAppCreationApproval({ ...input, priceMonthly: input.priceMonthly ?? null }),
+        bundlePriceMonthly: input.bundlePriceMonthly ?? null,
+        approval: buildAppCreationApproval({ ...input, priceMonthly: input.priceMonthly ?? null, bundlePriceMonthly: input.bundlePriceMonthly ?? null }),
       }),
     });
     const data = await response.json();

@@ -15,6 +15,8 @@ export async function POST(req: NextRequest) {
     const projectId = body.projectId || body.project_id;
     const platform = body.platform;
     const planId = body.planId || body.plan_id;
+    const bundlePlanId = body.bundlePlanId;
+    const networkId = body.networkId;
 
     if (!projectId || typeof projectId !== "string" || !projectId.trim()) {
       return NextResponse.json(
@@ -23,9 +25,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (typeof platform !== "string" || !platform.trim() || typeof planId !== "string" || !planId.trim()) {
+    if (typeof platform !== "string" || !platform.trim() || typeof planId !== "string" || !planId.trim() || typeof bundlePlanId !== "string" || !bundlePlanId.trim() || typeof networkId !== "string" || !networkId.trim()) {
       return NextResponse.json(
-        { ok: false, error: "پلتفرم و پلن تأییدشده برای ساخت سرویس الزامی است." },
+        { ok: false, error: "پلتفرم، پلن سخت‌افزاری، امکانات و شبکهٔ تأییدشده برای ساخت سرویس الزامی هستند." },
         { status: 400 }
       );
     }
@@ -36,12 +38,15 @@ export async function POST(req: NextRequest) {
       appName: projectId.trim(),
       platform: platform.trim(),
       planId: planId.trim(),
+      bundlePlanId: bundlePlanId.trim(),
+      networkId: networkId.trim(),
       teamId: approvedTeamId,
       priceMonthly: typeof body.priceMonthly === "number" ? body.priceMonthly : null,
+      bundlePriceMonthly: typeof body.bundlePriceMonthly === "number" ? body.bundlePriceMonthly : null,
     };
     if (approvedTeamId !== activeTeamId || !matchesApprovedAppCreation(body.approval, action)) {
       return NextResponse.json(
-        { ok: false, error: "مقادیر تأییدشده با نام، پلتفرم، پلن، هزینه یا تیم فعال یکسان نیستند. لطفاً اطلاعات را دوباره بررسی و تأیید کنید." },
+        { ok: false, error: "مقادیر تأییدشده با نام، پلتفرم، پلن‌ها، شبکه، هزینه‌ها یا تیم فعال یکسان نیستند. لطفاً اطلاعات را دوباره بررسی و تأیید کنید." },
         { status: approvedTeamId !== activeTeamId ? 409 : 403 }
       );
     }
@@ -69,9 +74,11 @@ export async function POST(req: NextRequest) {
         project_id: projectId.trim(),
         platform: platform.trim(),
         plan_id: planId.trim(),
+        bundle_plan_id: bundlePlanId.trim(),
+        network_id: networkId.trim(),
         approved: true,
         api_token: token.trim(),
-        team_id: teamId.trim() || undefined,
+        team_id: teamId?.trim() || undefined,
       }),
       cache: "no-store",
     });

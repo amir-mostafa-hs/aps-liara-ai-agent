@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 class LiaraAdapter:
-    def __init__(self, base_url: str = "https://api.iran.liara.ir"):
+    def __init__(self, base_url: str = "https://api.liara.ir"):
         self.base_url = base_url.rstrip("/")
 
     async def get_teams(self, api_token: str) -> list[dict]:
@@ -238,6 +238,8 @@ class LiaraAdapter:
         project_id: str,
         platform: str,
         plan_id: str,
+        bundle_plan_id: str,
+        network_id: str,
         api_token: str,
         team_id: str | None = None,
     ) -> dict:
@@ -263,14 +265,18 @@ class LiaraAdapter:
         clean_team_id = team_id.strip() if team_id and team_id.strip() else None
         params = {"teamID": clean_team_id} if clean_team_id else None
 
-        if not clean_platform or not clean_plan:
-            raise ValueError("A Liara platform and plan are required to create an app.")
+        clean_bundle_plan = (bundle_plan_id or "").strip()
+        clean_network_id = (network_id or "").strip()
+        if not clean_platform or not clean_plan or not clean_bundle_plan or not clean_network_id:
+            raise ValueError("Liara platform, hardware plan, feature bundle, and network are required to create an app.")
 
         # Liara's documented POST /v1/projects contract uses these exact field names.
         body = {
             "name": clean_project,
             "platform": clean_platform,
             "planID": clean_plan,
+            "bundlePlanID": clean_bundle_plan,
+            "network": clean_network_id,
         }
 
         logger.info("Creating Liara project: %s (type: %s, plan: %s)", clean_project, clean_platform, clean_plan)
@@ -299,11 +305,27 @@ class LiaraAdapter:
                             if isinstance(verify_data, dict)
                             else {}
                         )
+                        verified_network = project.get("network")
+                        verified_network_id = verified_network.get("_id") if isinstance(verified_network, dict) else verified_network
+                        if (
+                            str(project.get("project_id", "")).lower() != clean_project
+                            or project.get("planID") != clean_plan
+                            or project.get("bundlePlanID") != clean_bundle_plan
+                            or str(verified_network_id or "") != clean_network_id
+                        ):
+                            return {
+                                "ok": False,
+                                "reason": "unverified",
+                                "status": "unverified",
+                                "error": "لیارا وجود سرویس را تأیید کرد اما تنظیمات پلن یا شبکه با انتخاب شما تطبیق ندارد؛ پیش از ادامه، سرویس را در کنسول لیارا بررسی کنید.",
+                            }
                         return {
                             "ok": True,
                             "project_id": clean_project,
                             "platform": clean_platform,
                             "plan_id": clean_plan,
+                            "bundle_plan_id": clean_bundle_plan,
+                            "network_id": clean_network_id,
                             "endpoint": f"https://{clean_project}.liara.run",
                             "status": str(project.get("status") or "created").lower(),
                         }
@@ -339,8 +361,20 @@ class LiaraAdapter:
                         "ok": False,
                         "error": "احراز هویت در لیارا ناموفق بود. کلید دسترسی (API Token) را بررسی کنید.",
                     }
+                elif res.status_code == 402:
+                    return {"ok": False, "reason": "insufficient_balance", "error": "موجودی حساب لیارا برای ساخت این سرویس کافی نیست؛ موجودی را بررسی کنید و دوباره تلاش کنید."}
+                elif res.status_code == 403:
+                    return {"ok": False, "reason": "forbidden", "error": "این حساب یا تیم اجازهٔ ساخت سرویس با تنظیمات انتخاب‌شده را ندارد؛ دسترسی و پلن را بررسی کنید."}
                 else:
                     safe_msg = redact_text(res.text, api_token)
+                    try:
+                        provider_message = str(res.json().get("message", ""))
+                    except (ValueError, AttributeError):
+                        provider_message = ""
+                    if "plan_unavailable" in provider_message or "plan is not available" in provider_message:
+                        return {"ok": False, "reason": "plan_unavailable", "error": "پلن سخت‌افزاری یا امکانات انتخاب‌شده دیگر برای این حساب در دسترس نیست؛ گزینه‌ها را دوباره از لیارا دریافت کنید."}
+                    if "network" in provider_message.lower() and res.status_code in [400, 404]:
+                        return {"ok": False, "reason": "network_unavailable", "error": "شبکهٔ انتخاب‌شده در لیارا پیدا نشد یا در دسترس نیست؛ گزینه‌ها را دوباره دریافت و انتخاب کنید."}
                     return {
                         "ok": False,
                         "error": f"خطا در ساخت سرویس در لیارا (کد {res.status_code}): {safe_msg}",

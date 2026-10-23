@@ -203,6 +203,7 @@ async def test_project_name_preflight_checks_apps_in_the_selected_team():
         )
 
     assert result == {"ok": True, "available": False, "reason": "already_exists"}
+    assert captured["url"] == "https://api.liara.ir/v1/projects"
     assert captured["params"] == {"teamID": "team-42"}
     assert captured["headers"]["Authorization"] == "Bearer fake-liara-token"
 
@@ -263,7 +264,7 @@ async def test_create_project_success():
         captured_requests.append({"url": str(url), "kwargs": kwargs})
         return Response(
             status_code=200,
-            json={"project": {"project_id": "my-brand-new-app", "status": "created"}},
+            json={"project": {"project_id": "my-brand-new-app", "status": "created", "planID": "ir-standard-1", "bundlePlanID": "basic", "network": {"_id": "network-xyz"}}},
         )
 
     with patch.object(AsyncClient, "post", new=mock_post):
@@ -272,6 +273,8 @@ async def test_create_project_success():
                 project_id="my-brand-new-app",
                 platform="node",
                 plan_id="ir-standard-1",
+                bundle_plan_id="basic",
+                network_id="network-xyz",
                 api_token="valid-token-123",
                 team_id="team-xyz",
             )
@@ -280,14 +283,16 @@ async def test_create_project_success():
         assert result["endpoint"] == "https://my-brand-new-app.liara.run"
         assert result["status"] == "created"
         assert len(captured_requests) == 2
-        assert "v1/projects" in captured_requests[0]["url"]
+        assert captured_requests[0]["url"] == "https://api.liara.ir/v1/projects"
         assert captured_requests[0]["kwargs"]["params"] == {"teamID": "team-xyz"}
         assert captured_requests[0]["kwargs"]["json"] == {
             "name": "my-brand-new-app",
             "platform": "node",
             "planID": "ir-standard-1",
+            "bundlePlanID": "basic",
+            "network": "network-xyz",
         }
-        assert captured_requests[1]["url"].endswith("/v1/projects/my-brand-new-app")
+        assert captured_requests[1]["url"] == "https://api.liara.ir/v1/projects/my-brand-new-app"
 
 
 @pytest.mark.anyio
@@ -309,12 +314,73 @@ async def test_create_project_does_not_claim_success_until_liara_confirms_app_ex
                 project_id="my-brand-new-app",
                 platform="node",
                 plan_id="ir-standard-1",
+                bundle_plan_id="basic",
+                network_id="network-xyz",
                 api_token="valid-token-123",
             )
 
     assert result["ok"] is False
     assert result["status"] == "unverified"
     assert "تأیید" in result["error"]
+
+
+@pytest.mark.anyio
+async def test_create_project_requires_liara_to_confirm_selected_plan_bundle_and_network():
+    from engine.providers.liara_adapter import LiaraAdapter
+    from httpx import Response
+
+    async def mock_post(self, url, *args, **kwargs):
+        return Response(status_code=201, json={"status": "created"})
+
+    async def mock_get(self, url, *args, **kwargs):
+        return Response(status_code=200, json={"project": {
+            "project_id": "simple-app", "status": "ACTIVE", "planID": "medium-g2",
+            "bundlePlanID": "standard", "network": {"_id": "network-42"},
+        }})
+
+    with patch.object(AsyncClient, "post", new=mock_post), patch.object(AsyncClient, "get", new=mock_get):
+        result = await LiaraAdapter().create_project(
+            project_id="simple-app", platform="node", plan_id="medium-g2",
+            bundle_plan_id="basic", network_id="network-42", api_token="valid-token-123",
+        )
+
+    assert result["ok"] is False
+    assert result["reason"] == "unverified"
+
+
+@pytest.mark.anyio
+async def test_create_project_surfaces_unavailable_plan_without_verification_or_success():
+    from engine.providers.liara_adapter import LiaraAdapter
+    from httpx import Response
+
+    adapter = LiaraAdapter()
+    captured_requests = []
+
+    async def mock_post(self, url, *args, **kwargs):
+        captured_requests.append(str(url))
+        return Response(
+            status_code=400,
+            json={"statusCode": 400, "error": "Bad Request", "message": "g2_plan_unavailable", "data": None},
+        )
+
+    async def mock_get(self, url, *args, **kwargs):
+        captured_requests.append(str(url))
+        return Response(status_code=200, json={"project": {"project_id": "test-app"}})
+
+    with patch.object(AsyncClient, "post", new=mock_post):
+        with patch.object(AsyncClient, "get", new=mock_get):
+            result = await adapter.create_project(
+                project_id="test-app",
+                platform="node",
+                plan_id="medium-g2",
+                bundle_plan_id="basic",
+                network_id="network-xyz",
+                api_token="valid-token-123",
+            )
+
+    assert result["ok"] is False
+    assert result["reason"] == "plan_unavailable"
+    assert captured_requests == ["https://api.liara.ir/v1/projects"]
 
 
 @pytest.mark.anyio
@@ -327,6 +393,8 @@ async def test_create_project_invalid_name():
             project_id="bad name with spaces!!",
             platform="node",
             plan_id="ir-standard-1",
+            bundle_plan_id="basic",
+            network_id="network-xyz",
             api_token="valid-token-123",
         )
 
@@ -343,6 +411,8 @@ async def test_create_project_endpoint_requires_auth():
                 "project_id": "test-app",
                 "platform": "node",
                 "plan_id": "ir-standard-1",
+                        "bundle_plan_id": "basic",
+                        "network_id": "network-xyz",
             },
         )
         assert res.status_code == 403
@@ -361,6 +431,8 @@ async def test_create_project_endpoint_requires_explicit_approval():
                 "project_id": "test-app",
                 "platform": "node",
                 "plan_id": "g2-small",
+                "bundle_plan_id": "basic",
+                "network_id": "network-42",
                 "api_token": "fake-token",
                 "approved": False,
             },
@@ -385,7 +457,7 @@ async def test_approved_create_api_uses_liara_contract_and_returns_confirmed_ser
         provider_calls.append(("get", str(url), kwargs))
         return Response(
             status_code=200,
-            json={"project": {"project_id": "simple-app", "status": "created"}},
+            json={"project": {"project_id": "simple-app", "status": "created", "planID": "g2-small", "bundlePlanID": "basic", "network": {"_id": "network-42"}}},
         )
 
     transport = ASGITransport(app=app)
@@ -400,6 +472,8 @@ async def test_approved_create_api_uses_liara_contract_and_returns_confirmed_ser
                         "project_id": "simple-app",
                         "platform": "node",
                         "plan_id": "g2-small",
+                        "bundle_plan_id": "basic",
+                        "network_id": "network-42",
                         "approved": True,
                         "api_token": "fake-token",
                         "team_id": "team-42",
@@ -413,6 +487,8 @@ async def test_approved_create_api_uses_liara_contract_and_returns_confirmed_ser
         "name": "simple-app",
         "platform": "node",
         "planID": "g2-small",
+        "bundlePlanID": "basic",
+        "network": "network-42",
     }
     assert provider_calls[0][2]["params"] == {"teamID": "team-42"}
     assert provider_calls[1][1].endswith("/v1/projects/simple-app")

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { createDeployStreamParser } from "@/lib/deploy-stream";
 
 interface DeployApprovalWidgetProps {
   runId: string;
@@ -88,58 +89,32 @@ export function DeployApprovalWidget({
       }
 
       const decoder = new TextDecoder();
-      let accumulatedLogs = "";
+      const parser = createDeployStreamParser((lineText) => {
+        onStreamChunk?.(lineText);
+        const lower = lineText.toLowerCase();
+        if (lower.includes("archive") || lower.includes("packaging")) setPhaseBadge("در حال فشرده‌سازی و بسته‌بندی کد...");
+        else if (lower.includes("building") || lower.includes("step ")) setPhaseBadge("در حال ساخت ایمیج در کلود لیارا...");
+        else if (lower.includes("pushing")) setPhaseBadge("در حال بارگذاری ایمیج...");
+        else if (lower.includes("release created") || lower.includes("deployed")) setPhaseBadge("انتشار نسخه در حال تکمیل است...");
+      });
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const text = decoder.decode(value, { stream: true });
-        accumulatedLogs += text;
-
-        // Parse SSE lines
-        const lines = text.split("\n");
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            try {
-              const parsed = JSON.parse(line.substring(6));
-              const lineText = parsed.text || parsed.error || "";
-              if (lineText && onStreamChunk) {
-                onStreamChunk(lineText);
-              }
-
-              // Update phase badges
-              const lower = lineText.toLowerCase();
-              if (lower.includes("archive") || lower.includes("packaging")) {
-                setPhaseBadge("در حال فشرده‌سازی و بسته‌بندی کد...");
-              } else if (lower.includes("building") || lower.includes("step ")) {
-                setPhaseBadge("در حال ساخت ایمیج در کلود لیارا...");
-              } else if (lower.includes("pushing")) {
-                setPhaseBadge("در حال بارگذاری ایمیج...");
-              } else if (lower.includes("release created") || lower.includes("deployed")) {
-                setPhaseBadge("انتشار نسخه موفقیت‌آمیز");
-              }
-            } catch {
-              // Non-JSON SSE line
-              if (onStreamChunk) onStreamChunk(line.substring(6));
-            }
-          }
-        }
+        parser.push(decoder.decode(value, { stream: true }));
       }
-
-      const isSuccess =
-        accumulatedLogs.includes("exit code 0") ||
-        accumulatedLogs.includes("successfully") ||
-        accumulatedLogs.includes("Release created");
-
+      parser.push(decoder.decode());
+      const result = parser.finish();
+      const isSuccess = result.succeeded;
       if (isSuccess) {
         setStatus("success");
         setPhaseBadge("دپلوی با موفقیت انجام شد ✔");
-        if (onDeployFinished) onDeployFinished(true, accumulatedLogs);
+        onDeployFinished?.(true, result.logs);
       } else {
         setStatus("failed");
-        setPhaseBadge("دپلوی ناموفق بود ✖");
-        if (onDeployFinished) onDeployFinished(false, accumulatedLogs);
+        setPhaseBadge("دپلوی ناموفق یا نامشخص بود ✖");
+        onDeployFinished?.(false, result.logs || "پاسخ نهایی دپلوی از سرور دریافت نشد.");
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
