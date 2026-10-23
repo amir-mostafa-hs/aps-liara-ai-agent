@@ -68,3 +68,4 @@ test("Next.js project create proxy forwards request with X-Internal-Secret", asy
     await new Promise((resolve) => server.close(resolve));
   }
 });
+

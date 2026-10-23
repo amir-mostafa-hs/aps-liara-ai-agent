@@ -56,3 +56,4 @@ test("Filters active cloud apps for existing selection and handles empty account
   const emptyFiltered = filterCloudApps([]);
   assert.equal(emptyFiltered.length, 0);
 });
+
