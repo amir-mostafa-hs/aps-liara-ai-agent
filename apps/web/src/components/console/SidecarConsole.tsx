@@ -242,59 +242,98 @@ export function SidecarConsole({
 
         {activeTab === "services" && (
           <div className="h-full p-4 overflow-y-auto flex flex-col gap-3">
-            <div className="text-xs font-semibold text-zinc-400 mb-1">سرویس‌های ابری در لیارا</div>
+            <div className="flex items-center justify-between mb-1">
+              <div className="text-xs font-semibold text-zinc-400">
+                سرویس‌های ابری در لیارا ({services.length})
+              </div>
+              {onRefreshServices && (
+                <button
+                  onClick={onRefreshServices}
+                  disabled={isRefreshingServices}
+                  className="flex items-center gap-1 text-[11px] text-zinc-400 hover:text-zinc-200 transition-colors p-1 rounded hover:bg-zinc-800/60"
+                  title="بروزرسانی وضعیت سرویس‌ها از لیارا"
+                >
+                  <RefreshCw
+                    className={`h-3 w-3 ${
+                      isRefreshingServices ? "animate-spin text-blue-400" : ""
+                    }`}
+                  />
+                  <span>بروزرسانی</span>
+                </button>
+              )}
+            </div>
             {services.length === 0 ? (
               <div className="rounded-xl border border-dashed border-zinc-800 p-6 text-center text-xs text-zinc-500">
-                هنوز سرویسی ایجاد نشده است. با ارسال پروژه در چت، ایجنت دیتابیس و اپلیکیشن شما را خواهد ساخت.
+                هنوز سرویسی در اکانت لیارا ایجاد نشده است یا توکن تنظیم نشده است. با ارسال سورس پروژه در چت، ایجنت دیتابیس و اپلیکیشن شما را خواهد ساخت.
               </div>
             ) : (
-              services.map((svc, i) => (
-                <div
-                  key={i}
-                  className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3.5 flex flex-col gap-2"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {svc.type === "app" ? (
-                        <Globe className="h-4 w-4 text-blue-400" />
-                      ) : (
-                        <Database className="h-4 w-4 text-emerald-400" />
-                      )}
-                      <span className="text-sm font-semibold text-zinc-200">{svc.name}</span>
-                    </div>
-                    <span
-                      className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                        svc.status === "running"
-                          ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                          : svc.status === "failed"
-                          ? "bg-rose-500/10 text-rose-400 border border-rose-500/20"
-                          : "bg-blue-500/10 text-blue-400 border border-blue-500/20"
-                      }`}
-                    >
-                      {svc.status === "running"
-                        ? "فعال و آنلاین"
-                        : svc.status === "failed"
-                        ? "خطا در اجرا"
-                        : "در حال دپلوی"}
-                    </span>
-                  </div>
-                  {svc.endpoint && (
-                    <div className="flex items-center justify-between text-xs text-zinc-400 pt-1 border-t border-zinc-800/80">
-                      <span className="text-[11px] text-zinc-500">دامنه دسترسی:</span>
-                      <a
-                        href={svc.endpoint}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-1 text-blue-400 hover:underline"
-                        dir="ltr"
+              services.map((svc, i) => {
+                const isSelected = svc.type === "app" && svc.name === selectedServiceName;
+                return (
+                  <div
+                    key={`${svc.type}-${svc.name}-${i}`}
+                    onClick={() => {
+                      if (svc.type === "app" && onSelectService) {
+                        onSelectService(svc.name);
+                      }
+                    }}
+                    className={`rounded-xl border p-3.5 flex flex-col gap-2 transition-all ${
+                      isSelected
+                        ? "border-blue-500/60 bg-blue-950/20 shadow-sm"
+                        : "border-zinc-800 bg-zinc-950/60 hover:border-zinc-700"
+                    } ${svc.type === "app" ? "cursor-pointer" : ""}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {svc.type === "app" ? (
+                          <Globe className="h-4 w-4 text-blue-400" />
+                        ) : (
+                          <Database className="h-4 w-4 text-emerald-400" />
+                        )}
+                        <span className="text-sm font-semibold text-zinc-200">{svc.name}</span>
+                        {isSelected && (
+                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-300 font-medium border border-blue-500/30">
+                            مقصد دپلوی
+                          </span>
+                        )}
+                      </div>
+                      <span
+                        className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                          svc.status === "running"
+                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                            : svc.status === "failed"
+                            ? "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                            : "bg-zinc-500/10 text-zinc-400 border border-zinc-500/20"
+                        }`}
                       >
-                        {svc.endpoint}
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
+                        {svc.status === "running"
+                          ? "فعال و آنلاین"
+                          : svc.status === "failed"
+                          ? "خطا در اجرا"
+                          : svc.status === "stopped"
+                          ? "متوقف شده"
+                          : "در حال دپلوی"}
+                      </span>
                     </div>
-                  )}
-                </div>
-              ))
+                    {svc.endpoint && (
+                      <div className="flex items-center justify-between text-xs text-zinc-400 pt-1 border-t border-zinc-800/80">
+                        <span className="text-[11px] text-zinc-500">دامنه دسترسی:</span>
+                        <a
+                          href={svc.endpoint.startsWith("http") ? svc.endpoint : `https://${svc.endpoint}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex items-center gap-1 text-blue-400 hover:underline"
+                          dir="ltr"
+                        >
+                          {svc.endpoint}
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
             )}
           </div>
         )}

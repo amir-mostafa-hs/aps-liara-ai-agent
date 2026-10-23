@@ -42,18 +42,34 @@ export default function HomePage() {
   const [terminalLogs, setTerminalLogs] = useState<string[]>([
     "[AGENT] آماده دریافت درخواست‌های دپلوی و تحلیل کدبیس...",
   ]);
-  const [services, setServices] = useState<CloudService[]>([
-    {
-      name: "aps-test",
-      type: "app",
-      status: "running",
-      endpoint: "https://aps-test.liara.run",
-      port: 3000,
-    },
-  ]);
+  const [services, setServices] = useState<CloudService[]>([]);
+  const [selectedApp, setSelectedApp] = useState<string>("");
+  const [isRefreshingServices, setIsRefreshingServices] = useState(false);
   const [systemConnected, setSystemConnected] = useState(true);
   const [systemHealth, setSystemHealth] = useState({ database: true, engine: true });
   const [isRefreshingHealth, setIsRefreshingHealth] = useState(false);
+
+  const fetchLiveServices = useCallback(async () => {
+    setIsRefreshingServices(true);
+    try {
+      const res = await fetch("/api/liara/services");
+      const data = await res.json();
+      if (data.ok && Array.isArray(data.services)) {
+        setServices(data.services);
+        setSelectedApp((prev) => {
+          if (prev && data.services.some((s: CloudService) => s.type === "app" && s.name === prev)) {
+            return prev;
+          }
+          const firstApp = data.services.find((s: CloudService) => s.type === "app");
+          return firstApp ? firstApp.name : prev;
+        });
+      }
+    } catch (err) {
+      console.error("Failed to fetch live services:", err);
+    } finally {
+      setIsRefreshingServices(false);
+    }
+  }, []);
 
   const checkSystemHealth = useCallback(async () => {
     setIsRefreshingHealth(true);
@@ -92,6 +108,10 @@ export default function HomePage() {
     checkSystemHealth();
     const healthInterval = setInterval(checkSystemHealth, 30000);
 
+    // Initial and periodic cloud services check
+    fetchLiveServices();
+    const servicesInterval = setInterval(fetchLiveServices, 60000);
+
     // Fetch team settings
     fetch("/api/settings/liara-token")
       .then((res) => res.json())
@@ -102,8 +122,11 @@ export default function HomePage() {
       })
       .catch(() => {});
 
-    return () => clearInterval(healthInterval);
-  }, [router, checkSystemHealth]);
+    return () => {
+      clearInterval(healthInterval);
+      clearInterval(servicesInterval);
+    };
+  }, [router, checkSystemHealth, fetchLiveServices]);
 
   // Handle Source Ingestion from Widget
   const handleSourceIngested = async (sourcePath: string, type: string) => {
@@ -289,7 +312,10 @@ export default function HomePage() {
       const platform = analysis?.detected_platform || "nodejs";
       const port = analysis?.port || 3000;
       const startCommand = analysis?.start_command || undefined;
-      const appName = "aps-test";
+      const defaultName = sourcePath
+        ? sourcePath.split("/").filter(Boolean).pop() || "demo-app"
+        : "demo-app";
+      const appName = selectedApp || defaultName;
 
       return (
         <DiffPreviewWidget
@@ -657,6 +683,10 @@ export default function HomePage() {
           isStreaming={isStreaming}
           onRefreshHealth={checkSystemHealth}
           isRefreshingHealth={isRefreshingHealth}
+          onRefreshServices={fetchLiveServices}
+          isRefreshingServices={isRefreshingServices}
+          onSelectService={setSelectedApp}
+          selectedServiceName={selectedApp}
         />
 
         {/* Right Chat Space */}
