@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useId, useState } from "react";
 import { Eye, EyeOff, CheckCircle2, Loader2, ExternalLink } from "lucide-react";
 
 interface TokenInputWidgetProps {
@@ -12,6 +12,7 @@ export function TokenInputWidget({
   onTokenSaved,
   initialTokenMasked = "",
 }: TokenInputWidgetProps) {
+  const widgetId = useId();
   const [token, setToken] = useState("");
   const [teamId, setTeamId] = useState("");
   const [showToken, setShowToken] = useState(false);
@@ -115,6 +116,7 @@ export function TokenInputWidget({
             <div className="relative flex-1">
               <input
                 type={showToken ? "text" : "password"}
+                aria-label="توکن API لیارا"
                 dir="ltr"
                 value={token}
                 onChange={(e) => setToken(e.target.value)}
@@ -125,6 +127,8 @@ export function TokenInputWidget({
               <button
                 type="button"
                 onClick={() => setShowToken(!showToken)}
+                aria-label={showToken ? "پنهان کردن توکن" : "نمایش توکن"}
+                aria-pressed={showToken}
                 className="absolute right-3 top-3 text-zinc-400 hover:text-zinc-200 cursor-pointer"
               >
                 {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -142,8 +146,9 @@ export function TokenInputWidget({
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs text-zinc-400 whitespace-nowrap">شناسه تیم (اختیاری):</span>
+            <label htmlFor={`${widgetId}-team-id`} className="text-xs text-zinc-400 whitespace-nowrap">شناسه تیم (اختیاری):</label>
             <input
+              id={`${widgetId}-team-id`}
               type="text"
               dir="ltr"
               value={teamId}
@@ -155,21 +160,21 @@ export function TokenInputWidget({
           </div>
 
           {testStatus && (
-            <p className="flex items-center gap-2 text-xs font-mono text-emerald-400">
-              <i className="h-1.5 w-1.5 rounded-none bg-emerald-400" />
+            <p role="status" aria-live="polite" className="flex items-center gap-2 text-sm text-emerald-300">
+              <i aria-hidden="true" className="h-2 w-2 rounded-full bg-emerald-400" />
               {testStatus}
             </p>
           )}
 
           {success && (
-            <p className="flex items-center gap-2 text-xs font-mono text-emerald-400">
+            <p role="status" aria-live="polite" className="flex items-center gap-2 text-sm text-emerald-300">
               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
               {success}
             </p>
           )}
 
           {error && (
-            <p className="text-xs font-mono text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-none p-2">
+            <p role="alert" aria-live="assertive" className="text-sm text-rose-200 bg-rose-500/10 border border-rose-500/30 rounded-lg p-2">
               {error}
             </p>
           )}

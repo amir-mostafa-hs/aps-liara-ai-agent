@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useId, useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 
 export interface PlanTier {
@@ -68,6 +68,7 @@ export function PlanSelectorCard({
   onCancel,
   disabled = false,
 }: PlanSelectorCardProps) {
+  const widgetId = useId();
   const primaryDb = databases[0] || {
     db_type: "postgres",
     driver_or_orm: "pg",
@@ -139,7 +140,7 @@ export function PlanSelectorCard({
 
   if (cancelled) {
     return (
-      <div className="rounded-none border border-zinc-800 bg-zinc-950/80 p-3 text-xs font-mono text-zinc-400">
+      <div className="rounded-lg border border-zinc-800 bg-zinc-950/80 p-3 text-xs font-mono text-zinc-400">
         ساخت دیتابیس توسط کاربر لغو گردید.
       </div>
     );
@@ -147,7 +148,7 @@ export function PlanSelectorCard({
 
   if (created) {
     return (
-      <article className="relative overflow-hidden rounded-none border border-emerald-500/30 bg-emerald-500/[.04] p-5 shadow-none">
+      <article className="relative overflow-hidden rounded-lg border border-emerald-500/30 bg-emerald-500/[.04] p-5 shadow-none">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/assets/state-success.webp"
@@ -187,8 +188,9 @@ export function PlanSelectorCard({
 
       {/* Database Name */}
       <div className="space-y-1.5">
-        <label className="text-xs text-zinc-400 font-medium">نام هاست دیتابیس در لیارا:</label>
+        <label htmlFor={`${widgetId}-database-host`} className="text-xs text-zinc-400 font-medium">نام هاست دیتابیس در لیارا:</label>
         <input
+          id={`${widgetId}-database-host`}
           type="text"
           dir="ltr"
           value={dbName}
@@ -201,15 +203,18 @@ export function PlanSelectorCard({
 
       {/* Plans Grid */}
       <div className="space-y-2">
-        <label className="text-xs text-zinc-400 font-medium">انتخاب پلن سخت‌افزاری:</label>
-        <div className="grid sm:grid-cols-3 gap-3">
+        <p id={`${widgetId}-database-plan-label`} className="text-sm text-zinc-400 font-medium">انتخاب پلن سخت‌افزاری:</p>
+        <div role="group" aria-labelledby={`${widgetId}-database-plan-label`} className="grid sm:grid-cols-3 gap-3">
           {plans.map((p) => {
             const isSelected = selectedPlan === p.plan_id;
             return (
-              <div
+              <button
                 key={p.plan_id}
+                type="button"
+                aria-pressed={isSelected}
                 onClick={() => !loading && !disabled && setSelectedPlan(p.plan_id)}
-                className={`plan relative cursor-pointer ${
+                disabled={loading || disabled}
+                className={`plan relative w-full text-right cursor-pointer disabled:cursor-not-allowed ${
                   isSelected
                     ? "border-liara bg-liara/10 shadow-[0_0_20px_-8px_#2cc4f4]"
                     : "border-zinc-800 bg-zinc-950/60 hover:border-zinc-700"
@@ -249,14 +254,14 @@ export function PlanSelectorCard({
                     "رایگان یا بر اساس مصرف"
                   )}
                 </p>
-              </div>
+              </button>
             );
           })}
         </div>
       </div>
 
       {error && (
-        <p className="text-xs font-mono text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-none p-2">
+        <p role="alert" aria-live="assertive" className="text-sm text-rose-200 bg-rose-500/10 border border-rose-500/30 rounded-lg p-2">
           {error}
         </p>
       )}

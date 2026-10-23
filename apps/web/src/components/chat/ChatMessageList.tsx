@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
+import { formatMessageTime } from "@/lib/message-time";
 
 export interface ChatMessage {
   id: string;
@@ -24,19 +25,19 @@ interface ChatMessageListProps {
 
 const SUGGESTED_PROMPTS = [
   {
-    icon: "🚀",
+    icon: "/assets/icon-deploy.webp",
     title: "دپلوی پروژه نمونه Node.js",
     desc: "پروژه sample-apps/nodejs-demo را روی لیارا دیپلوی کن.",
     text: "می‌خواهم پروژه sample-apps/nodejs-demo را روی لیارا دیپلوی کنم.",
   },
   {
-    icon: "🔍",
+    icon: "/assets/icon-source.webp",
     title: "بررسی نیازمندی‌های پروژه",
     desc: "سورس‌کد را بررسی کن و سرویس‌های لازم را مشخص کن.",
     text: "سورس‌کد پروژه من در sample-apps/nodejs-demo را بررسی کن و سرویس‌های لازم را مشخص کن.",
   },
   {
-    icon: "🔑",
+    icon: "/assets/icon-key.webp",
     title: "تنظیم توکن اکانت لیارا",
     desc: "بررسی وضعیت احراز هویت و توکن API لیارا.",
     text: "چگونه می‌توانم توکن API لیارا را تنظیم کنم؟",
@@ -59,7 +60,7 @@ function renderFormattedContent(text: string) {
         <pre
           key={index}
           dir="ltr"
-          className="my-2 rounded-none bg-zinc-950/90 p-3.5 font-mono text-xs text-emerald-300 border border-zinc-800 overflow-x-auto whitespace-pre leading-relaxed shadow-none"
+          className="my-2 rounded-lg bg-zinc-950/90 p-3.5 font-mono text-xs text-emerald-300 border border-zinc-800 overflow-x-auto whitespace-pre leading-relaxed shadow-none"
         >
           {lang && <div className="text-[10px] text-zinc-500 mb-1 select-none font-mono uppercase">{lang}</div>}
           <code>{code}</code>
@@ -118,7 +119,7 @@ function renderFormattedContent(text: string) {
                 <code
                   key={inlineKey++}
                   dir="ltr"
-                  className="rounded-none bg-zinc-900 px-1.5 py-0.5 font-mono text-xs text-liara border border-zinc-800 mx-0.5 select-all"
+                  className="rounded-lg bg-zinc-900 px-1.5 py-0.5 font-mono text-xs text-liara border border-zinc-800 mx-0.5 select-all"
                 >
                   {codeText}
                 </code>
@@ -158,22 +159,23 @@ export function ChatMessageList({
   const hasUserStartedChat = messages.some((m) => m.role === "user");
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    messagesEndRef.current?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" });
   }, [messages, isStreaming]);
 
   return (
     <div className="scroll flex-1 overflow-y-auto px-4 lg:px-8 py-6">
       <div className="mx-auto max-w-3xl space-y-6">
         {/* Welcome hero banner */}
-        <div className="relative overflow-hidden rounded-none border border-zinc-800 bg-zinc-950/80 bg-grid shadow-none">
+        <div className="relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/80 bg-grid shadow-none">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/assets/hero-agent.webp"
             alt=""
-            className="absolute inset-y-0 left-0 h-full w-3/5 object-cover [mask-image:linear-gradient(to_right,#000_35%,transparent)] opacity-80 pointer-events-none"
+            className="absolute inset-y-0 left-0 hidden h-full w-2/5 object-cover [mask-image:linear-gradient(to_right,#000_65%,transparent)] opacity-75 pointer-events-none sm:block"
           />
-          <div className="relative p-6 sm:p-7 sm:w-3/5 mr-auto">
-            <div className="inline-block px-2 py-0.5 mb-2 rounded-none border border-zinc-800 bg-zinc-900/80 text-[10px] font-mono text-zinc-400 uppercase tracking-widest">
+          <div className="relative ml-auto p-6 text-right sm:w-3/5 sm:p-7">
+            <div className="mb-2 inline-block rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1 text-[10px] font-mono text-zinc-300 uppercase tracking-widest">
               SRE PLATFORM AUTOMATION
             </div>
             <h2 className="text-lg sm:text-xl font-bold leading-9 text-zinc-100">
@@ -182,7 +184,7 @@ export function ChatMessageList({
             <p className="t mt-1 text-zinc-400 text-xs sm:text-sm">
               پروژه را دپلوی می‌کنم، خطاها را ریشه‌یابی می‌کنم و هیچ عملیاتی بدون تأیید شما انجام نمی‌دهم.
             </p>
-            <div className="mt-4 flex gap-2">
+            <div className="mt-4 flex justify-start gap-2">
               <button
                 type="button"
                 onClick={onStartDeploy}
@@ -205,7 +207,7 @@ export function ChatMessageList({
         {!hasUserStartedChat && (
           <div className="space-y-2.5 animate-fadeIn">
             <div className="flex items-center gap-2 text-[11px] text-zinc-500 font-mono uppercase px-1 tracking-wider">
-              <span className="flex h-1.5 w-1.5 rounded-none bg-liara" />
+              <span aria-hidden="true" className="flex h-2 w-2 rounded-full bg-liara" />
               <span>پیشنهادهای گفتگو:</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -214,11 +216,12 @@ export function ChatMessageList({
                   key={idx}
                   type="button"
                   onClick={() => onSelectPrompt?.(prompt.text)}
-                  className="group relative text-right rounded-none border border-zinc-800 bg-zinc-950/70 p-3.5 hover:border-zinc-600 hover:bg-zinc-900/60 transition-all cursor-pointer flex flex-col justify-between gap-2.5"
+                  className="group relative text-right rounded-lg border border-zinc-800 bg-zinc-950/70 p-3.5 hover:border-zinc-600 hover:bg-zinc-900/60 transition-all cursor-pointer flex flex-col justify-between gap-2.5"
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-base shrink-0 p-1 rounded-none bg-zinc-900 border border-zinc-800">
-                      {prompt.icon}
+                    <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900 p-1.5">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={prompt.icon} alt="" className="h-full w-full object-contain" />
                     </span>
                     <span className="font-semibold text-xs sm:text-sm text-zinc-200 group-hover:text-liara transition-colors">
                       {prompt.title}
@@ -234,21 +237,19 @@ export function ChatMessageList({
         )}
 
         {/* Message Stream */}
+        <div role="log" aria-label="پیام‌های گفتگو" aria-live="polite" aria-relevant="additions" className="space-y-5">
         {messages.map((msg) => {
           const isUser = msg.role === "user";
 
           if (isUser) {
             return (
-              <div key={msg.id} className="flex justify-start">
-                <div className="max-w-[85%] sm:max-w-[80%] rounded-none bg-zinc-900/90 border border-zinc-700/80 px-4 py-3 text-sm leading-7 text-zinc-100 shadow-none">
+              <div id={`chat-message-${msg.id}`} key={msg.id} className="flex justify-end">
+                <div dir="auto" className="max-w-[92%] sm:max-w-[85%] rounded-2xl rounded-tl-sm bg-[#10282d] border border-[#24545a] px-4 py-3 text-sm leading-7 text-zinc-100 shadow-sm">
                   <div className="leading-relaxed break-words">{renderFormattedContent(msg.content)}</div>
-                  {msg.timestamp && (
-                    <span className="text-[10px] text-zinc-500 font-mono mt-1 block text-left">
-                      {new Date(msg.timestamp).toLocaleTimeString("fa-IR", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
+                  {formatMessageTime(msg.timestamp) && (
+                    <time dateTime={msg.timestamp} dir="ltr" className="text-xs text-zinc-400 font-mono mt-1 block text-left">
+                      {formatMessageTime(msg.timestamp)}
+                    </time>
                   )}
                 </div>
               </div>
@@ -257,7 +258,7 @@ export function ChatMessageList({
 
           // Assistant Message
           return (
-            <div key={msg.id} className="flex items-start gap-3">
+            <div id={`chat-message-${msg.id}`} key={msg.id} className="flex items-start justify-start gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/assets/logo.webp"
@@ -266,17 +267,14 @@ export function ChatMessageList({
               />
               <div className="flex-1 min-w-0 space-y-3">
                 {msg.content && (
-                  <div className="rounded-none bg-zinc-950/70 border border-zinc-800 px-4 sm:px-5 py-4 text-sm leading-7 text-zinc-200 shadow-none">
+                  <div dir="auto" className="rounded-2xl rounded-tr-sm bg-[#202d30] border border-[#3a5054] px-4 sm:px-5 py-4 text-sm leading-7 text-zinc-100 shadow-sm">
                     <div className="leading-relaxed break-words space-y-2">
                       {renderFormattedContent(msg.content)}
                     </div>
-                    {msg.timestamp && (
-                      <span className="text-[10px] text-zinc-500 font-mono mt-2 block">
-                        {new Date(msg.timestamp).toLocaleTimeString("fa-IR", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
+                    {formatMessageTime(msg.timestamp) && (
+                      <time dateTime={msg.timestamp} dir="ltr" className="text-xs text-zinc-400 font-mono mt-2 block">
+                        {formatMessageTime(msg.timestamp)}
+                      </time>
                     )}
                   </div>
                 )}
@@ -297,14 +295,15 @@ export function ChatMessageList({
               alt=""
               className="ico !w-8 !h-8 animate-pulse shrink-0"
             />
-            <div className="rounded-none bg-zinc-950/80 border border-zinc-800 px-3.5 py-2 text-xs font-mono text-liara flex items-center gap-2">
-              <span className="flex h-1.5 w-1.5 rounded-none bg-liara animate-ping" />
+            <div role="status" aria-live="polite" className="rounded-lg bg-zinc-950/80 border border-zinc-700 px-3.5 py-2.5 text-sm font-mono text-liara flex items-center gap-2">
+              <span aria-hidden="true" className="flex h-1.5 w-1.5 rounded-full bg-liara animate-ping" />
               <span>ایجنت در حال تحلیل و پردازش است...</span>
             </div>
           </div>
         )}
 
         <div ref={messagesEndRef} />
+        </div>
       </div>
     </div>
   );

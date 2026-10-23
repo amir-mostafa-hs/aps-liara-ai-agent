@@ -5,7 +5,7 @@
 @tailwind utilities;
 
 :root {
-  --background: #0d0d0f;
+  --background: #101719;
   --foreground: #f4f4f5;
 }
 
@@ -15,12 +15,56 @@ body {
   font-family: Vazirmatn, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
+/* Keep muted copy readable on the dark surfaces used throughout the workspace. */
+.text-zinc-500,
+.text-zinc-600 {
+  color: #a1a1aa;
+}
+
+.skip-link {
+  position: fixed;
+  z-index: 100;
+  top: 0.75rem;
+  inset-inline-start: 0.75rem;
+  transform: translateY(-160%);
+  border-radius: 0.5rem;
+  background: #2cc4f4;
+  color: #09090b;
+  padding: 0.75rem 1rem;
+  font-weight: 700;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid #2cc4f4;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 5px #09090b;
+}
+
+label:focus-within {
+  outline: 3px solid #2cc4f4;
+  outline-offset: 3px;
+}
+
+.placeholder\:text-zinc-600::placeholder {
+  color: #a1a1aa;
+  opacity: 1;
+}
+
 /* Sera / Claude AI Thin Grid Background */
 .bg-grid {
   background-size: 24px 24px;
   background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+    linear-gradient(to right, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
 }
 
 .bg-grid-dense {
@@ -33,7 +77,7 @@ body {
 @layer components {
   /* Sharp corners & thin borders: Sera / Claude UI aesthetic */
   .card {
-    @apply relative overflow-hidden rounded-none border border-zinc-800 bg-zinc-950/70 backdrop-blur p-4 sm:p-5 flex gap-4 items-start;
+    @apply relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/70 backdrop-blur p-4 sm:p-5 flex gap-4 items-start;
   }
   .card > .body {
     @apply relative flex-1 min-w-0 space-y-3;
@@ -48,10 +92,10 @@ body {
     @apply absolute inset-0 w-full h-full object-cover opacity-20 pointer-events-none;
   }
   .inp {
-    @apply w-full rounded-none bg-zinc-950/80 border border-zinc-800 px-3.5 py-2 font-mono text-sm focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-colors text-zinc-100 placeholder:text-zinc-600;
+    @apply w-full rounded-lg bg-zinc-950/80 border border-zinc-700 px-3.5 py-2.5 font-mono text-sm focus:outline-none focus:border-liara focus:ring-2 focus:ring-liara/40 transition-colors text-zinc-100 placeholder:text-zinc-600;
   }
   .btn {
-    @apply rounded-none px-4 py-2 text-xs font-mono font-medium text-zinc-950 hover:brightness-110 focus:outline-none transition-all cursor-pointer;
+    @apply rounded-lg px-4 py-2.5 text-sm font-medium text-zinc-950 hover:brightness-110 focus:outline-none transition-all cursor-pointer min-h-11;
   }
   .b1 {
     @apply btn;
@@ -70,22 +114,22 @@ body {
     box-shadow: 0 4px 12px -2px rgba(44, 196, 244, 0.25);
   }
   .b0 {
-    @apply rounded-none border border-zinc-800 bg-zinc-900/60 px-3.5 py-2 text-xs font-mono text-zinc-300 hover:border-zinc-600 hover:text-white transition-colors cursor-pointer;
+    @apply rounded-lg border border-zinc-700 bg-zinc-900/70 px-3.5 py-2.5 text-sm text-zinc-200 hover:border-zinc-500 hover:text-white transition-colors cursor-pointer min-h-11;
   }
   .t {
     @apply text-sm leading-7 text-zinc-300;
   }
   .pill {
-    @apply rounded-none px-2.5 py-0.5 text-[11px] font-mono border border-zinc-800;
+    @apply rounded-full px-2.5 py-0.5 text-xs border border-zinc-700;
   }
   .plan {
-    @apply h-full rounded-none border border-zinc-800 bg-zinc-950/60 p-4 cursor-pointer transition-all hover:border-zinc-700;
+    @apply h-full rounded-xl border border-zinc-800 bg-zinc-950/60 p-4 cursor-pointer transition-all hover:border-zinc-600;
   }
   .row {
     @apply flex justify-between text-xs text-zinc-400;
   }
   .svc {
-    @apply relative overflow-hidden rounded-none border border-zinc-800 bg-zinc-950/60 p-3 flex items-center gap-3 transition-colors hover:border-zinc-700;
+    @apply relative overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950/60 p-3 flex items-center gap-3 transition-colors hover:border-zinc-600;
   }
 }
 
@@ -111,8 +155,13 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pulse, .fl {
-    animation: none;
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 

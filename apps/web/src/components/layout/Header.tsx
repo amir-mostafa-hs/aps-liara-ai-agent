@@ -1,23 +1,45 @@
 "use client";
 
 import React from "react";
+import { Trash2 } from "lucide-react";
+
+export type WorkflowStage = "source" | "access" | "database" | "changes" | "deploy" | "recovery";
+
+const WORKFLOW_STAGES: Array<{ id: WorkflowStage; label: string; icon: string }> = [
+  { id: "source", label: "سورس", icon: "/assets/icon-source.webp" },
+  { id: "access", label: "دسترسی", icon: "/assets/icon-key.webp" },
+  { id: "database", label: "دیتابیس", icon: "/assets/icon-db.webp" },
+  { id: "changes", label: "تغییرات", icon: "/assets/icon-diff.webp" },
+  { id: "deploy", label: "دپلوی", icon: "/assets/icon-deploy.webp" },
+  { id: "recovery", label: "خودترمیمی", icon: "/assets/icon-heal.webp" },
+];
 
 interface HeaderProps {
   username?: string;
   activeTeam?: { id: string; name: string } | null;
   onLogout?: () => void;
+  onClearConversation?: () => void;
+  isClearingConversation?: boolean;
+  isStreaming?: boolean;
   systemConnected?: boolean;
+  activeStage?: WorkflowStage;
+  onSelectStage?: (stage: WorkflowStage) => void;
 }
 
 export function Header({
   username = "admin",
   activeTeam,
   onLogout,
+  onClearConversation,
+  isClearingConversation = false,
+  isStreaming = false,
   systemConnected = true,
+  activeStage = "source",
+  onSelectStage,
 }: HeaderProps) {
   return (
     <header className="shrink-0 border-b border-zinc-800 bg-zinc-950/90 backdrop-blur-md z-20">
-      <div className="h-14 flex items-center justify-between gap-3 px-4 lg:px-6">
+      <div className="min-h-14 flex items-center justify-between gap-3 px-4 lg:px-6">
         <div className="flex items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -35,8 +57,8 @@ export function Header({
 
         <div className="flex items-center gap-2 sm:gap-2.5 text-xs">
           {activeTeam && (
-            <span className="hidden md:flex items-center gap-1.5 rounded-none border border-zinc-800 bg-zinc-900/50 px-2.5 py-1 text-zinc-300 font-mono">
-              <span className="text-zinc-500">TEAM:</span>
+            <span className="hidden md:flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900/50 px-2.5 py-1 text-zinc-300 font-mono">
+              <span className="text-zinc-400">تیم:</span>
               <span dir="ltr" className="text-zinc-200">
                 {activeTeam.name || activeTeam.id}
               </span>
@@ -44,6 +66,9 @@ export function Header({
           )}
 
           <span
+            role="status"
+            aria-live="polite"
+            aria-label={systemConnected ? "وضعیت اتصال: متصل" : "وضعیت اتصال: قطع"}
             className={`pill flex items-center gap-2 border py-1 text-xs font-mono ${
               systemConnected
                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
@@ -51,30 +76,72 @@ export function Header({
             }`}
           >
             <i
-              className={`h-1.5 w-1.5 rounded-none ${
+              aria-hidden="true"
+              className={`h-2 w-2 rounded-full ${
                 systemConnected ? "bg-emerald-400 pulse" : "bg-rose-400"
               }`}
             />
-            {systemConnected ? "ONLINE" : "OFFLINE"}
+            {systemConnected ? "متصل" : "قطع"}
           </span>
 
-          <span className="hidden sm:flex items-center gap-2 rounded-none border border-zinc-800 bg-zinc-900/50 px-2.5 py-1 text-zinc-300 font-mono">
-            <span className="h-3.5 w-3.5 rounded-none bg-gradient-to-br from-liara to-mint shrink-0" />
+          <span className="hidden sm:flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/50 px-2.5 py-1 text-zinc-300 font-mono">
+            <span className="h-3.5 w-3.5 rounded-lg bg-gradient-to-br from-liara to-mint shrink-0" />
             <span dir="ltr" className="text-zinc-200">
               {username}
             </span>
           </span>
 
+          {onClearConversation && (
+            <button
+              type="button"
+              onClick={onClearConversation}
+              disabled={isClearingConversation || isStreaming}
+              aria-label="حذف تاریخچهٔ گفت‌وگوی فعلی"
+              title="حذف تاریخچهٔ گفت‌وگوی فعلی"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900/40 px-2.5 py-1 text-xs font-mono text-zinc-400 hover:border-rose-500/50 hover:bg-rose-500/5 hover:text-rose-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 transition-colors cursor-pointer"
+            >
+              <Trash2 aria-hidden="true" className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">پاک‌کردن گفتگو</span>
+            </button>
+          )}
+
           {onLogout && (
             <button
+              type="button"
               onClick={onLogout}
-              className="rounded-none border border-zinc-800 bg-zinc-900/40 px-2.5 py-1 text-xs font-mono text-zinc-400 hover:border-rose-500/50 hover:text-rose-400 hover:bg-rose-500/5 focus:outline-none transition-colors cursor-pointer"
+              className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-2.5 py-1 text-xs font-mono text-zinc-400 hover:border-rose-500/50 hover:text-rose-400 hover:bg-rose-500/5 focus:outline-none transition-colors cursor-pointer"
             >
               خروج
             </button>
           )}
         </div>
       </div>
+      <nav aria-label="مراحل گردش‌کار دپلوی" className="overflow-x-auto border-t border-zinc-800/80 px-3 py-2 sm:px-6">
+        <ol className="mx-auto flex min-w-max max-w-5xl items-center justify-between gap-1 sm:min-w-0">
+          {WORKFLOW_STAGES.map((stage, index) => {
+            const isActive = activeStage === stage.id;
+            return (
+              <li key={stage.id} className="flex-none sm:min-w-0 sm:flex-1">
+                <button
+                  type="button"
+                  onClick={() => onSelectStage?.(stage.id)}
+                  aria-current={isActive ? "step" : undefined}
+                  aria-label={`مرحله ${index + 1}: ${stage.label}${isActive ? "، مرحله فعلی" : ""}`}
+                  className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition-colors focus-visible:outline-none sm:px-2 ${
+                    isActive
+                      ? "border-liara/40 bg-liara/10 text-liara"
+                      : "border-transparent text-zinc-400 hover:border-zinc-700 hover:bg-zinc-900/70 hover:text-zinc-200"
+                  }`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={stage.icon} alt="" aria-hidden="true" className="h-5 w-5 shrink-0 object-contain" />
+                  <span className="whitespace-nowrap">{stage.label}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      </nav>
     </header>
   );
 }

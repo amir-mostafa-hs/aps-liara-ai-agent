@@ -38,7 +38,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="h-full w-full grid lg:grid-cols-2 bg-[#0c0c0e] bg-grid text-zinc-200">
+    <div className="h-full w-full grid lg:grid-cols-2 bg-[#101719] bg-grid text-zinc-200">
       {/* Form side */}
       <main className="relative grid place-items-center p-6 overflow-hidden">
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -47,7 +47,7 @@ export default function LoginPage() {
           alt=""
           className="absolute inset-0 w-full h-full object-cover opacity-20 pointer-events-none"
         />
-        <div className="relative w-full max-w-md rounded-none border border-zinc-800 bg-zinc-950/90 backdrop-blur p-8 shadow-none">
+        <div className="relative w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-950/95 backdrop-blur p-6 sm:p-8 shadow-xl shadow-black/20">
           <div className="flex items-center gap-3 mb-8">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -62,7 +62,7 @@ export default function LoginPage() {
           </div>
 
           {error && (
-            <div className="mb-6 flex items-center gap-2 rounded-none border border-rose-500/30 bg-rose-500/10 p-3 text-xs font-mono text-rose-300">
+            <div role="alert" aria-live="assertive" className="mb-6 flex items-center gap-2 rounded-lg border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200">
               <AlertCircle className="h-4 w-4 shrink-0 text-rose-400" />
               <span>{error}</span>
             </div>
@@ -74,10 +74,11 @@ export default function LoginPage() {
               <input
                 type="text"
                 dir="ltr"
+                autoComplete="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
-                className="mt-1.5 w-full rounded-none bg-zinc-900 border border-zinc-800 px-3.5 py-2.5 font-mono text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-colors"
+                className="mt-1.5 w-full rounded-lg bg-zinc-900 border border-zinc-700 px-3.5 py-3 font-mono text-base text-zinc-100 placeholder-zinc-400 focus:outline-none focus:border-liara focus:ring-2 focus:ring-liara/40 transition-colors"
                 placeholder="admin"
               />
             </label>
@@ -87,18 +88,19 @@ export default function LoginPage() {
               <input
                 type="password"
                 dir="ltr"
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 placeholder="••••••••"
-                className="mt-1.5 w-full rounded-none bg-zinc-900 border border-zinc-800 px-3.5 py-2.5 font-mono text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-colors"
+                className="mt-1.5 w-full rounded-lg bg-zinc-900 border border-zinc-700 px-3.5 py-3 font-mono text-base text-zinc-100 placeholder-zinc-400 focus:outline-none focus:border-liara focus:ring-2 focus:ring-liara/40 transition-colors"
               />
             </label>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 rounded-none bg-gradient-to-l from-liara to-mint py-2.5 font-mono text-xs font-semibold text-zinc-950 hover:brightness-110 focus:outline-none disabled:opacity-50 transition-all cursor-pointer shadow-sm"
+              className="w-full flex min-h-11 items-center justify-center gap-2 rounded-lg bg-gradient-to-l from-liara to-mint py-2.5 font-semibold text-zinc-950 hover:brightness-110 focus:outline-none disabled:opacity-50 transition-all cursor-pointer shadow-sm"
             >
               {loading ? (
                 <>
@@ -112,7 +114,7 @@ export default function LoginPage() {
           </form>
 
           <p className="mt-6 flex gap-2 text-xs leading-6 text-zinc-400">
-            <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-none bg-mint"></span>
+            <span aria-hidden="true" className="mt-2 h-2 w-2 shrink-0 rounded-full bg-mint"></span>
             نشست شما در کوکی امن (HttpOnly) نگهداری می‌شود تا عملیات زیرساختی ناخواسته اجرا نشود.
           </p>
         </div>
@@ -123,10 +125,10 @@ export default function LoginPage() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/assets/login-hero.webp"
-          alt="Liara Infrastructure Agent"
+          alt=""
           className="absolute inset-0 w-full h-full object-cover opacity-80"
         />
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#0c0c0e] via-[#0c0c0e]/80 to-transparent p-10 pt-32">
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#101719] via-[#101719]/80 to-transparent p-10 pt-32">
           <h2 className="text-xl font-bold leading-9 text-zinc-100">زیرساخت خود را با یک گفت‌وگو مدیریت کنید</h2>
           <p className="mt-1 text-xs leading-6 text-zinc-400">دپلوی، رفع خطا و پایش سرویس‌ها، همه با تأیید شما.</p>
         </div>

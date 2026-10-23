@@ -58,7 +58,7 @@ export function EnvironmentPreflightWidget({ appName, requirements, serviceValue
   };
 
   if (saved) return (
-    <article className="relative overflow-hidden rounded-none border border-emerald-500/30 bg-emerald-500/[.04] p-5 shadow-none">
+    <article className="relative overflow-hidden rounded-lg border border-emerald-500/30 bg-emerald-500/[.04] p-5 shadow-none">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/assets/state-success.webp"
@@ -68,7 +68,7 @@ export function EnvironmentPreflightWidget({ appName, requirements, serviceValue
       <div className="relative sm:w-3/5 mr-auto space-y-2">
         <h4 className="text-sm font-bold text-emerald-300">تنظیم متغیرهای لازم روی لیارا تأیید شد.</h4>
         {generated.length > 0 && (
-          <div className="mt-3 rounded-none border border-amber-500/40 bg-zinc-950/90 p-3 text-xs text-amber-200 space-y-2">
+          <div className="mt-3 rounded-lg border border-amber-500/40 bg-zinc-950/90 p-3 text-xs text-amber-200 space-y-2">
             <p>Secret تولیدشده فقط در همین صفحه نگهداری می‌شود. آن را در محل امن ذخیره کنید:</p>
             {generated.map(({ name }) => (
               <div key={name} className="flex flex-wrap items-center gap-2 font-mono">
@@ -117,7 +117,7 @@ export function EnvironmentPreflightWidget({ appName, requirements, serviceValue
           const provided = Boolean(serviceValues[name]);
           if (!requirement.required || requirement.value_source === "platform_provided") {
             return (
-              <div key={name} className="rounded-none border border-zinc-800 bg-zinc-950/70 p-3 text-xs text-zinc-300 space-y-1">
+              <div key={name} className="rounded-lg border border-zinc-800 bg-zinc-950/70 p-3 text-xs text-zinc-300 space-y-1">
                 <code className="text-liara font-mono">{name}</code> — مقدار را پلتفرم به‌طور خودکار تأمین می‌کند.
                 {requirement.evidence.length > 0 && (
                   <p className="text-zinc-500 text-[11px] font-mono">شاهد: {requirement.evidence.join("، ")}</p>
@@ -126,7 +126,7 @@ export function EnvironmentPreflightWidget({ appName, requirements, serviceValue
             );
           }
           return (
-            <div key={name} className="rounded-none border border-zinc-800 bg-zinc-950/70 p-3 text-xs space-y-2">
+            <div key={name} className="rounded-lg border border-zinc-800 bg-zinc-950/70 p-3 text-xs space-y-2">
               <div className="flex items-start justify-between gap-2">
                 <code className="text-liara font-mono font-bold">{name}</code>
                 <span className="text-zinc-400 text-[11px] font-mono">
@@ -177,6 +177,7 @@ export function EnvironmentPreflightWidget({ appName, requirements, serviceValue
                   </span>
                   <input
                     type={requirement.sensitive ? "password" : "text"}
+                    aria-label={`مقدار متغیر ${name}`}
                     autoComplete="new-password"
                     value={values[name] || ""}
                     onChange={(event) => setValues((prev) => ({ ...prev, [name]: event.target.value }))}
@@ -203,7 +204,7 @@ export function EnvironmentPreflightWidget({ appName, requirements, serviceValue
       </div>
 
       {error && (
-        <p role="alert" className="text-xs font-mono text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-none p-2">
+        <p role="alert" aria-live="assertive" className="text-sm text-rose-200 bg-rose-500/10 border border-rose-500/30 rounded-lg p-2">
           {error}
         </p>
       )}

@@ -105,13 +105,14 @@ export function SourceInputWidget({
       <div className="body">
         <h3 className="font-bold text-zinc-100 text-base">سورس پروژه را مشخص کنید</h3>
 
-        <div className="relative rounded-none border border-zinc-800 bg-zinc-950/70 p-3 space-y-3">
+        <div className="relative rounded-lg border border-zinc-800 bg-zinc-950/70 p-3 space-y-3">
           {/* Tab Selection */}
-          <div className="flex gap-1 rounded-none bg-zinc-900/80 border border-zinc-800 p-1 text-sm">
+          <div className="flex gap-1 rounded-lg bg-zinc-900/80 border border-zinc-800 p-1 text-sm">
             <button
               type="button"
               onClick={() => setTab("path")}
-              className={`flex-1 cursor-pointer rounded-none py-1.5 text-center text-xs font-mono transition-all border ${
+              aria-pressed={tab === "path"}
+              className={`flex-1 cursor-pointer rounded-lg py-1.5 text-center text-xs font-mono transition-all border ${
                 tab === "path"
                   ? "bg-zinc-900 text-liara border-zinc-700 font-medium"
                   : "text-zinc-400 hover:text-zinc-200 border-transparent"
@@ -122,7 +123,8 @@ export function SourceInputWidget({
             <button
               type="button"
               onClick={() => setTab("zip")}
-              className={`flex-1 cursor-pointer rounded-none py-1.5 text-center text-xs font-mono transition-all border ${
+              aria-pressed={tab === "zip"}
+              className={`flex-1 cursor-pointer rounded-lg py-1.5 text-center text-xs font-mono transition-all border ${
                 tab === "zip"
                   ? "bg-zinc-900 text-liara border-zinc-700 font-medium"
                   : "text-zinc-400 hover:text-zinc-200 border-transparent"
@@ -133,7 +135,8 @@ export function SourceInputWidget({
             <button
               type="button"
               onClick={() => setTab("git")}
-              className={`flex-1 cursor-pointer rounded-none py-1.5 text-center text-xs font-mono transition-all border ${
+              aria-pressed={tab === "git"}
+              className={`flex-1 cursor-pointer rounded-lg py-1.5 text-center text-xs font-mono transition-all border ${
                 tab === "git"
                   ? "bg-zinc-900 text-liara border-zinc-700 font-medium"
                   : "text-zinc-400 hover:text-zinc-200 border-transparent"
@@ -148,6 +151,7 @@ export function SourceInputWidget({
             <div className="space-y-2">
               <input
                 type="text"
+                aria-label="مسیر پروژه در فضای کاری"
                 dir="ltr"
                 value={pathInput}
                 onChange={(e) => setPathInput(e.target.value)}
@@ -163,7 +167,7 @@ export function SourceInputWidget({
                     setPathInput("sample-apps/nodejs-demo");
                     handleSubmitPath("sample-apps/nodejs-demo");
                   }}
-                  className="rounded-none border border-zinc-800 bg-zinc-900/80 px-2 py-0.5 text-liara hover:border-zinc-700 cursor-pointer font-mono"
+                  className="rounded-lg border border-zinc-800 bg-zinc-900/80 px-2 py-0.5 text-liara hover:border-zinc-700 cursor-pointer font-mono"
                 >
                   sample-apps/nodejs-demo
                 </button>
@@ -173,9 +177,10 @@ export function SourceInputWidget({
 
           {tab === "zip" && (
             <div className="space-y-2">
-              <label className="grid place-items-center rounded-none border border-dashed border-zinc-800 py-7 text-xs font-mono text-zinc-400 hover:border-zinc-600 hover:bg-zinc-900/40 cursor-pointer transition-colors">
+              <label className="grid place-items-center rounded-lg border border-dashed border-zinc-800 py-7 text-xs font-mono text-zinc-400 hover:border-zinc-600 hover:bg-zinc-900/40 cursor-pointer transition-colors">
                 <input
                   type="file"
+                aria-label="انتخاب فایل ZIP پروژه"
                   accept=".zip"
                   className="sr-only"
                   disabled={loading || disabled}
@@ -198,6 +203,7 @@ export function SourceInputWidget({
             <div className="space-y-2">
               <input
                 type="text"
+                aria-label="نشانی مخزن Git پروژه"
                 dir="ltr"
                 value={gitInput}
                 onChange={(e) => setGitInput(e.target.value)}
@@ -210,7 +216,7 @@ export function SourceInputWidget({
         </div>
 
         {error && (
-          <p className="text-xs font-mono text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-none p-2">
+          <p role="alert" aria-live="assertive" className="text-sm text-rose-200 bg-rose-500/10 border border-rose-500/30 rounded-lg p-2">
             {error}
           </p>
         )}

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Header } from "@/components/layout/Header";
+import { Header, WorkflowStage } from "@/components/layout/Header";
 import { SidecarConsole, CloudService } from "@/components/console/SidecarConsole";
 import { ChatMessageList, ChatMessage } from "@/components/chat/ChatMessageList";
 import { ChatInput } from "@/components/chat/ChatInput";
@@ -23,6 +23,17 @@ let messageSequence = 0;
 function createMsgId(prefix: string): string {
   messageSequence += 1;
   return `${prefix}-${Date.now()}-${messageSequence}-${Math.random().toString(36).substring(2, 6)}`;
+}
+
+function createWelcomeMessage(): ChatMessage {
+  return {
+    id: "welcome-1",
+    role: "assistant",
+    content:
+      "سلام! من ایجنت هوشمند و خودکار دپلوی و مهندسی قابلیت اطمینان (SRE) لیارا هستم.\n\nمن می‌تونم سورس‌کد پروژه شما رو بررسی کنم، پلتفرم و پیش‌نیازهایی مثل دیتابیس (پستگرس، ردیس، مای‌اس‌کیو‌ال و ...) رو تشخیص بدم، در صورت تمایل سرویس‌ها رو در لیارا براتون بسازم، فایل liara.json رو تولید کنم و پروژه رو دپلوی کنم.\n\nبرای شروع، لطفاً سورس پروژه را با یکی از روش‌های زیر مشخص کنید:",
+    timestamp: new Date().toISOString(),
+    widget: { type: "source_input" },
+  };
 }
 
 export default function HomePage() {
@@ -48,20 +59,10 @@ export default function HomePage() {
 
 
   // Chat State
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: "welcome-1",
-      role: "assistant",
-      content:
-        "سلام! من ایجنت هوشمند و خودکار دپلوی و مهندسی قابلیت اطمینان (SRE) لیارا هستم.\n\nمن می‌تونم سورس‌کد پروژه شما رو بررسی کنم، پلتفرم و پیش‌نیازهایی مثل دیتابیس (پستگرس، ردیس، مای‌اس‌کیو‌ال و ...) رو تشخیص بدم، در صورت تمایل سرویس‌ها رو در لیارا براتون بسازم، فایل liara.json رو تولید کنم و پروژه رو دپلوی کنم.\n\nبرای شروع، لطفاً سورس پروژه را با یکی از روش‌های زیر مشخص کنید:",
-      timestamp: new Date().toISOString(),
-      widget: {
-        type: "source_input",
-      },
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([createWelcomeMessage()]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isClearingConversation, setIsClearingConversation] = useState(false);
 
   // Sidecar & Infrastructure State
   const [terminalLogs, setTerminalLogs] = useState<string[]>([
@@ -70,6 +71,46 @@ export default function HomePage() {
   const [services, setServices] = useState<CloudService[]>([]);
   const [selectedApp, setSelectedApp] = useState<string>("");
   const pendingEnvValuesRef = useRef<Map<string, Record<string, string>>>(new Map());
+
+  const activeWorkflowStage: WorkflowStage = (() => {
+    const stageByWidget: Record<string, WorkflowStage> = {
+      source_input: "source",
+      app_target_selector: "source",
+      token_input: "access",
+      plan_selector: "database",
+      diff_preview: "changes",
+      env_preflight: "changes",
+      deploy_approval: "deploy",
+      remediation_approval: "recovery",
+    };
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const widgetType = messages[index].widget?.type;
+      const stage = widgetType ? stageByWidget[widgetType] : undefined;
+      if (stage) return stage;
+    }
+    return "source";
+  })();
+
+  const handleSelectWorkflowStage = (stage: WorkflowStage) => {
+    const widgetTypesByStage: Record<WorkflowStage, string[]> = {
+      source: ["source_input", "app_target_selector"],
+      access: ["token_input"],
+      database: ["plan_selector"],
+      changes: ["diff_preview", "env_preflight"],
+      deploy: ["deploy_approval"],
+      recovery: ["remediation_approval"],
+    };
+    const targetMessage = [...messages].reverse().find((message) =>
+      message.widget && widgetTypesByStage[stage].includes(message.widget.type),
+    );
+    if (targetMessage) {
+      document.getElementById(`chat-message-${targetMessage.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    if (stage === "source") {
+      document.getElementById("chat-message-welcome-1")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  };
   const [isRefreshingServices, setIsRefreshingServices] = useState(false);
   const [systemConnected, setSystemConnected] = useState(true);
   const [systemHealth, setSystemHealth] = useState({ database: true, engine: true });
@@ -986,24 +1027,62 @@ export default function HomePage() {
     } catch {}
   };
 
+  const handleClearConversation = async () => {
+    if (isStreaming || isClearingConversation) return;
+    const confirmed = window.confirm("تاریخچهٔ گفت‌وگوی فعلی برای همیشه حذف می‌شود. گفت‌وگوهای دیگر شما حذف نمی‌شوند. ادامه می‌دهید؟");
+    if (!confirmed) return;
+
+    setIsClearingConversation(true);
+    try {
+      if (conversationId) {
+        const deleted = await fetch(`/api/conversations/${encodeURIComponent(conversationId)}`, { method: "DELETE" });
+        if (!deleted.ok) throw new Error("حذف تاریخچهٔ گفتگو ناموفق بود.");
+      }
+
+      setConversationId(null);
+      setMessages([createWelcomeMessage()]);
+      setTerminalLogs(["[AGENT] گفت‌وگوی تازه آماده است."]);
+      setSelectedApp("");
+      pendingEnvValuesRef.current.clear();
+
+      const created = await fetch("/api/conversations", { method: "POST" });
+      const data = await created.json();
+      if (!created.ok || !data.ok || !data.conversation?.id) {
+        throw new Error("گفت‌وگوی تازه ساخته نشد. پیام بعدی شما گفت‌وگوی جدیدی ایجاد می‌کند.");
+      }
+
+      setConversationId(data.conversation.id);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "پاک‌کردن تاریخچهٔ گفتگو ناموفق بود.");
+    } finally {
+      setIsClearingConversation(false);
+    }
+  };
+
   const handleClearLogs = () => {
     setTerminalLogs([]);
   };
 
   return (
-    <div className="flex flex-col h-full w-full bg-[#0c0c0e] bg-grid text-zinc-200 overflow-hidden">
+    <div className="flex flex-col h-full w-full bg-[#101719] bg-grid text-zinc-200 overflow-hidden">
+      <a className="skip-link" href="#main-content">رفتن به بخش اصلی</a>
       {/* Top Header */}
       <Header
         username={user.username}
         activeTeam={activeTeam}
         onLogout={handleLogout}
+        onClearConversation={handleClearConversation}
+        isClearingConversation={isClearingConversation}
+        isStreaming={isStreaming}
         systemConnected={systemConnected}
+        activeStage={activeWorkflowStage}
+        onSelectStage={handleSelectWorkflowStage}
       />
 
       {/* Main Dual Workspace Area */}
-      <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden relative">
+      <main id="main-content" tabIndex={-1} className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden relative">
         {/* Chat Space */}
-        <section className="flex-1 min-h-0 min-w-0 flex flex-col relative overflow-hidden">
+        <section aria-label="گفت‌وگو با ایجنت" className="flex-1 min-h-0 min-w-0 flex flex-col relative overflow-hidden">
           <ChatMessageList
             messages={messages}
             isStreaming={isStreaming}
@@ -1035,7 +1114,7 @@ export default function HomePage() {
           onUpdateAccountSettings={handleUpdateAccountSettings}
           onTestConnection={handleTestConnection}
         />
-      </div>
+      </main>
     </div>
   );
 }

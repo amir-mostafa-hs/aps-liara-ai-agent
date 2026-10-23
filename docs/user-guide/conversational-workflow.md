@@ -16,6 +16,12 @@ The application interface is divided into two primary complementary panels:
    - Inline interactive action widgets (Source Ingestion, App Target Selector, Hardware Plan Cards, Diff Preview, Deploy Gate, and Remediation Widget).
    - Quick prompt suggestion chips for rapid command entry.
 
+The header includes a six-step workflow navigator for source, access, database, changes, deployment, and recovery. Its current step follows the latest workflow widget in the conversation. Selecting a step scrolls to the latest matching widget when one is available. On narrow screens the steps remain horizontally scrollable.
+
+The current conversation can be deleted from the header with **پاک‌کردن گفتگو**. The app asks for confirmation, deletes only the active conversation owned by the signed-in user, and starts a fresh conversation. This action is unavailable while a response is streaming. Message times are shown in Persian local time; missing or invalid timestamps are omitted.
+
+The chat and its interactive controls support keyboard focus, visible focus indicators, and reduced-motion preferences. User and assistant messages are visually separated and aligned to opposite sides. Suggested actions use the matching deployment, source, and access icons from `apps/web/public/assets`.
+
 ## 2. Typical Deployment Lifecycle
 
 ```

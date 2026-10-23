@@ -101,7 +101,8 @@ export function SidecarConsole({
 
   useEffect(() => {
     if (activeTab === "terminal" && logs.length > 0) {
-      terminalEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      terminalEndRef.current?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" });
     }
   }, [logs, activeTab]);
 
@@ -166,10 +167,13 @@ export function SidecarConsole({
 
   if (isCollapsed) {
     return (
-      <aside className="w-full lg:w-14 h-12 lg:h-full bg-zinc-950/90 border-t lg:border-t-0 lg:border-r border-zinc-800 flex lg:flex-col items-center justify-between px-3 py-2 lg:py-4 lg:gap-4 shrink-0 transition-all select-none">
+      <aside id="sidecar-panel" aria-label="کنسول جانبی" className="w-full lg:w-14 h-12 lg:h-full bg-zinc-950/90 border-t lg:border-t-0 lg:border-r border-zinc-800 flex lg:flex-col items-center justify-between px-3 py-2 lg:py-4 lg:gap-4 shrink-0 transition-all select-none">
         <button
+          type="button"
           onClick={() => setIsCollapsed(false)}
-          className="p-2 rounded-none bg-zinc-900/60 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 transition-colors cursor-pointer"
+          aria-label="باز کردن کنسول جانبی"
+          aria-expanded="false"
+          className="p-2 rounded-lg bg-zinc-900/60 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 transition-colors cursor-pointer"
           title="باز کردن کنسول جانبی"
         >
           <ChevronRight className="h-4 w-4" />
@@ -180,9 +184,11 @@ export function SidecarConsole({
               setIsCollapsed(false);
               setActiveTab("terminal");
             }}
-            className={`p-2 rounded-none transition-colors cursor-pointer border ${
+            className={`p-2 rounded-lg transition-colors cursor-pointer border ${
               activeTab === "terminal" ? "bg-zinc-900 text-liara border-zinc-700" : "text-zinc-400 hover:bg-zinc-900/40 border-transparent"
             }`}
+            aria-label="باز کردن کنسول و لاگ‌ها"
+            aria-pressed={activeTab === "terminal"}
             title="کنسول و لاگ‌ها"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -193,9 +199,11 @@ export function SidecarConsole({
               setIsCollapsed(false);
               setActiveTab("services");
             }}
-            className={`p-2 rounded-none transition-colors cursor-pointer border ${
+            className={`p-2 rounded-lg transition-colors cursor-pointer border ${
               activeTab === "services" ? "bg-zinc-900 text-liara border-zinc-700" : "text-zinc-400 hover:bg-zinc-900/40 border-transparent"
             }`}
+            aria-label="نمایش سرویس‌های ابری"
+            aria-pressed={activeTab === "services"}
             title="سرویس‌های ابری"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -206,9 +214,11 @@ export function SidecarConsole({
               setIsCollapsed(false);
               setActiveTab("health");
             }}
-            className={`p-2 rounded-none transition-colors cursor-pointer border ${
+            className={`p-2 rounded-lg transition-colors cursor-pointer border ${
               activeTab === "health" ? "bg-zinc-900 text-liara border-zinc-700" : "text-zinc-400 hover:bg-zinc-900/40 border-transparent"
             }`}
+            aria-label="نمایش سلامت سیستم"
+            aria-pressed={activeTab === "health"}
             title="سلامت سیستم"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -219,9 +229,11 @@ export function SidecarConsole({
               setIsCollapsed(false);
               setActiveTab("settings");
             }}
-            className={`p-2 rounded-none transition-colors cursor-pointer border ${
+            className={`p-2 rounded-lg transition-colors cursor-pointer border ${
               activeTab === "settings" ? "bg-zinc-900 text-liara border-zinc-700" : "text-zinc-400 hover:bg-zinc-900/40 border-transparent"
             }`}
+            aria-label="نمایش تنظیمات حساب"
+            aria-pressed={activeTab === "settings"}
             title="تنظیمات اکانت"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -234,16 +246,20 @@ export function SidecarConsole({
 
   return (
     <aside
+      id="sidecar-panel"
       dir="ltr"
+      aria-label="کنسول جانبی"
       className="h-[38vh] shrink-0 border-t border-zinc-800 bg-zinc-950/80 lg:h-auto lg:w-[40%] lg:max-w-[500px] lg:border-r lg:border-t-0 flex flex-col overflow-hidden"
     >
       {/* Tab Navigation Header */}
       <div className="flex items-center justify-between gap-2 border-b border-zinc-800 px-3 py-2 bg-zinc-950 shrink-0">
-        <div className="flex items-center gap-1 text-xs" dir="rtl">
+        <div role="group" aria-label="بخش‌های کنسول" className="flex items-center gap-1 text-xs" dir="rtl">
           <button
             type="button"
             onClick={() => setActiveTab("terminal")}
-            className={`flex cursor-pointer items-center gap-1.5 rounded-none px-2.5 py-1 text-xs font-mono transition-all border ${
+            aria-pressed={activeTab === "terminal"}
+          aria-controls="sidecar-content"
+            className={`flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-mono transition-all border ${
               activeTab === "terminal"
                 ? "bg-zinc-900 text-liara border-zinc-700 font-medium"
                 : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/40 border-transparent"
@@ -253,14 +269,16 @@ export function SidecarConsole({
             <img src="/assets/icon-terminal.webp" alt="" className="ico !h-6 !w-6" />
             <span>لاگ‌ها</span>
             {isStreaming && (
-              <span className="flex h-1.5 w-1.5 rounded-none bg-emerald-400 animate-ping" />
+              <span aria-label="لاگ جدید در حال دریافت است" role="status" className="flex h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
             )}
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab("services")}
-            className={`flex cursor-pointer items-center gap-1.5 rounded-none px-2.5 py-1 text-xs font-mono transition-all border ${
+            aria-pressed={activeTab === "services"}
+            aria-controls="sidecar-content"
+            className={`flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-mono transition-all border ${
               activeTab === "services"
                 ? "bg-zinc-900 text-liara border-zinc-700 font-medium"
                 : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/40 border-transparent"
@@ -270,7 +288,7 @@ export function SidecarConsole({
             <img src="/assets/icon-services.webp" alt="" className="ico !h-6 !w-6" />
             <span>سرویس‌ها</span>
             {services.length > 0 && (
-              <span className="rounded-none bg-zinc-900 border border-zinc-800 text-zinc-300 text-[10px] px-1.5 py-0.2 font-mono">
+              <span className="rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300 text-[10px] px-1.5 py-0.2 font-mono">
                 {services.length}
               </span>
             )}
@@ -279,7 +297,9 @@ export function SidecarConsole({
           <button
             type="button"
             onClick={() => setActiveTab("health")}
-            className={`flex cursor-pointer items-center gap-1.5 rounded-none px-2.5 py-1 text-xs font-mono transition-all border ${
+            aria-pressed={activeTab === "health"}
+            aria-controls="sidecar-content"
+            className={`flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-mono transition-all border ${
               activeTab === "health"
                 ? "bg-zinc-900 text-liara border-zinc-700 font-medium"
                 : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/40 border-transparent"
@@ -293,7 +313,9 @@ export function SidecarConsole({
           <button
             type="button"
             onClick={() => setActiveTab("settings")}
-            className={`flex cursor-pointer items-center gap-1.5 rounded-none px-2.5 py-1 text-xs font-mono transition-all border ${
+            aria-pressed={activeTab === "settings"}
+            aria-controls="sidecar-content"
+            className={`flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-mono transition-all border ${
               activeTab === "settings"
                 ? "bg-zinc-900 text-liara border-zinc-700 font-medium"
                 : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/40 border-transparent"
@@ -312,7 +334,8 @@ export function SidecarConsole({
               type="button"
               onClick={onRefreshServices}
               disabled={isRefreshingServices}
-              className="rounded-none border border-zinc-800 bg-zinc-900/50 px-2 py-1 hover:text-liara hover:border-zinc-700 cursor-pointer disabled:opacity-40 transition-colors flex items-center gap-1"
+              aria-label={isRefreshingServices ? "در حال به‌روزرسانی سرویس‌ها" : "به‌روزرسانی سرویس‌ها"}
+              className="rounded-lg border border-zinc-800 bg-zinc-900/50 px-2 py-1 hover:text-liara hover:border-zinc-700 cursor-pointer disabled:opacity-40 transition-colors flex items-center gap-1"
               title="به‌روزرسانی سرویس‌ها"
             >
               <RefreshCw className={`h-3 w-3 ${isRefreshingServices ? "animate-spin" : ""}`} />
@@ -324,7 +347,8 @@ export function SidecarConsole({
               type="button"
               onClick={onRefreshHealth}
               disabled={isRefreshingHealth}
-              className="rounded-none border border-zinc-800 bg-zinc-900/50 px-2 py-1 hover:text-liara hover:border-zinc-700 cursor-pointer disabled:opacity-40 transition-colors flex items-center gap-1"
+              aria-label={isRefreshingHealth ? "در حال بررسی سلامت" : "بررسی دوباره سلامت"}
+              className="rounded-lg border border-zinc-800 bg-zinc-900/50 px-2 py-1 hover:text-liara hover:border-zinc-700 cursor-pointer disabled:opacity-40 transition-colors flex items-center gap-1"
               title="بررسی دوباره سلامت"
             >
               <RefreshCw className={`h-3 w-3 ${isRefreshingHealth ? "animate-spin" : ""}`} />
@@ -334,8 +358,10 @@ export function SidecarConsole({
           <button
             type="button"
             onClick={() => setIsCollapsed(true)}
-            aria-label="Collapse"
-            className="rounded-none border border-zinc-800 bg-zinc-900/50 px-2.5 py-1 text-xs text-zinc-400 hover:text-liara hover:border-zinc-700 cursor-pointer transition-colors"
+            aria-label="جمع کردن پنل کنسول"
+            aria-expanded="true"
+            aria-controls="sidecar-content"
+            className="rounded-lg border border-zinc-800 bg-zinc-900/50 px-2.5 py-1 text-xs text-zinc-400 hover:text-liara hover:border-zinc-700 cursor-pointer transition-colors"
             title="جمع کردن پنل"
           >
             —
@@ -344,14 +370,18 @@ export function SidecarConsole({
       </div>
 
       {/* Panels */}
-      <div className="min-h-0 flex-1 overflow-hidden relative">
+      <div id="sidecar-content" role="region" aria-label={
+        activeTab === "terminal" ? "لاگ‌های اجرا" :
+        activeTab === "services" ? "سرویس‌های ابری" :
+        activeTab === "health" ? "سلامت سیستم" : "تنظیمات حساب لیارا"
+      } className="min-h-0 flex-1 overflow-hidden relative">
         {/* Terminal Panel */}
         {activeTab === "terminal" && (
           <div className="flex flex-col h-full bg-[#0c0c0e]">
             {/* Dedicated Terminal Sub-header Toolbar */}
             <div className="flex items-center justify-between px-3.5 py-1.5 border-b border-zinc-800 bg-zinc-950 text-xs shrink-0 select-none">
               <div className="flex items-center gap-2">
-                <span className="flex h-1.5 w-1.5 rounded-none bg-emerald-400 pulse" />
+                <span aria-hidden="true" className="flex h-2 w-2 rounded-full bg-emerald-400 pulse" />
                 <span className="font-mono text-[11px] text-zinc-400">liara-session // stream</span>
               </div>
               <div className="flex items-center gap-1.5">
@@ -359,7 +389,7 @@ export function SidecarConsole({
                   type="button"
                   onClick={handleCopyLogs}
                   disabled={logs.length === 0}
-                  className="flex items-center gap-1 px-2 py-0.5 rounded-none border border-zinc-800 bg-zinc-900/60 hover:border-zinc-600 hover:bg-zinc-800 text-zinc-300 hover:text-liara text-[11px] font-mono disabled:opacity-40 transition-colors cursor-pointer"
+                  className="flex items-center gap-1 px-2 py-0.5 rounded-lg border border-zinc-800 bg-zinc-900/60 hover:border-zinc-600 hover:bg-zinc-800 text-zinc-300 hover:text-liara text-[11px] font-mono disabled:opacity-40 transition-colors cursor-pointer"
                   title="کپی لاگ‌ها در کلیپ‌بورد"
                 >
                   <Copy className="h-3 w-3" />
@@ -370,7 +400,7 @@ export function SidecarConsole({
                     type="button"
                     onClick={onClearLogs}
                     disabled={logs.length === 0}
-                    className="flex items-center gap-1 px-2 py-0.5 rounded-none border border-zinc-800 bg-zinc-900/60 hover:border-zinc-600 hover:bg-zinc-800 text-zinc-300 hover:text-rose-400 text-[11px] font-mono disabled:opacity-40 transition-colors cursor-pointer"
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-lg border border-zinc-800 bg-zinc-900/60 hover:border-zinc-600 hover:bg-zinc-800 text-zinc-300 hover:text-rose-400 text-[11px] font-mono disabled:opacity-40 transition-colors cursor-pointer"
                     title="پاک کردن لاگ‌های جاری"
                   >
                     <Trash2 className="h-3 w-3" />
@@ -381,7 +411,7 @@ export function SidecarConsole({
             </div>
 
             {/* Scrollable logs */}
-            <div className="scroll flex-1 overflow-y-auto p-4 font-mono text-xs leading-6 select-text">
+            <div role="log" aria-label="خروجی لاگ‌های اجرا" aria-live="polite" className="scroll flex-1 overflow-y-auto p-4 font-mono text-sm leading-6 select-text">
               {logs.length === 0 ? (
                 <p className="text-zinc-600 select-none">
                   $ liara ready. در انتظار استریم لاگ‌های دپلوی...
@@ -479,7 +509,7 @@ export function SidecarConsole({
                 }`}
               >
                 <i
-                  className={`h-1.5 w-1.5 rounded-none ${
+                  className={`h-2 w-2 rounded-full ${
                     systemHealth.database ? "bg-emerald-400 pulse" : "bg-rose-500"
                   }`}
                 />
@@ -495,7 +525,7 @@ export function SidecarConsole({
                 }`}
               >
                 <i
-                  className={`h-1.5 w-1.5 rounded-none ${
+                  className={`h-2 w-2 rounded-full ${
                     systemHealth.engine ? "bg-emerald-400 pulse" : "bg-rose-500"
                   }`}
                 />
@@ -506,7 +536,7 @@ export function SidecarConsole({
             <div className="svc justify-between text-sm">
               <span className="font-medium text-zinc-200">دسترسی به API لیارا</span>
               <span className="flex items-center gap-2 text-emerald-400 font-medium font-mono text-xs">
-                <i className="h-1.5 w-1.5 rounded-none bg-emerald-400 pulse" />
+                <i aria-hidden="true" className="h-2 w-2 rounded-full bg-emerald-400 pulse" />
                 عملیاتی
               </span>
             </div>
@@ -540,8 +570,9 @@ export function SidecarConsole({
             {/* Current token display */}
             {accountSettings?.maskedToken && (
               <div className="space-y-1">
-                <label className="text-zinc-400 font-mono text-[11px]">توکن فعلی (ماسک‌شده):</label>
+                <label htmlFor="current-liara-token" className="text-zinc-400 font-mono text-[11px]">توکن فعلی (ماسک‌شده):</label>
                 <input
+                  id="current-liara-token"
                   type="text"
                   readOnly
                   dir="ltr"
@@ -553,9 +584,10 @@ export function SidecarConsole({
 
             {/* New token input */}
             <div className="space-y-1.5">
-              <label className="text-zinc-300 font-medium">کلید دسترسی جدید لیارا:</label>
+              <label htmlFor="new-liara-token" className="text-zinc-300 font-medium">کلید دسترسی جدید لیارا:</label>
               <div className="relative">
                 <input
+                  id="new-liara-token"
                   type={showTokenText ? "text" : "password"}
                   dir="ltr"
                   value={newTokenInput}
@@ -566,6 +598,8 @@ export function SidecarConsole({
                 <button
                   type="button"
                   onClick={() => setShowTokenText(!showTokenText)}
+                  aria-label={showTokenText ? "پنهان کردن کلید دسترسی" : "نمایش کلید دسترسی"}
+                  aria-pressed={showTokenText}
                   className="absolute right-3 top-2.5 text-zinc-400 hover:text-zinc-200 cursor-pointer"
                 >
                   {showTokenText ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -575,9 +609,10 @@ export function SidecarConsole({
 
             {/* Team selection */}
             <div className="space-y-1.5">
-              <label className="text-zinc-300 font-medium">تیم کاری فعال در لیارا:</label>
+              <label htmlFor="active-liara-team" className="text-zinc-300 font-medium">تیم کاری فعال در لیارا:</label>
               {fetchedTeams.length > 0 ? (
                 <select
+                  id="active-liara-team"
                   value={teamIdInput}
                   onChange={(e) => setTeamIdInput(e.target.value)}
                   className="inp"
@@ -591,6 +626,7 @@ export function SidecarConsole({
                 </select>
               ) : (
                 <input
+                  id="active-liara-team"
                   type="text"
                   dir="ltr"
                   value={teamIdInput}
@@ -603,7 +639,9 @@ export function SidecarConsole({
 
             {testResult && (
               <p
-                className={`p-2.5 rounded-none border text-xs font-mono ${
+                role={testResult.ok ? "status" : "alert"}
+                aria-live={testResult.ok ? "polite" : "assertive"}
+                className={`p-2.5 rounded-lg border text-sm ${
                   testResult.ok
                     ? "bg-emerald-400/10 border-emerald-400/30 text-emerald-300"
                     : "bg-rose-500/10 border-rose-500/30 text-rose-300"
@@ -615,7 +653,9 @@ export function SidecarConsole({
 
             {saveResult && (
               <p
-                className={`p-2.5 rounded-none border text-xs font-mono ${
+                role={saveResult.ok ? "status" : "alert"}
+                aria-live={saveResult.ok ? "polite" : "assertive"}
+                className={`p-2.5 rounded-lg border text-sm ${
                   saveResult.ok
                     ? "bg-emerald-400/10 border-emerald-400/30 text-emerald-300"
                     : "bg-rose-500/10 border-rose-500/30 text-rose-300"

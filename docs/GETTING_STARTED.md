@@ -99,7 +99,7 @@ Alternatively, you can run each service in a separate terminal:
   ```bash
   pnpm dev:web
   ```
-  Dashboard is available at: [http://localhost:3000](http://localhost:3000)
+  The Web app's development server uses port `3000` (configured in `apps/web/package.json`) and is available at: [http://localhost:3000](http://localhost:3000)
 - **Terminal 2 (Python Engine):**
   ```bash
   pnpm dev:engine
