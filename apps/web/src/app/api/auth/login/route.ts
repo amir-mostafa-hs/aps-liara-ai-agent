@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSessionToken, getExpectedAdminCredentials, SESSION_COOKIE_NAME } from "@/lib/auth";
+import { createSessionToken, getExpectedAdminCredentials, getExpectedDemoCredentials, SESSION_COOKIE_NAME } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   try {
@@ -8,7 +8,10 @@ export async function POST(req: NextRequest) {
 
     const expected = getExpectedAdminCredentials();
 
-    if (username !== expected.username || password !== expected.password) {
+    const demo = getExpectedDemoCredentials();
+    const isAdmin = username === expected.username && password === expected.password;
+    const isDemo = demo !== null && username === demo.username && password === demo.password;
+    if (!isAdmin && !isDemo) {
       return NextResponse.json(
         { error: "Invalid username or password." },
         { status: 401 }

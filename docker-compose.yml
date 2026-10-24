@@ -37,6 +37,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import os,urllib.request; req=urllib.request.Request('http://127.0.0.1:8000/health', headers={'X-Internal-Secret':os.environ.get('INTERNAL_AGENT_SECRET','')}); urllib.request.urlopen(req, timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
 
   web:
     build:
@@ -58,7 +63,7 @@ services:
       postgres:
         condition: service_healthy
       engine:
-        condition: service_started
+        condition: service_healthy
 
 volumes:
   postgres_data:

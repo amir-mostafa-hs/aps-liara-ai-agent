@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, resolveLiaraCredentials } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canGenerateSecretForEnvName, createApprovedEnvRemediation, isRunOwnedByUser, remediationDigest, type ApprovedEnvRemediation } from "@/lib/remediation-approval";
 
@@ -105,8 +105,9 @@ export async function POST(
     await prisma.actionApproval.update({ where: { id: priorApproval.id }, data: { approved: false } });
 
     // Retrieve active Liara API token
-    const apiToken = dbUser?.liaraToken || process.env.LIARA_API_TOKEN || "";
-    const teamId = run.teamId || dbUser?.liaraTeamId || process.env.LIARA_TEAM_ID || "";
+    const activeCredentials = resolveLiaraCredentials(user.username, dbUser);
+    const apiToken = activeCredentials.token;
+    const teamId = run.teamId || activeCredentials.teamId;
 
     const engineUrl = process.env.ENGINE_URL || "http://127.0.0.1:8000";
     const internalSecret =

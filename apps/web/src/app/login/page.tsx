@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, Loader2 } from "lucide-react";
 
@@ -8,8 +8,20 @@ export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("");
+  const [demoCredentials, setDemoCredentials] = useState<{ username: string; password: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/demo-credentials", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.available && typeof data.username === "string" && typeof data.password === "string") {
+          setDemoCredentials({ username: data.username, password: data.password });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,6 +78,36 @@ export default function LoginPage() {
               <AlertCircle className="h-4 w-4 shrink-0 text-rose-400" />
               <span>{error}</span>
             </div>
+          )}
+
+          {demoCredentials && (
+            <section aria-labelledby="demo-account-title" className="mb-6 rounded-lg border border-liara/30 bg-liara/10 p-4">
+              <h2 id="demo-account-title" className="text-sm font-semibold text-zinc-100">ورود آزمایشی</h2>
+              <p className="mt-1 text-xs leading-6 text-zinc-300">
+                این حساب عمومی و مشترک است و به توکن Liara سرور دسترسی ندارد. برای حفظ امنیت، توکن یا اطلاعات خصوصی خود را در آن وارد نکنید.
+              </p>
+              <dl className="mt-3 grid gap-2 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-zinc-400">نام کاربری</dt>
+                  <dd dir="ltr" className="font-mono text-zinc-100">{demoCredentials.username}</dd>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-zinc-400">رمز عبور</dt>
+                  <dd dir="ltr" className="break-all font-mono text-zinc-100">{demoCredentials.password}</dd>
+                </div>
+              </dl>
+              <button
+                type="button"
+                onClick={() => {
+                  setUsername(demoCredentials.username);
+                  setPassword(demoCredentials.password);
+                  setError(null);
+                }}
+                className="mt-3 min-h-10 w-full rounded-lg border border-liara/40 bg-zinc-900 px-3 py-2 text-sm font-medium text-zinc-100 hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-liara/50"
+              >
+                استفاده از حساب آزمایشی
+              </button>
+            </section>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">

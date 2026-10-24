@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, resolveLiaraCredentials } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getDeployAction } from "@/lib/plan-digest";
 
@@ -59,8 +59,9 @@ export async function POST(
     const dbUser = await prisma.user.findUnique({
       where: { username: user.username },
     });
-    const apiToken = dbUser?.liaraToken || process.env.LIARA_API_TOKEN || "";
-    const teamId = run.teamId || dbUser?.liaraTeamId || process.env.LIARA_TEAM_ID || "";
+    const activeCredentials = resolveLiaraCredentials(user.username, dbUser);
+    const apiToken = activeCredentials.token;
+    const teamId = run.teamId || activeCredentials.teamId;
 
     // Transition status to executing and record exact start time
     await prisma.run.update({

@@ -1,23 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser, maskToken } from "@/lib/auth";
+import { getCurrentUser, isDemoUsername, maskToken, resolveLiaraCredentials } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   const user = await getCurrentUser();
-  let token = process.env.LIARA_API_TOKEN || "";
-  let teamId = process.env.LIARA_TEAM_ID || "";
-
-  if (user.authenticated && user.username) {
-    const dbUser = await prisma.user.findUnique({
-      where: { username: user.username },
-    });
-    if (dbUser?.liaraToken) {
-      token = dbUser.liaraToken;
-    }
-    if (dbUser?.liaraTeamId) {
-      teamId = dbUser.liaraTeamId;
-    }
+  if (!user.authenticated || !user.username) {
+    return NextResponse.json({ configured: false, maskedToken: "", teamId: "" }, { status: 401 });
   }
+  if (isDemoUsername(user.username)) {
+    return NextResponse.json({ configured: false, maskedToken: "", teamId: "" });
+  }
+  const dbUser = user.authenticated && user.username
+    ? await prisma.user.findUnique({ where: { username: user.username } })
+    : null;
+  const { token, teamId } = resolveLiaraCredentials(user.username, dbUser);
 
   const configured = Boolean(token && token.trim().length > 0);
 
@@ -33,6 +29,9 @@ export async function POST(req: NextRequest) {
   if (!user.authenticated || !user.username) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (isDemoUsername(user.username)) {
+    return NextResponse.json({ error: "حساب نمایشی عمومی است و امکان ذخیرهٔ توکن Liara ندارد." }, { status: 403 });
+  }
 
   try {
     const body = await req.json();
@@ -41,19 +40,14 @@ export async function POST(req: NextRequest) {
       where: { username: user.username },
     });
 
-    const token =
-      body.token !== undefined
-        ? typeof body.token === "string"
-          ? body.token.trim()
-          : ""
-        : (dbUser?.liaraToken ?? process.env.LIARA_API_TOKEN ?? "");
+    const existing = resolveLiaraCredentials(user.username, dbUser);
+    const token = body.token !== undefined
+      ? typeof body.token === "string" ? body.token.trim() : ""
+      : existing.token;
 
-    const teamId =
-      body.teamId !== undefined
-        ? typeof body.teamId === "string"
-          ? body.teamId.trim()
-          : ""
-        : (dbUser?.liaraTeamId ?? process.env.LIARA_TEAM_ID ?? "");
+    const teamId = body.teamId !== undefined
+      ? typeof body.teamId === "string" ? body.teamId.trim() : ""
+      : existing.teamId;
 
     // Persist in database
     await prisma.user.upsert({
@@ -69,12 +63,6 @@ export async function POST(req: NextRequest) {
         liaraTeamId: teamId,
       },
     });
-
-    // Also update process environment in-memory
-    if (token) {
-      process.env.LIARA_API_TOKEN = token;
-    }
-    process.env.LIARA_TEAM_ID = teamId;
 
     return NextResponse.json({
       ok: true,

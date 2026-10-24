@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, resolveLiaraCredentials } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { loadUserConversation, saveConversationMessage } from "@/lib/chat-conversations";
 import { redactChatValue, redactChatText } from "@/lib/chat-history";
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   const conversation = await loadUserConversation(prisma, user.id, conversationId);
   if (!conversation) return NextResponse.json({ ok: false, error: "گفت‌وگو پیدا نشد." }, { status: 404 });
 
-  const apiToken = user.liaraToken || process.env.LIARA_API_TOKEN || "";
+  const { token: apiToken, teamId: activeTeamId } = resolveLiaraCredentials(session.username, user);
   const safeMessage = redactChatText(message);
   const history = conversation.messages.slice(-20).map((item: { role: string; content: string }) => ({ role: item.role, content: item.content }));
   await saveConversationMessage(prisma, conversation.id, "user", safeMessage);
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
           message: safeMessage,
           history,
           api_token: apiToken,
-          team_id: user.liaraTeamId || process.env.LIARA_TEAM_ID || undefined,
+          team_id: activeTeamId || undefined,
         }),
         cache: "no-store",
       });
